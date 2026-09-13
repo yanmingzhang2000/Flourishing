@@ -1,0 +1,325 @@
+import React, { useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { storage } from '@/lib/storage';
+import { WeeklyPlan, WorkoutExercise, TrainingRecord } from '@/lib/types';
+
+export const DayWorkoutPage: React.FC = () => {
+  const navigate = useNavigate();
+  const { date, dayIndex } = useParams<{ date: string; dayIndex: string }>();
+  const [plan, setPlan] = useState<WeeklyPlan | null>(null);
+  const [completedExercises, setCompletedExercises] = useState<Set<string>>(new Set());
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [feedback, setFeedback] = useState<'too_easy' | 'just_right' | 'too_hard' | null>(null);
+  const [hasJointPain, setHasJointPain] = useState(false);
+
+  useEffect(() => {
+    const savedPlan = storage.getWeeklyPlan();
+    if (!savedPlan || !date || dayIndex === undefined) {
+      navigate('/calendar');
+      return;
+    }
+    setPlan(savedPlan);
+  }, [navigate, date, dayIndex]);
+
+  if (!plan || dayIndex === undefined) {
+    return null;
+  }
+
+  const day = plan.days[parseInt(dayIndex)];
+  if (!day) {
+    return null;
+  }
+
+  const toggleExercise = (exerciseId: string) => {
+    setCompletedExercises(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(exerciseId)) {
+        newSet.delete(exerciseId);
+      } else {
+        newSet.add(exerciseId);
+      }
+      return newSet;
+    });
+  };
+
+  const allCompleted = day.exercises.every(ex => completedExercises.has(ex.exerciseId));
+
+  const handleComplete = () => {
+    setShowFeedback(true);
+  };
+
+  const handleSubmitFeedback = () => {
+    if (!feedback) return;
+
+    const record: TrainingRecord = {
+      date: date!,
+      weekPlanId: plan.id,
+      dayIndex: parseInt(dayIndex),
+      completed: true,
+      feedback,
+      hasJointPain,
+      completedExercises: Array.from(completedExercises),
+    };
+
+    storage.addTrainingRecord(record);
+
+    if (feedback !== 'just_right' && plan) {
+      const { adjustPlanBasedOnFeedback } = require('@/lib/planGenerator');
+      const adjustedPlan = adjustPlanBasedOnFeedback(plan, feedback, parseInt(dayIndex));
+      storage.setWeeklyPlan(adjustedPlan);
+    }
+
+    navigate('/calendar');
+  };
+
+  const totalExercises = day.exercises.length;
+  const completedCount = day.exercises.filter(ex => completedExercises.has(ex.exerciseId)).length;
+
+  return (
+    <div className="h-screen flex flex-col bg-gray-50">
+      {/* 顶部导航栏 */}
+      <div className="h-14 bg-white border-b border-gray-200 flex items-center px-4 flex-shrink-0">
+        <button
+          onClick={() => navigate('/calendar')}
+          className="p-2 rounded-lg hover:bg-gray-100 mr-3"
+        >
+          <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+        <div className="flex-1">
+          <h1 className="text-lg font-bold text-gray-800">{date}</h1>
+          <p className="text-sm text-gray-500">力量训练日</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="text-sm text-gray-600">
+            进度 <span className="font-bold text-rose-500">{completedCount}/{totalExercises}</span>
+          </div>
+          <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-rose-500 transition-all duration-300"
+              style={{ width: `${(completedCount / totalExercises) * 100}%` }}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* 三栏布局 */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* 左栏：热身 */}
+        <div className="w-72 border-r border-gray-200 bg-white overflow-y-auto p-4 flex-shrink-0">
+          <div className="flex items-center gap-2 mb-4">
+            <span className="w-6 h-6 rounded-full bg-yellow-400 text-white flex items-center justify-center text-xs font-bold">
+              热
+            </span>
+            <h2 className="font-bold text-gray-800">热身</h2>
+            <span className="text-xs text-gray-400 ml-auto">5分钟</span>
+          </div>
+          
+          <div className="space-y-3">
+            {day.warmup.map((exercise) => (
+              <div key={exercise.id} className="p-3 bg-yellow-50 rounded-lg border border-yellow-100">
+                <div className="font-medium text-gray-800 text-sm">{exercise.name}</div>
+                <div className="text-xs text-gray-500 mt-1">{exercise.sets}组 × {exercise.reps}次</div>
+                <div className="text-xs text-yellow-600 mt-1">{exercise.rhythm}</div>
+                <p className="text-xs text-gray-500 mt-2">{exercise.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* 中栏：主训练动作 */}
+        <div className="flex-1 bg-gray-50 overflow-y-auto p-4">
+          <div className="flex items-center gap-2 mb-4">
+            <span className="w-6 h-6 rounded-full bg-rose-500 text-white flex items-center justify-center text-xs font-bold">
+              练
+            </span>
+            <h2 className="font-bold text-gray-800">训练动作</h2>
+            <span className="text-xs text-gray-400 ml-auto">点击查看详情</span>
+          </div>
+
+          <div className="space-y-3">
+            {day.exercises.map((workoutExercise, index) => (
+              <ExerciseCard
+                key={workoutExercise.exerciseId}
+                workoutExercise={workoutExercise}
+                index={index + 1}
+                isCompleted={completedExercises.has(workoutExercise.exerciseId)}
+                onToggle={() => toggleExercise(workoutExercise.exerciseId)}
+                onClick={() => navigate(`/exercise/${workoutExercise.exerciseId}`)}
+              />
+            ))}
+          </div>
+
+          {/* 完成按钮 */}
+          <div className="mt-6">
+            {!showFeedback ? (
+              <button
+                onClick={handleComplete}
+                disabled={!allCompleted}
+                className={`w-full py-4 rounded-xl font-bold text-lg transition-all ${
+                  allCompleted
+                    ? 'bg-rose-500 hover:bg-rose-600 text-white'
+                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                }`}
+              >
+                {allCompleted ? '完成训练' : `完成所有动作 (${completedCount}/${totalExercises})`}
+              </button>
+            ) : (
+              <div className="bg-white rounded-xl p-5 border border-gray-200">
+                <h3 className="font-bold text-gray-800 mb-2">训练反馈</h3>
+                <p className="text-sm text-gray-500 mb-4">今天的训练感觉如何？</p>
+
+                <div className="grid grid-cols-3 gap-3 mb-4">
+                  <button
+                    onClick={() => setFeedback('too_easy')}
+                    className={`p-3 rounded-lg border-2 text-center transition-all ${
+                      feedback === 'too_easy'
+                        ? 'border-green-500 bg-green-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="text-2xl mb-1">😊</div>
+                    <div className="text-xs font-medium">太轻松</div>
+                  </button>
+                  <button
+                    onClick={() => setFeedback('just_right')}
+                    className={`p-3 rounded-lg border-2 text-center transition-all ${
+                      feedback === 'just_right'
+                        ? 'border-rose-500 bg-rose-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="text-2xl mb-1">💪</div>
+                    <div className="text-xs font-medium">刚刚好</div>
+                  </button>
+                  <button
+                    onClick={() => setFeedback('too_hard')}
+                    className={`p-3 rounded-lg border-2 text-center transition-all ${
+                      feedback === 'too_hard'
+                        ? 'border-orange-500 bg-orange-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="text-2xl mb-1">😫</div>
+                    <div className="text-xs font-medium">太难了</div>
+                  </button>
+                </div>
+
+                <label className="flex items-center gap-2 text-sm text-gray-600 mb-4">
+                  <input
+                    type="checkbox"
+                    checked={hasJointPain}
+                    onChange={(e) => setHasJointPain(e.target.checked)}
+                    className="w-4 h-4 rounded border-gray-300 text-rose-500 focus:ring-rose-500"
+                  />
+                  有关节不适
+                </label>
+
+                <button
+                  onClick={handleSubmitFeedback}
+                  disabled={!feedback}
+                  className={`w-full py-3 rounded-lg font-medium transition-all ${
+                    feedback
+                      ? 'bg-rose-500 hover:bg-rose-600 text-white'
+                      : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                  }`}
+                >
+                  提交反馈
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* 右栏：拉伸 */}
+        <div className="w-72 border-l border-gray-200 bg-white overflow-y-auto p-4 flex-shrink-0">
+          <div className="flex items-center gap-2 mb-4">
+            <span className="w-6 h-6 rounded-full bg-blue-400 text-white flex items-center justify-center text-xs font-bold">
+              拉
+            </span>
+            <h2 className="font-bold text-gray-800">拉伸</h2>
+            <span className="text-xs text-gray-400 ml-auto">3分钟</span>
+          </div>
+
+          <div className="space-y-3">
+            {day.cooldown.map((exercise) => (
+              <div key={exercise.id} className="p-3 bg-blue-50 rounded-lg border border-blue-100">
+                <div className="font-medium text-gray-800 text-sm">{exercise.name}</div>
+                <div className="text-xs text-gray-500 mt-1">保持{exercise.reps}秒</div>
+                <div className="text-xs text-blue-600 mt-1">{exercise.rhythm}</div>
+                <p className="text-xs text-gray-500 mt-2">{exercise.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+interface ExerciseCardProps {
+  workoutExercise: WorkoutExercise;
+  index: number;
+  isCompleted: boolean;
+  onToggle: () => void;
+  onClick: () => void;
+}
+
+const ExerciseCard: React.FC<ExerciseCardProps> = ({
+  workoutExercise,
+  index,
+  isCompleted,
+  onToggle,
+  onClick,
+}) => {
+  const { exercise, sets, reps, restBetweenSet } = workoutExercise;
+
+  return (
+    <div
+      className={`p-4 rounded-xl border-2 transition-all cursor-pointer ${
+        isCompleted
+          ? 'border-green-500 bg-green-50'
+          : 'border-gray-200 bg-white hover:border-rose-300 hover:shadow-sm'
+      }`}
+      onClick={onClick}
+    >
+      <div className="flex items-center gap-4">
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggle();
+          }}
+          className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0 ${
+            isCompleted
+              ? 'border-green-500 bg-green-500 text-white'
+              : 'border-gray-300 hover:border-gray-400'
+          }`}
+        >
+          {isCompleted && (
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+            </svg>
+          )}
+        </button>
+
+        <div className="flex-1">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-rose-500">#{index}</span>
+            <h3 className="font-bold text-gray-800">{exercise.name}</h3>
+          </div>
+          <p className="text-xs text-gray-500 mt-1">{exercise.primary_muscle}</p>
+        </div>
+
+        <div className="text-right flex-shrink-0">
+          <div className="text-sm font-bold text-gray-800">{sets}组 × {reps}次</div>
+          <div className="text-xs text-gray-400">休息{restBetweenSet}秒</div>
+        </div>
+
+        <svg className="w-5 h-5 text-gray-300 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
+      </div>
+    </div>
+  );
+};

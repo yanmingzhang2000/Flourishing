@@ -1,0 +1,203 @@
+{
+  "warmup": [
+    {
+      "id": "warmup_arm_circles",
+      "name": "手臂画圈",
+      "category": "warmup",
+      "primary_muscle": "肩关节",
+      "equipment": ["none"],
+      "difficulty": "beginner",
+      "sets": 1,
+      "reps": 20,
+      "rest_between_set": 0,
+      "rhythm": "匀速画圈",
+      "description": "双臂侧平举，小幅度画圈",
+      "steps": [
+        "站立，双脚与肩同宽",
+        "双臂侧平举至肩膀高度",
+        "小幅度向前画圈20次",
+        "再向后画圈20次"
+      ],
+      "tips": "保持核心收紧，不要耸肩",
+      "warning": "如有肩部不适，减小幅度"
+    },
+    {
+      "id": "warmup_arm_swings",
+      "name": "手臂摆动",
+      "category": "warmup",
+      "primary_muscle": "肩关节",
+      "equipment": ["none"],
+      "difficulty": "beginner",
+      "sets": 1,
+      "reps": 15,
+      "rest_between_set": 0,
+      "rhythm": "前后摆动",
+      "description": "双臂前后自然摆动",
+      "steps": [
+        "站立，双脚与肩同宽",
+        "双臂伸直在体前交叉",
+        "然后向两侧打开摆动",
+        "重复15次"
+      ],
+      "tips": "摆动幅度逐渐加大",
+      "warning": "动作要轻柔，不要用力过猛"
+    }
+  ],
+  "exercises": [
+    {
+      "id": "tricep_overhead_dumbbell",
+      "name": "颈后哑铃臂屈伸",
+      "category": "strength",
+      "primary_muscle": "肱三头肌长头",
+      "equipment": ["dumbbell_1.5kg_pair", "dumbbell_2kg_pair"],
+      "difficulty": "beginner",
+      "sets": 2,
+      "reps": 15,
+      "rest_between_set": 45,
+      "rhythm": "发力1秒，顶峰0.5秒，下放3秒",
+      "description": "双手合握一只哑铃举过头顶，手肘贴耳朵，屈肘下放至颈后，感受三头发力，伸直手臂还原。",
+      "steps": [
+        "站立或坐姿，双手合握一只哑铃举过头顶",
+        "大臂贴耳，保持固定",
+        "屈肘将哑铃下放至颈后",
+        "感受肱三头肌的拉伸",
+        "发力伸直手臂，回到起始位置"
+      ],
+      "tips": "手肘不要向外打开，保持朝前",
+      "warning": "不要甩哑铃借力，动作要控制"
+    },
+    {
+      "id": "tricep_kickback",
+      "name": "俯身哑铃臂屈伸",
+      "category": "strength",
+      "primary_muscle": "肱三头肌外侧头",
+      "equipment": ["dumbbell_1kg_pair", "dumbbell_1.5kg_pair", "dumbbell_2kg_pair"],
+      "difficulty": "beginner",
+      "sets": 2,
+      "reps": 15,
+      "rest_between_set": 45,
+      "rhythm": "发力1秒，顶峰1秒，下放2秒",
+      "description": "俯身，大臂贴紧身体，小臂自然下垂，然后向后伸直手臂，感受三头发力。",
+      "steps": [
+        "双脚前后站立，俯身约45度",
+        "一手扶膝，另一手持哑铃",
+        "大臂贴紧身体，小臂自然下垂",
+        "发力将小臂向后伸直",
+        "顶峰挤压三头肌，然后缓慢下放"
+      ],
+      "tips": "大臂保持不动，只有小臂在动",
+      "warning": "不要弓背，保持背部挺直"
+    },
+    {
+      "id": "dumbbell_lateral_raise",
+      "name": "哑铃侧平举",
+      "category": "strength",
+      "primary_muscle": "三角肌中束",
+      "equipment": ["dumbbell_1kg_pair", "dumbbell_1.5kg_pair"],
+      "difficulty": "beginner",
+      "sets": 2,
+      "reps": 12,
+      "rest_between_set": 45,
+      "rhythm": "举起2秒，下放3秒",
+      "description": "双手持哑铃放在身体两侧，向两侧平举至肩膀高度，然后缓慢下放。",
+      "steps": [
+        "站立，双脚与肩同宽",
+        "双手持哑铃放在大腿两侧",
+        "手肘微屈，向两侧平举",
+        "举至与肩膀同高，停顿1秒",
+        "缓慢下放，感受控制"
+      ],
+      "tips": "不要耸肩，用肩膀发力而不是手臂",
+      "warning": "重量不要太大，避免借力"
+    },
+    {
+      "id": "dumbbell_bicep_curl",
+      "name": "站姿哑铃弯举",
+      "category": "strength",
+      "primary_muscle": "肱二头肌",
+      "equipment": ["dumbbell_1.5kg_pair", "dumbbell_2kg_pair"],
+      "difficulty": "beginner",
+      "sets": 2,
+      "reps": 12,
+      "rest_between_set": 45,
+      "rhythm": "弯举2秒，下放3秒",
+      "description": "双手持哑铃，大臂贴紧身体，弯曲手臂将哑铃举至肩前，然后缓慢下放。",
+      "steps": [
+        "站立，双脚与肩同宽",
+        "双手持哑铃，掌心朝前",
+        "大臂贴紧身体，弯曲手肘",
+        "将哑铃举至肩前，挤压二头肌",
+        "缓慢下放，感受控制"
+      ],
+      "tips": "大臂不要前后摆动，保持固定",
+      "warning": "不要甩哑铃借力"
+    },
+    {
+      "id": "dumbbell_row",
+      "name": "单臂哑铃划船",
+      "category": "strength",
+      "primary_muscle": "背阔肌",
+      "equipment": ["dumbbell_1.5kg_pair", "dumbbell_2kg_pair"],
+      "difficulty": "beginner",
+      "sets": 2,
+      "reps": 12,
+      "rest_between_set": 45,
+      "rhythm": "拉起1秒，顶峰1秒，下放2秒",
+      "description": "一手撑在椅子上，另一手持哑铃，向后上方拉起，感受背部发力。",
+      "steps": [
+        "双脚前后站立，一手撑在椅子上",
+        "另一手持哑铃自然下垂",
+        "向后上方拉起哑铃，肘部贴近身体",
+        "在顶峰挤压背部肌肉",
+        "缓慢下放，感受控制"
+      ],
+      "tips": "拉起时感受背部发力，而不是手臂",
+      "warning": "保持背部挺直，不要弓背"
+    }
+  ],
+  "cooldown": [
+    {
+      "id": "cooldown_tricep_stretch",
+      "name": "三头肌拉伸",
+      "category": "cooldown",
+      "primary_muscle": "肱三头肌",
+      "equipment": ["none"],
+      "difficulty": "beginner",
+      "sets": 1,
+      "reps": 30,
+      "rest_between_set": 0,
+      "rhythm": "保持30秒",
+      "description": "一手举过头顶，屈肘触摸肩胛骨，另一手辅助下压肘部。",
+      "steps": [
+        "站立或坐姿",
+        "右手举过头顶，屈肘触摸左肩胛骨",
+        "左手轻轻下压右肘",
+        "感受三头肌的拉伸",
+        "保持30秒，换边"
+      ],
+      "tips": "不要用力过猛，感到轻微拉伸即可",
+      "warning": "如有肩部不适，减小幅度"
+    },
+    {
+      "id": "cooldown_arm_stretch",
+      "name": "手臂交叉拉伸",
+      "category": "cooldown",
+      "primary_muscle": "肩部",
+      "equipment": ["none"],
+      "difficulty": "beginner",
+      "sets": 1,
+      "reps": 30,
+      "rest_between_set": 0,
+      "rhythm": "保持30秒",
+      "description": "一臂横过胸前，另一臂勾住辅助拉伸。",
+      "steps": [
+        "站立，右臂横过胸前",
+        "左臂勾住右臂，轻轻拉向身体",
+        "感受肩部后侧的拉伸",
+        "保持30秒，换边"
+      ],
+      "tips": "保持肩膀放松，不要耸肩",
+      "warning": "动作要轻柔，不要强行拉伸"
+    }
+  ]
+}
