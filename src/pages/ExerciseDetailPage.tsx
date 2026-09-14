@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import exercisesData from '@/data/exercises.json';
-import { Exercise, ExerciseData } from '@/lib/types';
+import { Exercise, ProjectExercises } from '@/lib/types';
+import { storage } from '@/lib/storage';
 
 export const ExerciseDetailPage: React.FC = () => {
   const navigate = useNavigate();
@@ -13,7 +14,16 @@ export const ExerciseDetailPage: React.FC = () => {
   const [mediaMode, setMediaMode] = useState<'video' | 'image'>('video');
 
   useEffect(() => {
-    const exercises = exercisesData as ExerciseData;
+    const allProjectExercises = exercisesData as ProjectExercises;
+    const profile = storage.getUserProfile();
+    const selectedProjectId = profile?.selectedProjects?.[0] || 'tricep_tone';
+    const exercises = allProjectExercises[selectedProjectId];
+    
+    if (!exercises) {
+      navigate('/calendar');
+      return;
+    }
+    
     const allExercises = [...exercises.warmup, ...exercises.exercises, ...exercises.cooldown];
     const found = allExercises.find(e => e.id === exerciseId);
     if (!found) {

@@ -1,3 +1,16 @@
+export interface Project {
+  id: string;
+  name: string;
+  subtitle: string;
+  target_area: string;
+  description: string;
+  difficulty: 'beginner' | 'intermediate' | 'advanced';
+  duration_minutes: number;
+  equipment_needed: string[];
+  icon: string;
+  color: string;
+}
+
 export interface Exercise {
   id: string;
   name: string;
@@ -22,6 +35,10 @@ export interface ExerciseData {
   cooldown: Exercise[];
 }
 
+export interface ProjectExercises {
+  [projectId: string]: ExerciseData;
+}
+
 export interface UserProfile {
   height: number;
   weight: number;
@@ -30,7 +47,7 @@ export interface UserProfile {
   injuries: string[];
   equipment: string[];
   maxTrainingDaysPerWeek: number;
-  target: 'tricep_tone';
+  selectedProjects: string[]; // 改为数组支持多项目
   singleSessionMaxMin: number;
 }
 

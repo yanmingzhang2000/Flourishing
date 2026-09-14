@@ -1,0 +1,74 @@
+[
+  {
+    "id": "tricep_tone",
+    "name": "拜拜肉收紧",
+    "subtitle": "瘦大臂",
+    "target_area": "手臂",
+    "description": "针对上臂后侧的拜拜肉，通过针对性训练收紧肱三头肌，让手臂线条更紧致修长",
+    "difficulty": "beginner",
+    "duration_minutes": 15,
+    "equipment_needed": ["dumbbell_1.5kg_pair", "dumbbell_2kg_pair"],
+    "icon": "💪",
+    "color": "#7DC47A"
+  },
+  {
+    "id": "hip_width",
+    "name": "假胯宽改善",
+    "subtitle": "瘦腿提臀",
+    "target_area": "臀腿",
+    "description": "改善假胯宽问题，激活臀中肌，拉伸髋部外侧，让腿部线条更流畅",
+    "difficulty": "intermediate",
+    "duration_minutes": 20,
+    "equipment_needed": ["resistance_band", "none"],
+    "icon": "🍑",
+    "color": "#F59E0B"
+  },
+  {
+    "id": "lower_abs",
+    "name": "下腹收紧",
+    "subtitle": "瘦小肚子",
+    "target_area": "腹部",
+    "description": "针对下腹部赘肉，强化腹横肌和下腹部肌群，改善久坐导致的小腹凸出",
+    "difficulty": "beginner",
+    "duration_minutes": 15,
+    "equipment_needed": ["none"],
+    "icon": "✨",
+    "color": "#38BDF8"
+  },
+  {
+    "id": "trapezius_relax",
+    "name": "斜方肌放松",
+    "subtitle": "瘦肩颈",
+    "target_area": "肩颈",
+    "description": "缓解上斜方肌紧张，改善肩颈酸痛，让肩部线条更优美，缓解办公久坐带来的不适",
+    "difficulty": "beginner",
+    "duration_minutes": 10,
+    "equipment_needed": ["none", "resistance_band"],
+    "icon": "🌸",
+    "color": "#A78BFA"
+  },
+  {
+    "id": "rounded_shoulders",
+    "name": "圆肩改善",
+    "subtitle": "挺拔体态",
+    "target_area": "背部",
+    "description": "改善圆肩驼背，强化背部肌群，拉伸胸部，让体态更挺拔，视觉上显瘦显高",
+    "difficulty": "beginner",
+    "duration_minutes": 15,
+    "equipment_needed": ["resistance_band", "dumbbell_1kg_pair"],
+    "icon": "🌿",
+    "color": "#10B981"
+  },
+  {
+    "id": "full_body",
+    "name": "居家基础体能",
+    "subtitle": "入门全身训练",
+    "target_area": "全身",
+    "description": "全身性基础训练，提升整体体能，适合零基础或想要全面提升的初学者",
+    "difficulty": "intermediate",
+    "duration_minutes": 25,
+    "equipment_needed": ["dumbbell_1.5kg_pair", "none"],
+    "icon": "⚡",
+    "color": "#EF4444"
+  }
+]

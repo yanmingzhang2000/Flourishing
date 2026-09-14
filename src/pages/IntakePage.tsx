@@ -30,7 +30,7 @@ export const IntakePage: React.FC = () => {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [profile, setProfile] = useState<Partial<UserProfile>>({
-    target: 'tricep_tone',
+    selectedProjects: storage.getUserProfile()?.selectedProjects || ['tricep_tone'],
     singleSessionMaxMin: 30,
   });
 
@@ -85,14 +85,14 @@ export const IntakePage: React.FC = () => {
     const bmi = Number((weight / ((height / 100) ** 2)).toFixed(1));
 
     const finalProfile: UserProfile = {
-      height,
-      weight,
+      height: profile.height || 0,
+      weight: profile.weight || 0,
       bmi,
       experience: profile.experience || 'zero',
       injuries: profile.injuries || [],
       equipment: profile.equipment || ['none'],
       maxTrainingDaysPerWeek: profile.maxTrainingDaysPerWeek || 3,
-      target: 'tricep_tone',
+      selectedProjects: profile.selectedProjects || ['tricep_tone'],
       singleSessionMaxMin: profile.singleSessionMaxMin || 30,
     };
 
@@ -252,8 +252,11 @@ export const IntakePage: React.FC = () => {
     <div className="min-h-screen bg-[#DCF0FB] p-4">
       <div className="max-w-md mx-auto pt-8">
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-gray-800">Flourish AI</h1>
-          <p className="text-gray-500 mt-2">让我帮你制定专属训练计划</p>
+          <div className="flex items-center justify-center gap-3 mb-2">
+            <img src="./vite.svg" alt="Flourish AI Logo" className="w-10 h-10" />
+            <h1 className="text-2xl font-bold text-gray-800">Flourish AI</h1>
+          </div>
+          <p className="text-gray-500 mt-1">让我帮你制定专属训练计划</p>
         </div>
 
         <div className="flex justify-center mb-6">
