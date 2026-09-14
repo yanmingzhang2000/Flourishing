@@ -69,7 +69,7 @@ export const ExerciseDetailPage: React.FC = () => {
   };
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50">
+    <div className="h-screen flex flex-col bg-[#DCF0FB]">
       {/* 顶部导航栏 */}
       <div className="h-14 bg-white border-b border-gray-200 flex items-center px-4 flex-shrink-0">
         <button
@@ -85,7 +85,7 @@ export const ExerciseDetailPage: React.FC = () => {
           <p className="text-sm text-gray-500">{exercise.primary_muscle}</p>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-sm text-rose-500 bg-rose-50 px-3 py-1 rounded-full font-medium">
+          <span className="text-sm text-[#7DC47A] bg-[#7DC47A]/10 px-3 py-1 rounded-full font-medium">
             {exercise.sets}组 × {exercise.reps}次
           </span>
         </div>
@@ -99,7 +99,7 @@ export const ExerciseDetailPage: React.FC = () => {
           <div className="space-y-2">
             {exercise.steps.map((step, index) => (
               <div key={index} className="flex gap-2">
-                <span className="w-5 h-5 rounded-full bg-rose-500 text-white flex items-center justify-center text-xs font-medium flex-shrink-0">
+                <span className="w-5 h-5 rounded-full bg-[#7DC47A] text-white flex items-center justify-center text-xs font-medium flex-shrink-0">
                   {index + 1}
                 </span>
                 <p className="text-xs text-gray-600 leading-relaxed">{step}</p>
@@ -107,25 +107,25 @@ export const ExerciseDetailPage: React.FC = () => {
             ))}
           </div>
 
-          <div className="mt-4 p-3 bg-green-50 rounded-lg">
-            <p className="text-xs text-green-700">{exercise.tips}</p>
+          <div className="mt-4 p-3 bg-[#7DC47A]/10 rounded-lg">
+            <p className="text-xs text-[#7DC47A]">{exercise.tips}</p>
           </div>
 
-          <div className="mt-3 p-3 bg-orange-50 rounded-lg">
-            <p className="text-xs text-orange-700">{exercise.warning}</p>
+          <div className="mt-3 p-3 bg-[#F59E0B]/10 rounded-lg">
+            <p className="text-xs text-[#F59E0B]">{exercise.warning}</p>
           </div>
         </div>
 
         {/* 中栏：视频/图片切换 */}
-        <div className="flex-1 bg-gray-900 flex flex-col min-w-0 min-h-0">
+        <div className="flex-1 bg-white flex flex-col min-w-0 min-h-0">
           {/* 模式切换按钮 */}
           <div className="flex justify-center gap-2 p-2 flex-shrink-0">
             <button
               onClick={() => setMediaMode('video')}
               className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
                 mediaMode === 'video'
-                  ? 'bg-white text-gray-900'
-                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  ? 'bg-[#7DC47A] text-white'
+                  : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
               }`}
             >
               视频
@@ -134,8 +134,8 @@ export const ExerciseDetailPage: React.FC = () => {
               onClick={() => setMediaMode('image')}
               className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
                 mediaMode === 'image'
-                  ? 'bg-white text-gray-900'
-                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  ? 'bg-[#7DC47A] text-white'
+                  : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
               }`}
             >
               图片
@@ -168,7 +168,7 @@ export const ExerciseDetailPage: React.FC = () => {
                       <p class="text-lg mb-1">视频暂未上传</p>
                       <p class="text-sm">请将视频放入 videos/ 文件夹</p>
                       <p class="text-sm">文件名: ${exercise.id}.mp4</p>
-                      <button class="mt-4 px-4 py-2 bg-white text-gray-900 rounded-lg text-sm font-medium cursor-pointer" onclick="this.closest('[class*=bg-gray-900]').querySelectorAll('button')[1]?.click()">切换到图片模式</button>
+                      <button class="mt-4 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium cursor-pointer">切换到图片模式</button>
                     `;
                     parent.appendChild(fallback);
                   }
@@ -210,19 +210,19 @@ export const ExerciseDetailPage: React.FC = () => {
         {/* 右栏：训练信息 + 计时器 */}
         <div className="w-64 bg-white border-l border-gray-200 overflow-y-auto p-4 flex-shrink-0">
           <div className="grid grid-cols-2 gap-3 mb-4">
-            <div className="bg-rose-50 rounded-lg p-3 text-center">
-              <div className="text-2xl font-bold text-rose-500">{exercise.sets}</div>
+            <div className="bg-[#7DC47A]/10 rounded-lg p-3 text-center">
+              <div className="text-2xl font-bold text-[#7DC47A]">{exercise.sets}</div>
               <div className="text-xs text-gray-500">组</div>
             </div>
-            <div className="bg-rose-50 rounded-lg p-3 text-center">
-              <div className="text-2xl font-bold text-rose-500">{exercise.reps}</div>
+            <div className="bg-[#7DC47A]/10 rounded-lg p-3 text-center">
+              <div className="text-2xl font-bold text-[#7DC47A]">{exercise.reps}</div>
               <div className="text-xs text-gray-500">次</div>
             </div>
           </div>
 
           <div className="bg-gray-50 rounded-lg p-3 mb-4">
             <p className="text-xs text-gray-500">节奏</p>
-            <p className="text-sm text-rose-500 font-medium">{exercise.rhythm}</p>
+            <p className="text-sm text-[#7DC47A] font-medium">{exercise.rhythm}</p>
             <p className="text-xs text-gray-400 mt-1">休息 {exercise.rest_between_set}秒</p>
           </div>
 
@@ -246,7 +246,7 @@ export const ExerciseDetailPage: React.FC = () => {
             </div>
             <button
               onClick={() => startTimer(exercise.rest_between_set)}
-              className="w-full py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-lg text-sm font-medium transition-colors mb-2"
+              className="w-full py-2 bg-[#7DC47A] hover:bg-[#6DB569] text-white rounded-lg text-sm font-medium transition-colors mb-2"
             >
               休息 {exercise.rest_between_set}秒
             </button>

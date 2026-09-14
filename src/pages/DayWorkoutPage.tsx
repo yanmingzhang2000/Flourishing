@@ -76,7 +76,7 @@ export const DayWorkoutPage: React.FC = () => {
   const completedCount = day.exercises.filter(ex => completedExercises.has(ex.exerciseId)).length;
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50">
+    <div className="h-screen flex flex-col bg-[#DCF0FB]">
       {/* 顶部导航栏 */}
       <div className="h-14 bg-white border-b border-gray-200 flex items-center px-4 flex-shrink-0">
         <button
@@ -93,11 +93,11 @@ export const DayWorkoutPage: React.FC = () => {
         </div>
         <div className="flex items-center gap-3">
           <div className="text-sm text-gray-600">
-            进度 <span className="font-bold text-rose-500">{completedCount}/{totalExercises}</span>
+            进度 <span className="font-bold text-[#7DC47A]">{completedCount}/{totalExercises}</span>
           </div>
           <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
             <div
-              className="h-full bg-rose-500 transition-all duration-300"
+              className="h-full bg-[#7DC47A] transition-all duration-300"
               style={{ width: `${(completedCount / totalExercises) * 100}%` }}
             />
           </div>
@@ -129,9 +129,9 @@ export const DayWorkoutPage: React.FC = () => {
         </div>
 
         {/* 中栏：主训练动作 */}
-        <div className="flex-1 bg-gray-50 overflow-y-auto p-4">
+        <div className="flex-1 bg-[#DCF0FB] overflow-y-auto p-4">
           <div className="flex items-center gap-2 mb-4">
-            <span className="w-6 h-6 rounded-full bg-rose-500 text-white flex items-center justify-center text-xs font-bold">
+            <span className="w-6 h-6 rounded-full bg-[#7DC47A] text-white flex items-center justify-center text-xs font-bold">
               练
             </span>
             <h2 className="font-bold text-gray-800">训练动作</h2>
@@ -159,7 +159,7 @@ export const DayWorkoutPage: React.FC = () => {
                 disabled={!allCompleted}
                 className={`w-full py-4 rounded-xl font-bold text-lg transition-all ${
                   allCompleted
-                    ? 'bg-rose-500 hover:bg-rose-600 text-white'
+                    ? 'bg-[#7DC47A] hover:bg-[#6DB569] text-white'
                     : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                 }`}
               >
@@ -186,7 +186,7 @@ export const DayWorkoutPage: React.FC = () => {
                     onClick={() => setFeedback('just_right')}
                     className={`p-3 rounded-lg border-2 text-center transition-all ${
                       feedback === 'just_right'
-                        ? 'border-rose-500 bg-rose-50'
+                        ? 'border-[#7DC47A] bg-[#7DC47A]/10'
                         : 'border-gray-200 hover:border-gray-300'
                     }`}
                   >
@@ -197,7 +197,7 @@ export const DayWorkoutPage: React.FC = () => {
                     onClick={() => setFeedback('too_hard')}
                     className={`p-3 rounded-lg border-2 text-center transition-all ${
                       feedback === 'too_hard'
-                        ? 'border-orange-500 bg-orange-50'
+                        ? 'border-[#F59E0B] bg-[#F59E0B]/10'
                         : 'border-gray-200 hover:border-gray-300'
                     }`}
                   >
@@ -211,7 +211,7 @@ export const DayWorkoutPage: React.FC = () => {
                     type="checkbox"
                     checked={hasJointPain}
                     onChange={(e) => setHasJointPain(e.target.checked)}
-                    className="w-4 h-4 rounded border-gray-300 text-rose-500 focus:ring-rose-500"
+                    className="w-4 h-4 rounded border-gray-300 text-[#7DC47A] focus:ring-[#7DC47A]"
                   />
                   有关节不适
                 </label>
@@ -221,7 +221,7 @@ export const DayWorkoutPage: React.FC = () => {
                   disabled={!feedback}
                   className={`w-full py-3 rounded-lg font-medium transition-all ${
                     feedback
-                      ? 'bg-rose-500 hover:bg-rose-600 text-white'
+                      ? 'bg-[#7DC47A] hover:bg-[#6DB569] text-white'
                       : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                   }`}
                 >
@@ -279,8 +279,8 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
     <div
       className={`p-4 rounded-xl border-2 transition-all cursor-pointer ${
         isCompleted
-          ? 'border-green-500 bg-green-50'
-          : 'border-gray-200 bg-white hover:border-rose-300 hover:shadow-sm'
+          ? 'border-[#7DC47A] bg-[#7DC47A]/10'
+          : 'border-gray-200 bg-white hover:border-[#7DC47A]/50 hover:shadow-sm'
       }`}
       onClick={onClick}
     >
@@ -292,7 +292,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
           }}
           className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0 ${
             isCompleted
-              ? 'border-green-500 bg-green-500 text-white'
+              ? 'border-[#7DC47A] bg-[#7DC47A] text-white'
               : 'border-gray-300 hover:border-gray-400'
           }`}
         >
@@ -305,7 +305,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
 
         <div className="flex-1">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-rose-500">#{index}</span>
+            <span className="text-xs font-bold text-[#F59E0B]">#{index}</span>
             <h3 className="font-bold text-gray-800">{exercise.name}</h3>
           </div>
           <p className="text-xs text-gray-500 mt-1">{exercise.primary_muscle}</p>

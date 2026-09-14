@@ -1,4 +1,4 @@
-# 女生居家局部塑形健身平台
+# 女生居家局部塑形健身平台 - Flourish AI
 
 ## 项目定位
 
@@ -8,15 +8,27 @@
 
 ---
 
-## 一、已完成：本地版本 V1
+## 当前状态：V1 本地版本已完成
+
+### 最新更新（2026-09-14）
+
+✅ **品牌升级**：更名为 **Flourish AI**
+
+✅ **配色方案全面升级**：
+- 主色：苹果绿 `#7DC47A` （替换原 rose 粉色系）
+- 点缀色：琥珀橙 `#F59E0B`
+- 背景：冰蓝 `#DCF0FB`
+- 整体风格：清新活力，符合"生长、绽放"的品牌理念
+
+✅ **单文件打包**：使用 vite-plugin-singlefile，构建后可直接双击 `dist/index.html` 使用
 
 ### 文件位置
-`桌面/拜拜肉训练/index.html` - 双击即可使用，无需服务器
+`dist/index.html` - 双击即可使用，无需服务器
 
 ### 技术实现
-- React + TypeScript + TailwindCSS
-- 本地 localStorage 存储
-- 单 HTML 文件打包
+- React + TypeScript + TailwindCSS + Vite
+- 单 HTML 文件打包（263KB）
+- HashRouter 路由
 
 ### 功能清单
 

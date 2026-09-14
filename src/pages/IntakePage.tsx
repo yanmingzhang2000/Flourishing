@@ -136,7 +136,7 @@ export const IntakePage: React.FC = () => {
             onClick={() => updateProfile({ experience: option.value as UserProfile['experience'] })}
             className={`p-4 text-left rounded-lg border-2 transition-all ${
               profile.experience === option.value
-                ? 'border-rose-500 bg-rose-50'
+                ? 'border-[#7DC47A] bg-[#7DC47A]/10'
                 : 'border-gray-200 hover:border-gray-300'
             }`}
           >
@@ -166,7 +166,7 @@ export const IntakePage: React.FC = () => {
             }}
             className={`p-4 text-left rounded-lg border-2 transition-all ${
               (profile.equipment || []).includes(option.value)
-                ? 'border-rose-500 bg-rose-50'
+                ? 'border-[#7DC47A] bg-[#7DC47A]/10'
                 : 'border-gray-200 hover:border-gray-300'
             }`}
           >
@@ -193,7 +193,7 @@ export const IntakePage: React.FC = () => {
               }}
               className={`px-4 py-2 rounded-full border-2 text-sm transition-all ${
                 (profile.injuries || []).includes(option.value)
-                  ? 'border-orange-500 bg-orange-50 text-orange-700'
+                  ? 'border-[#F59E0B] bg-[#F59E0B]/10 text-[#F59E0B]'
                   : 'border-gray-200 text-gray-600 hover:border-gray-300'
               }`}
             >
@@ -217,7 +217,7 @@ export const IntakePage: React.FC = () => {
               onClick={() => updateProfile({ maxTrainingDaysPerWeek: days })}
               className={`py-3 rounded-lg border-2 text-center transition-all ${
                 profile.maxTrainingDaysPerWeek === days
-                  ? 'border-rose-500 bg-rose-50 text-rose-600 font-medium'
+                  ? 'border-[#7DC47A] bg-[#7DC47A]/10 text-[#7DC47A] font-medium'
                   : 'border-gray-200 hover:border-gray-300'
               }`}
             >
@@ -236,7 +236,7 @@ export const IntakePage: React.FC = () => {
               onClick={() => updateProfile({ singleSessionMaxMin: min })}
               className={`py-3 rounded-lg border-2 text-center transition-all ${
                 profile.singleSessionMaxMin === min
-                  ? 'border-rose-500 bg-rose-50 text-rose-600 font-medium'
+                  ? 'border-[#7DC47A] bg-[#7DC47A]/10 text-[#7DC47A] font-medium'
                   : 'border-gray-200 hover:border-gray-300'
               }`}
             >
@@ -249,10 +249,10 @@ export const IntakePage: React.FC = () => {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-rose-50 to-pink-50 p-4">
+    <div className="min-h-screen bg-[#DCF0FB] p-4">
       <div className="max-w-md mx-auto pt-8">
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-gray-800">拜拜肉塑形计划</h1>
+          <h1 className="text-2xl font-bold text-gray-800">Flourish AI</h1>
           <p className="text-gray-500 mt-2">让我帮你制定专属训练计划</p>
         </div>
 
@@ -261,7 +261,7 @@ export const IntakePage: React.FC = () => {
             <div
               key={s}
               className={`w-8 h-1 rounded-full mx-1 transition-colors ${
-                s <= step ? 'bg-rose-500' : 'bg-gray-200'
+                s <= step ? 'bg-[#7DC47A]' : 'bg-gray-200'
               }`}
             />
           ))}

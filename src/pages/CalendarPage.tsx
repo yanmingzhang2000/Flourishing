@@ -53,7 +53,7 @@ export const CalendarPage: React.FC = () => {
   const getDayTypeStyle = (type: string) => {
     switch (type) {
       case 'strength':
-        return 'bg-rose-100 border-rose-300 text-rose-700';
+        return 'bg-[#7DC47A]/10 border-[#7DC47A] text-[#7DC47A]';
       case 'cardio':
         return 'bg-blue-100 border-blue-300 text-blue-700';
       case 'rest':
@@ -101,7 +101,7 @@ export const CalendarPage: React.FC = () => {
   const streak = calculateStreak(records);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-rose-50 to-pink-50 p-4">
+    <div className="min-h-screen bg-[#DCF0FB] p-4">
       <div className="max-w-md mx-auto">
         <div className="flex items-center justify-between mb-6">
           <div>
@@ -116,19 +116,19 @@ export const CalendarPage: React.FC = () => {
         <div className="grid grid-cols-3 gap-3 mb-6">
           <Card>
             <CardContent className="p-3 text-center">
-              <div className="text-2xl font-bold text-rose-500">{completedCount}</div>
+              <div className="text-2xl font-bold text-[#7DC47A]">{completedCount}</div>
               <div className="text-xs text-gray-500">已完成</div>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-3 text-center">
-              <div className="text-2xl font-bold text-rose-500">{streak}</div>
+              <div className="text-2xl font-bold text-[#7DC47A]">{streak}</div>
               <div className="text-xs text-gray-500">连续打卡</div>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-3 text-center">
-              <div className="text-2xl font-bold text-rose-500">{profile.bmi}</div>
+              <div className="text-2xl font-bold text-[#7DC47A]">{profile.bmi}</div>
               <div className="text-xs text-gray-500">BMI</div>
             </CardContent>
           </Card>
@@ -150,7 +150,7 @@ export const CalendarPage: React.FC = () => {
                     onClick={() => handleDayClick(index)}
                     disabled={day.type === 'rest'}
                     className={`relative p-2 rounded-lg border-2 text-center transition-all ${
-                      isToday(index) ? 'ring-2 ring-rose-400 ring-offset-2' : ''
+                      isToday(index) ? 'ring-2 ring-[#7DC47A] ring-offset-2' : ''
                     } ${getDayTypeStyle(day.type)} ${
                       day.type !== 'rest' ? 'cursor-pointer hover:scale-105' : 'cursor-default'
                     }`}
@@ -162,7 +162,7 @@ export const CalendarPage: React.FC = () => {
                       {getDayTypeLabel(day.type)}
                     </div>
                     {record?.completed && (
-                      <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
+                      <div className="absolute -top-1 -right-1 w-4 h-4 bg-[#7DC47A] rounded-full flex items-center justify-center">
                         <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                         </svg>
@@ -179,10 +179,10 @@ export const CalendarPage: React.FC = () => {
           <CardContent className="p-4">
             <h3 className="font-medium text-gray-800 mb-2">训练目标</h3>
             <div className="flex items-center gap-2 text-sm text-gray-600">
-              <span className="w-3 h-3 rounded-full bg-rose-500"></span>
+              <span className="w-3 h-3 rounded-full bg-[#7DC47A]"></span>
               <span>收紧拜拜肉，让手臂线条更好看</span>
             </div>
-            <div className="mt-3 p-3 bg-rose-50 rounded-lg text-sm text-rose-700">
+            <div className="mt-3 p-3 bg-[#7DC47A]/10 rounded-lg text-sm text-[#7DC47A]">
               预期效果：3-4周初步改善，6-8周明显收紧，12周稳定定型
             </div>
           </CardContent>
@@ -190,7 +190,7 @@ export const CalendarPage: React.FC = () => {
 
         <div className="space-y-2">
           <div className="flex items-center gap-2 text-xs text-gray-500">
-            <span className="w-3 h-3 rounded bg-rose-100 border border-rose-300"></span>
+            <span className="w-3 h-3 rounded bg-[#7DC47A]/10 border border-[#7DC47A]"></span>
             <span>力量训练日</span>
             <span className="w-3 h-3 rounded bg-blue-100 border border-blue-300 ml-2"></span>
             <span>有氧日</span>
