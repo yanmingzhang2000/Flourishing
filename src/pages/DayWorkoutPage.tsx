@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { storage } from '@/lib/storage';
-import { WeeklyPlan, WorkoutExercise, TrainingRecord } from '@/lib/types';
+import { plansApi, recordsApi, isLoggedIn } from '@/lib/api';
+import { WeeklyPlan, WorkoutExercise } from '@/lib/types';
 
 export const DayWorkoutPage: React.FC = () => {
   const navigate = useNavigate();
@@ -13,12 +14,27 @@ export const DayWorkoutPage: React.FC = () => {
   const [hasJointPain, setHasJointPain] = useState(false);
 
   useEffect(() => {
-    const savedPlan = storage.getWeeklyPlan();
-    if (!savedPlan || !date || dayIndex === undefined) {
+    if (!date || dayIndex === undefined) {
       navigate('/calendar');
       return;
     }
-    setPlan(savedPlan);
+
+    if (isLoggedIn()) {
+      plansApi.getCurrent().then(planRes => {
+        if (!planRes) {
+          navigate('/calendar');
+          return;
+        }
+        setPlan(planRes);
+      }).catch(() => navigate('/calendar'));
+    } else {
+      const savedPlan = storage.getWeeklyPlan();
+      if (!savedPlan) {
+        navigate('/calendar');
+        return;
+      }
+      setPlan(savedPlan);
+    }
   }, [navigate, date, dayIndex]);
 
   if (!plan || dayIndex === undefined) {
@@ -48,25 +64,41 @@ export const DayWorkoutPage: React.FC = () => {
     setShowFeedback(true);
   };
 
-  const handleSubmitFeedback = () => {
+  const handleSubmitFeedback = async () => {
     if (!feedback) return;
 
-    const record: TrainingRecord = {
-      date: date!,
-      weekPlanId: plan.id,
-      dayIndex: parseInt(dayIndex),
-      completed: true,
-      feedback,
-      hasJointPain,
-      completedExercises: Array.from(completedExercises),
-    };
-
-    storage.addTrainingRecord(record);
-
-    if (feedback !== 'just_right' && plan) {
-      const { adjustPlanBasedOnFeedback } = require('@/lib/planGenerator');
-      const adjustedPlan = adjustPlanBasedOnFeedback(plan, feedback, parseInt(dayIndex));
-      storage.setWeeklyPlan(adjustedPlan);
+    if (isLoggedIn()) {
+      try {
+        await recordsApi.submit({
+          date: date!,
+          dayIndex: parseInt(dayIndex),
+          completed: true,
+          feedback,
+          hasJointPain,
+          completedExercises: Array.from(completedExercises),
+        });
+      } catch (e) {
+        // fallback to local
+        storage.addTrainingRecord({
+          date: date!,
+          weekPlanId: plan.id,
+          dayIndex: parseInt(dayIndex),
+          completed: true,
+          feedback,
+          hasJointPain,
+          completedExercises: Array.from(completedExercises),
+        });
+      }
+    } else {
+      storage.addTrainingRecord({
+        date: date!,
+        weekPlanId: plan.id,
+        dayIndex: parseInt(dayIndex),
+        completed: true,
+        feedback,
+        hasJointPain,
+        completedExercises: Array.from(completedExercises),
+      });
     }
 
     navigate('/calendar');

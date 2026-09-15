@@ -3,8 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card, CardHeader, CardContent } from '@/components/ui/Card';
-import { storage } from '@/lib/storage';
-import { generateWeeklyPlan } from '@/lib/planGenerator';
+import { userApi, plansApi } from '@/lib/api';
 import { UserProfile } from '@/lib/types';
 
 const EXPERIENCE_OPTIONS = [
@@ -30,9 +29,10 @@ export const IntakePage: React.FC = () => {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [profile, setProfile] = useState<Partial<UserProfile>>({
-    selectedProjects: storage.getUserProfile()?.selectedProjects || ['tricep_tone'],
+    selectedProjects: ['tricep_tone'],
     singleSessionMaxMin: 30,
   });
+  const [submitting, setSubmitting] = useState(false);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -79,27 +79,28 @@ export const IntakePage: React.FC = () => {
     }
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    setSubmitting(true);
     const height = profile.height || 160;
     const weight = profile.weight || 50;
-    const bmi = Number((weight / ((height / 100) ** 2)).toFixed(1));
 
-    const finalProfile: UserProfile = {
-      height: profile.height || 0,
-      weight: profile.weight || 0,
-      bmi,
-      experience: profile.experience || 'zero',
-      injuries: profile.injuries || [],
-      equipment: profile.equipment || ['none'],
-      maxTrainingDaysPerWeek: profile.maxTrainingDaysPerWeek || 3,
-      selectedProjects: profile.selectedProjects || ['tricep_tone'],
-      singleSessionMaxMin: profile.singleSessionMaxMin || 30,
-    };
-
-    storage.setUserProfile(finalProfile);
-    const plan = generateWeeklyPlan(finalProfile);
-    storage.setWeeklyPlan(plan);
-    navigate('/calendar');
+    try {
+      await userApi.updateProfile({
+        height,
+        weight,
+        experience: profile.experience || 'zero',
+        injuries: profile.injuries || [],
+        equipment: profile.equipment || ['none'],
+        max_days_per_week: profile.maxTrainingDaysPerWeek || 3,
+        session_max_min: profile.singleSessionMaxMin || 30,
+      });
+      await plansApi.generate(1);
+      navigate('/calendar');
+    } catch {
+      navigate('/calendar');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const renderStep1 = () => (
@@ -289,8 +290,8 @@ export const IntakePage: React.FC = () => {
               上一步
             </Button>
           )}
-          <Button onClick={handleNext} className="flex-1">
-            {step === 4 ? '生成计划' : '下一步'}
+          <Button onClick={handleNext} className="flex-1" disabled={submitting}>
+            {step === 4 ? (submitting ? '生成中...' : '生成计划') : '下一步'}
           </Button>
         </div>
       </div>

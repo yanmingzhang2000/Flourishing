@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { storage } from '@/lib/storage';
-import { WeeklyPlan, TrainingRecord, UserProfile } from '@/lib/types';
+import { plansApi, recordsApi, userApi, isLoggedIn, clearToken } from '@/lib/api';
+import { WeeklyPlan, TrainingRecord } from '@/lib/types';
 
 const DAY_LABELS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
 
@@ -11,22 +12,40 @@ export const CalendarPage: React.FC = () => {
   const navigate = useNavigate();
   const [plan, setPlan] = useState<WeeklyPlan | null>(null);
   const [records, setRecords] = useState<TrainingRecord[]>([]);
-  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [profile, setProfile] = useState<any | null>(null);
+  const [stats, setStats] = useState<{ totalWorkouts: number; currentStreak: number }>({ totalWorkouts: 0, currentStreak: 0 });
 
   useEffect(() => {
-    const savedPlan = storage.getWeeklyPlan();
-    const savedRecords = storage.getTrainingRecords();
-    const savedProfile = storage.getUserProfile();
-
-    if (!savedPlan || !savedProfile) {
-      navigate('/');
-      return;
+    if (isLoggedIn()) {
+      Promise.all([
+        plansApi.getCurrent(),
+        recordsApi.getAll(),
+        userApi.getProfile(),
+        recordsApi.getStats(),
+      ]).then(([planRes, recordsRes, profileRes, statsRes]) => {
+        if (!planRes || !profileRes) { navigate('/'); return; }
+        setPlan(planRes);
+        setRecords(recordsRes || []);
+        setProfile(profileRes);
+        setStats(statsRes);
+      }).catch(() => navigate('/'));
+    } else {
+      const savedPlan = storage.getWeeklyPlan();
+      const savedRecords = storage.getTrainingRecords();
+      const savedProfile = storage.getUserProfile();
+      if (!savedPlan || !savedProfile) { navigate('/'); return; }
+      setPlan(savedPlan);
+      setRecords(savedRecords);
+      setProfile(savedProfile);
+      setStats({ totalWorkouts: savedRecords.filter(r => r.completed).length, currentStreak: calculateStreak(savedRecords) });
     }
-
-    setPlan(savedPlan);
-    setRecords(savedRecords);
-    setProfile(savedProfile);
   }, [navigate]);
+
+  const handleReset = () => {
+    clearToken();
+    storage.clearAll();
+    navigate('/auth');
+  };
 
   const isToday = (dayIndex: number): boolean => {
     if (!plan) return false;
@@ -52,27 +71,18 @@ export const CalendarPage: React.FC = () => {
 
   const getDayTypeStyle = (type: string) => {
     switch (type) {
-      case 'strength':
-        return 'bg-[#7DC47A]/10 border-[#7DC47A] text-[#7DC47A]';
-      case 'cardio':
-        return 'bg-blue-100 border-blue-300 text-blue-700';
-      case 'rest':
-        return 'bg-gray-50 border-gray-200 text-gray-500';
-      default:
-        return 'bg-gray-50 border-gray-200 text-gray-500';
+      case 'strength': return 'bg-[#7DC47A]/10 border-[#7DC47A] text-[#7DC47A]';
+      case 'cardio': return 'bg-blue-100 border-blue-300 text-blue-700';
+      default: return 'bg-gray-50 border-gray-200 text-gray-500';
     }
   };
 
   const getDayTypeLabel = (type: string) => {
     switch (type) {
-      case 'strength':
-        return '力量';
-      case 'cardio':
-        return '有氧';
-      case 'rest':
-        return '休息';
-      default:
-        return '';
+      case 'strength': return '力量';
+      case 'cardio': return '有氧';
+      case 'rest': return '休息';
+      default: return '';
     }
   };
 
@@ -88,17 +98,11 @@ export const CalendarPage: React.FC = () => {
     if (!plan) return;
     const day = plan.days[dayIndex];
     if (day.type === 'rest') return;
-
     const date = getWorkoutDate(dayIndex);
     navigate(`/workout/${date}/${dayIndex}`);
   };
 
-  if (!plan || !profile) {
-    return null;
-  }
-
-  const completedCount = records.filter(r => r.completed).length;
-  const streak = calculateStreak(records);
+  if (!plan || !profile) return null;
 
   return (
     <div className="min-h-screen bg-[#DCF0FB] p-4">
@@ -108,27 +112,25 @@ export const CalendarPage: React.FC = () => {
             <h1 className="text-2xl font-bold text-gray-800">本周训练</h1>
             <p className="text-sm text-gray-500">第{plan.weekNumber}周</p>
           </div>
-          <Button variant="ghost" onClick={() => { storage.clearAll(); navigate('/'); }}>
-            重新设置
-          </Button>
+          <Button variant="ghost" onClick={handleReset}>退出</Button>
         </div>
 
         <div className="grid grid-cols-3 gap-3 mb-6">
           <Card>
             <CardContent className="p-3 text-center">
-              <div className="text-2xl font-bold text-[#7DC47A]">{completedCount}</div>
+              <div className="text-2xl font-bold text-[#7DC47A]">{stats.totalWorkouts}</div>
               <div className="text-xs text-gray-500">已完成</div>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-3 text-center">
-              <div className="text-2xl font-bold text-[#7DC47A]">{streak}</div>
+              <div className="text-2xl font-bold text-[#7DC47A]">{stats.currentStreak}</div>
               <div className="text-xs text-gray-500">连续打卡</div>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-3 text-center">
-              <div className="text-2xl font-bold text-[#7DC47A]">{profile.bmi}</div>
+              <div className="text-2xl font-bold text-[#7DC47A]">{profile.bmi || '--'}</div>
               <div className="text-xs text-gray-500">BMI</div>
             </CardContent>
           </Card>
@@ -137,10 +139,8 @@ export const CalendarPage: React.FC = () => {
         <Card className="mb-6">
           <CardContent className="p-4">
             <div className="grid grid-cols-7 gap-2">
-              {DAY_LABELS.map((label, index) => (
-                <div key={label} className="text-center text-xs font-medium text-gray-500 pb-2">
-                  {label}
-                </div>
+              {DAY_LABELS.map((label) => (
+                <div key={label} className="text-center text-xs font-medium text-gray-500 pb-2">{label}</div>
               ))}
               {plan.days.map((day, index) => {
                 const record = getRecord(index);
@@ -155,12 +155,8 @@ export const CalendarPage: React.FC = () => {
                       day.type !== 'rest' ? 'cursor-pointer hover:scale-105' : 'cursor-default'
                     }`}
                   >
-                    <div className="text-xs font-bold mb-1">
-                      {getWorkoutDate(index).slice(8)}
-                    </div>
-                    <div className="text-xs">
-                      {getDayTypeLabel(day.type)}
-                    </div>
+                    <div className="text-xs font-bold mb-1">{getWorkoutDate(index).slice(8)}</div>
+                    <div className="text-xs">{getDayTypeLabel(day.type)}</div>
                     {record?.completed && (
                       <div className="absolute -top-1 -right-1 w-4 h-4 bg-[#7DC47A] rounded-full flex items-center justify-center">
                         <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -180,7 +176,7 @@ export const CalendarPage: React.FC = () => {
             <h3 className="font-medium text-gray-800 mb-2">训练目标</h3>
             <div className="flex items-center gap-2 text-sm text-gray-600">
               <span className="w-3 h-3 rounded-full bg-[#7DC47A]"></span>
-              <span>收紧拜拜肉，让手臂线条更好看</span>
+              <span>通过系统训练，达成塑形目标</span>
             </div>
             <div className="mt-3 p-3 bg-[#7DC47A]/10 rounded-lg text-sm text-[#7DC47A]">
               预期效果：3-4周初步改善，6-8周明显收紧，12周稳定定型
@@ -188,15 +184,13 @@ export const CalendarPage: React.FC = () => {
           </CardContent>
         </Card>
 
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 text-xs text-gray-500">
-            <span className="w-3 h-3 rounded bg-[#7DC47A]/10 border border-[#7DC47A]"></span>
-            <span>力量训练日</span>
-            <span className="w-3 h-3 rounded bg-blue-100 border border-blue-300 ml-2"></span>
-            <span>有氧日</span>
-            <span className="w-3 h-3 rounded bg-gray-50 border border-gray-200 ml-2"></span>
-            <span>休息日</span>
-          </div>
+        <div className="flex items-center gap-2 text-xs text-gray-500">
+          <span className="w-3 h-3 rounded bg-[#7DC47A]/10 border border-[#7DC47A]"></span>
+          <span>力量训练日</span>
+          <span className="w-3 h-3 rounded bg-blue-100 border border-blue-300 ml-2"></span>
+          <span>有氧日</span>
+          <span className="w-3 h-3 rounded bg-gray-50 border border-gray-200 ml-2"></span>
+          <span>休息日</span>
         </div>
       </div>
     </div>
@@ -226,13 +220,9 @@ function calculateStreak(records: TrainingRecord[]): number {
     const next = new Date(completedDates[i + 1]);
     current.setHours(0, 0, 0, 0);
     next.setHours(0, 0, 0, 0);
-
     const diff = Math.floor((current.getTime() - next.getTime()) / (1000 * 60 * 60 * 24));
-    if (diff === 1) {
-      streak++;
-    } else {
-      break;
-    }
+    if (diff === 1) streak++;
+    else break;
   }
 
   return streak;
