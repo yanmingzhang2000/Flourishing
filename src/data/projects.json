@@ -9,8 +9,7 @@
     "duration_minutes": 15,
     "equipment_needed": ["dumbbell_1.5kg_pair", "dumbbell_2kg_pair"],
     "icon": "💪",
-    "color": "#7DC47A",
-    "colorEnd": "#10B981"
+    "color": "#7DC47A"
   },
   {
     "id": "hip_width",
@@ -22,8 +21,7 @@
     "duration_minutes": 20,
     "equipment_needed": ["resistance_band", "none"],
     "icon": "🍑",
-    "color": "#F59E0B",
-    "colorEnd": "#EF4444"
+    "color": "#F59E0B"
   },
   {
     "id": "lower_abs",
@@ -35,8 +33,7 @@
     "duration_minutes": 15,
     "equipment_needed": ["none"],
     "icon": "✨",
-    "color": "#38BDF8",
-    "colorEnd": "#6366F1"
+    "color": "#60B8D4"
   },
   {
     "id": "trapezius_relax",
@@ -48,8 +45,7 @@
     "duration_minutes": 10,
     "equipment_needed": ["none", "resistance_band"],
     "icon": "🌸",
-    "color": "#A78BFA",
-    "colorEnd": "#EC4899"
+    "color": "#A78BFA"
   },
   {
     "id": "rounded_shoulders",
@@ -61,8 +57,7 @@
     "duration_minutes": 15,
     "equipment_needed": ["resistance_band", "dumbbell_1kg_pair"],
     "icon": "🌿",
-    "color": "#10B981",
-    "colorEnd": "#0EA5E9"
+    "color": "#34D399"
   },
   {
     "id": "full_body",
@@ -74,7 +69,6 @@
     "duration_minutes": 25,
     "equipment_needed": ["dumbbell_1.5kg_pair", "none"],
     "icon": "⚡",
-    "color": "#F97316",
-    "colorEnd": "#EF4444"
+    "color": "#FB923C"
   }
 ]

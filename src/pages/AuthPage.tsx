@@ -53,10 +53,12 @@ export const AuthPage: React.FC = () => {
       <div className="bg-gradient-to-r from-[#7DC47A] to-[#10B981] text-white py-16 px-4 flex-shrink-0">
         <div className="max-w-sm mx-auto text-center">
           <div className="flex items-center justify-center gap-3 mb-3">
-            <img src="./vite.svg" alt="Flourish AI" className="w-14 h-14 drop-shadow-lg" />
+            <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center">
+              <img src="./vite.svg" alt="Flourish AI" className="w-9 h-9" />
+            </div>
             <h1 className="text-4xl font-bold">Flourish AI</h1>
           </div>
-          <p className="text-white/90 mt-2">AI 私教，随时陪你变美</p>
+          <p className="text-white/90 mt-2">每天15分钟，遇见更好的自己</p>
         </div>
       </div>
 

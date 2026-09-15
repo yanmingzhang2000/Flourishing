@@ -254,7 +254,9 @@ export const IntakePage: React.FC = () => {
       <div className="max-w-md mx-auto pt-8">
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-3 mb-2">
-            <img src="./vite.svg" alt="Flourish AI Logo" className="w-10 h-10" />
+            <div className="w-10 h-10 rounded-full bg-[#7DC47A] flex items-center justify-center">
+              <img src="./vite.svg" alt="Flourish AI Logo" className="w-6 h-6" />
+            </div>
             <h1 className="text-2xl font-bold text-gray-800">Flourish AI</h1>
           </div>
           <p className="text-gray-500 mt-1">让我帮你制定专属训练计划</p>

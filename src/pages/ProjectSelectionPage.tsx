@@ -50,10 +50,12 @@ export const ProjectSelectionPage: React.FC = () => {
         <div className="max-w-3xl mx-auto flex items-center justify-between">
           <div className="text-center flex-1">
             <div className="flex items-center justify-center gap-3 mb-3">
-              <img src="./vite.svg" alt="Flourish AI" className="w-12 h-12 drop-shadow-lg" />
+              <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
+                <img src="./vite.svg" alt="Flourish AI" className="w-8 h-8" />
+              </div>
               <h1 className="text-4xl font-bold">Flourish AI</h1>
             </div>
-            <p className="text-white/90">选择训练目标，开启蜕变之旅</p>
+            <p className="text-white/90">每天15分钟，遇见更好的自己</p>
           </div>
           <button onClick={handleLogout} className="text-white/70 text-sm hover:text-white absolute right-4 top-4">
             退出
@@ -63,36 +65,73 @@ export const ProjectSelectionPage: React.FC = () => {
 
       {/* 项目列表 */}
       <div className="max-w-3xl mx-auto px-4 py-8">
-        <div className="space-y-4 mb-6">
+        <div className="space-y-3 mb-6">
           {projects.map((project) => {
             const isSelected = selectedProjects.includes(project.id);
             return (
               <div
                 key={project.id}
-                className={`relative rounded-2xl overflow-hidden cursor-pointer transition-all ${
-                  isSelected ? 'ring-4 ring-white shadow-2xl scale-[1.02]' : 'shadow-lg hover:shadow-xl'
+                className={`relative bg-white rounded-2xl overflow-hidden cursor-pointer transition-all shadow-sm hover:shadow-md ${
+                  isSelected
+                    ? 'ring-2 shadow-md'
+                    : ''
                 }`}
-                style={{ background: `linear-gradient(135deg, ${project.color} 0%, ${(project as any).colorEnd || project.color}dd 100%)` }}
+                style={isSelected ? { boxShadow: `0 0 0 2px ${project.color}` } : {}}
                 onClick={() => toggleProject(project.id)}
               >
+                {/* 左侧彩色竖条 */}
+                <div
+                  className="absolute left-0 top-0 bottom-0 w-1.5 rounded-l-2xl"
+                  style={{ backgroundColor: project.color }}
+                />
+
+                {/* 选中勾 */}
                 {isSelected && (
-                  <div className="absolute top-4 right-4 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-lg">
-                    <svg className="w-5 h-5 text-[#7DC47A]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <div
+                    className="absolute top-4 right-4 w-7 h-7 rounded-full flex items-center justify-center"
+                    style={{ backgroundColor: project.color }}
+                  >
+                    <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                     </svg>
                   </div>
                 )}
-                <div className="p-6 text-white">
-                  <div className="flex items-start gap-4">
-                    <div className="text-5xl flex-shrink-0 drop-shadow-lg">{project.icon}</div>
-                    <div className="flex-1">
-                      <h3 className="text-2xl font-bold mb-1">{project.name}</h3>
-                      <p className="text-white/90 text-sm mb-3">{project.subtitle}</p>
-                      <p className="text-white/80 text-sm leading-relaxed mb-4">{project.description}</p>
+
+                <div className="pl-6 pr-5 py-5">
+                  <div className="flex items-center gap-4">
+                    {/* icon 圆圈 */}
+                    <div
+                      className="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl flex-shrink-0"
+                      style={{ backgroundColor: `${project.color}18` }}
+                    >
+                      {project.icon}
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <h3 className="text-lg font-bold text-gray-800">{project.name}</h3>
+                        <span className="text-sm text-gray-400">{project.subtitle}</span>
+                      </div>
+                      <p className="text-sm text-gray-500 leading-relaxed mb-3">{project.description}</p>
                       <div className="flex flex-wrap gap-2">
-                        <span className="px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full text-xs font-medium">{getDifficultyLabel(project.difficulty)}</span>
-                        <span className="px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full text-xs font-medium">{project.duration_minutes} 分钟</span>
-                        <span className="px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full text-xs font-medium">{project.target_area}</span>
+                        <span
+                          className="px-2.5 py-0.5 rounded-full text-xs font-medium"
+                          style={{ backgroundColor: `${project.color}15`, color: project.color }}
+                        >
+                          {getDifficultyLabel(project.difficulty)}
+                        </span>
+                        <span
+                          className="px-2.5 py-0.5 rounded-full text-xs font-medium"
+                          style={{ backgroundColor: `${project.color}15`, color: project.color }}
+                        >
+                          {project.duration_minutes} 分钟
+                        </span>
+                        <span
+                          className="px-2.5 py-0.5 rounded-full text-xs font-medium"
+                          style={{ backgroundColor: `${project.color}15`, color: project.color }}
+                        >
+                          {project.target_area}
+                        </span>
                       </div>
                     </div>
                   </div>

@@ -108,7 +108,12 @@ router.get('/current', (req: AuthRequest, res: Response) => {
 
   if (!plan) return res.json(null);
 
-  return res.json({ ...plan, days: JSON.parse(plan.days) });
+  return res.json({
+    id: plan.id,
+    weekNumber: plan.week_number,
+    startDate: plan.start_date,
+    days: JSON.parse(plan.days)
+  });
 });
 
 export default router;
