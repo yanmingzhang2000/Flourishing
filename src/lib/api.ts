@@ -1,4 +1,5 @@
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+// 生产环境下前端和后端同源，使用相对路径；开发环境指向本地后端
+const BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3001' : '');
 
 function getToken(): string | null {
   return localStorage.getItem('token');
