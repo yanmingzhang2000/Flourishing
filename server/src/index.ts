@@ -10,7 +10,7 @@ import plansRouter from './routes/plans';
 import recordsRouter from './routes/records';
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 80;
 
 app.use(cors({
   origin: [
@@ -19,6 +19,8 @@ app.use(cors({
     'http://localhost:3000',
     'http://47.93.29.237',
     'http://47.93.29.237:80',
+    'http://flourish.tbit.xin',
+    'https://flourish.tbit.xin',
   ]
 }));
 app.use(express.json());

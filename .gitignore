@@ -6,6 +6,10 @@ dist
 dist-ssr
 *.local
 
+# Deployment
+flourish-ai-deploy.tar.gz
+server/.env
+
 # Logs
 logs
 *.log
