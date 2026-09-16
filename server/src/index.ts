@@ -19,8 +19,8 @@ app.use(cors({
     'http://localhost:3000',
     'http://47.93.29.237',
     'http://47.93.29.237:80',
-    'http://flourish.tbit.xin',
-    'https://flourish.tbit.xin',
+    'http://flourish.freesld.com',
+    'https://flourish.freesld.com',
   ]
 }));
 app.use(express.json());
