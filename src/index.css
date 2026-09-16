@@ -6,14 +6,17 @@
   --color-brand-light:  #7DC47A1A;
   --color-accent:       #F59E0B;
   --color-accent-light: #F59E0B1A;
-  --color-bg:           #DCF0FB;
+  --color-ice:          #DCF0FB;
+  --color-ice-light:    #EEF7FD;
+  --color-bg:           #ffffff;
   --color-surface:      #ffffff;
+  --color-subtle:       #F9FAFB;
   --color-text:         #1F2937;
   --color-muted:        #6B7280;
 }
 
 :root {
-  --background: #DCF0FB;
+  --background: #ffffff;
   --foreground: #1F2937;
   --primary:    #7DC47A;
   --accent:     #F59E0B;
