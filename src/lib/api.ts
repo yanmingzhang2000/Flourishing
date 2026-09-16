@@ -69,6 +69,12 @@ export const plansApi = {
       body: JSON.stringify({ weekNumber }),
     }),
   getCurrent: () => request<any>('/api/plans/current'),
+  getMonth: (year: number, month: number) => 
+    request<any[]>(`/api/plans/month/${year}/${month}`),
+  generateMonth: (year: number, month: number) =>
+    request<any>(`/api/plans/month/${year}/${month}/generate`, {
+      method: 'POST',
+    }),
 };
 
 // 训练记录

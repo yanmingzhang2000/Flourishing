@@ -116,4 +116,112 @@ router.get('/current', (req: AuthRequest, res: Response) => {
   });
 });
 
+// 获取指定月份的所有周计划
+router.get('/month/:year/:month', (req: AuthRequest, res: Response) => {
+  const year = req.params.year as string;
+  const month = req.params.month as string;
+  const startOfMonth = new Date(parseInt(year), parseInt(month) - 1, 1);
+  const endOfMonth = new Date(parseInt(year), parseInt(month), 0);
+
+  const plans = db.prepare(
+    'SELECT * FROM weekly_plans WHERE user_id = ? AND start_date >= ? AND start_date <= ? ORDER BY start_date'
+  ).all(
+    req.userId,
+    startOfMonth.toISOString().split('T')[0],
+    endOfMonth.toISOString().split('T')[0]
+  ) as any[];
+
+  return res.json(plans.map(p => ({
+    id: p.id,
+    weekNumber: p.week_number,
+    startDate: p.start_date,
+    days: JSON.parse(p.days)
+  })));
+});
+
+// 批量生成指定月份的所有周计划
+router.post('/month/:year/:month/generate', (req: AuthRequest, res: Response) => {
+  const year = req.params.year as string;
+  const month = req.params.month as string;
+  const profile = db.prepare('SELECT * FROM user_profiles WHERE user_id = ?').get(req.userId) as any;
+  if (!profile) return res.status(400).json({ error: '请先完善个人信息' });
+
+  const selectedProjects: string[] = JSON.parse(profile.selected_projects || '["tricep_tone"]');
+  const allExercises = loadExercises();
+  const projectId = selectedProjects[0] || 'tricep_tone';
+  const projectExercises = allExercises[projectId];
+
+  if (!projectExercises) return res.status(400).json({ error: '项目动作库不存在' });
+
+  const injuries: string[] = JSON.parse(profile.injuries || '[]');
+  const trainingDays = Math.min(profile.max_days_per_week || 3, 4);
+  const schedule = generateSchedule(trainingDays);
+
+  const startOfMonth = new Date(parseInt(year), parseInt(month) - 1, 1);
+  const endOfMonth = new Date(parseInt(year), parseInt(month), 0);
+
+  // 找到月初所在周的周一
+  const firstMonday = new Date(startOfMonth);
+  firstMonday.setDate(startOfMonth.getDate() - startOfMonth.getDay() + 1);
+
+  const generatedPlans: any[] = [];
+  let currentMonday = new Date(firstMonday);
+
+  // 生成该月所有周的计划（包括跨月的周）
+  while (currentMonday <= endOfMonth) {
+    const startDate = currentMonday.toISOString().split('T')[0];
+
+    // 检查是否已存在
+    const existing = db.prepare(
+      'SELECT id FROM weekly_plans WHERE user_id = ? AND start_date = ?'
+    ).get(req.userId, startDate) as any;
+
+    if (!existing) {
+      const days = schedule.map((type, i) => {
+        const date = new Date(currentMonday);
+        date.setDate(currentMonday.getDate() + i);
+        const dayLabel = DAY_NAMES[date.getDay()];
+
+        if (type === 'rest') {
+          return { day: dayLabel, dayIndex: i, type: 'rest', exercises: [], warmup: [], cooldown: [] };
+        }
+
+        const filtered = projectExercises.exercises.filter((ex: any) =>
+          !injuries.some((inj: string) => ex.warning?.toLowerCase().includes(inj.toLowerCase()))
+        ).slice(0, 5);
+
+        return {
+          day: dayLabel,
+          dayIndex: i,
+          type: 'strength',
+          exercises: filtered.map((ex: any) => ({
+            exerciseId: ex.id,
+            exercise: ex,
+            sets: ex.sets,
+            reps: ex.reps,
+            restBetweenSet: ex.rest_between_set,
+            completed: false,
+          })),
+          warmup: projectExercises.warmup.slice(0, 2),
+          cooldown: projectExercises.cooldown.slice(0, 2),
+        };
+      });
+
+      const result = db.prepare(
+        'INSERT INTO weekly_plans (user_id, week_number, start_date, days) VALUES (?, ?, ?, ?)'
+      ).run(req.userId, 1, startDate, JSON.stringify(days));
+
+      generatedPlans.push({
+        id: result.lastInsertRowid,
+        startDate,
+        days
+      });
+    }
+
+    currentMonday.setDate(currentMonday.getDate() + 7);
+  }
+
+  return res.json({ generated: generatedPlans.length, plans: generatedPlans });
+});
+
 export default router;
