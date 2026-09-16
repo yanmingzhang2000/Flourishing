@@ -1,8 +1,14 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { WeeklyPlan, TrainingRecord } from '@/lib/types';
+import projectsData from '@/data/projects.json';
 
 const DAY_LABELS = ['一', '二', '三', '四', '五', '六', '日'];
+
+// projectId → 项目名称的映射，供训练列表显示
+const PROJECT_NAME_MAP: Record<string, string> = Object.fromEntries(
+  (projectsData as any[]).map(p => [p.id, p.name])
+);
 
 interface Props {
   plan: WeeklyPlan;
@@ -113,7 +119,9 @@ export const WeekView: React.FC<Props> = ({ plan, records }) => {
                     周{DAY_LABELS[index]} · {dateStr.slice(5)}
                     {today && <span className="ml-2 text-xs bg-brand text-white px-1.5 py-0.5 rounded-full">今天</span>}
                   </p>
-                  <p className="text-xs text-muted mt-0.5">{day.exercises.length} 个动作</p>
+                  <p className="text-xs text-muted mt-0.5">
+                    {day.projectId ? `${PROJECT_NAME_MAP[day.projectId] ?? day.projectId} · ` : ''}{day.exercises.length} 个动作
+                  </p>
                 </div>
                 <svg className="w-4 h-4 text-muted flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />

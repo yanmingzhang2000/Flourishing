@@ -3,6 +3,11 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { storage } from '@/lib/storage';
 import { plansApi, recordsApi, isLoggedIn } from '@/lib/api';
 import { WeeklyPlan, WorkoutExercise } from '@/lib/types';
+import projectsData from '@/data/projects.json';
+
+const PROJECT_NAME_MAP: Record<string, string> = Object.fromEntries(
+  (projectsData as any[]).map(p => [p.id, p.name])
+);
 
 export const DayWorkoutPage: React.FC = () => {
   const navigate = useNavigate();
@@ -121,7 +126,9 @@ export const DayWorkoutPage: React.FC = () => {
         </button>
         <div className="flex-1">
           <h1 className="text-lg font-bold text-gray-800">{date}</h1>
-          <p className="text-sm text-gray-500">力量训练日</p>
+          <p className="text-sm text-gray-500">
+            {day.projectId ? PROJECT_NAME_MAP[day.projectId] ?? '力量训练' : '力量训练'}
+          </p>
         </div>
         <div className="flex items-center gap-3">
           <div className="text-sm text-gray-600">

@@ -69,6 +69,9 @@ export function initDB() {
     );
   `);
 
+  // Migrations — ALTER TABLE 已存在列时会抛异常，用 try/catch 跳过
+  try { db.exec(`ALTER TABLE user_profiles ADD COLUMN training_days TEXT DEFAULT NULL`); } catch {}
+
   console.log('Database initialized');
 }
 

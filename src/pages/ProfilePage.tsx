@@ -3,62 +3,201 @@ import { useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { BottomNav } from '@/components/BottomNav';
-import { userApi, recordsApi, clearToken } from '@/lib/api';
+import { userApi, recordsApi, plansApi, clearToken } from '@/lib/api';
 
-const EXPERIENCE_LABELS: Record<string, string> = {
-  zero: '零基础', occasional: '偶尔练', regular: '经常练',
-};
+// ── 静态数据（与 IntakePage 保持一致）────────────────────────────────────────
 
-const EQUIPMENT_LABELS: Record<string, string> = {
-  none: '自重',
-  dumbbell_1kg_pair: '1kg 哑铃',
-  'dumbbell_1.5kg_pair': '1.5kg 哑铃',
-  dumbbell_2kg_pair: '2kg 哑铃',
-  dumbbell_3kg_pair: '3kg 哑铃',
-  dumbbell_4kg_pair: '4kg 哑铃',
-  dumbbell_5kg_pair: '5kg 哑铃',
-  resistance_band: '弹力带',
-};
+const EXPERIENCE_OPTIONS = [
+  { value: 'zero',       emoji: '🌱', label: '零基础',  desc: '从没运动过，从头开始' },
+  { value: 'occasional', emoji: '🚶', label: '偶尔练',  desc: '每周 1-2 次，断断续续' },
+  { value: 'regular',    emoji: '💪', label: '经常练',  desc: '每周 3 次以上，有习惯' },
+];
+
+const EQUIPMENT_TOP = [
+  { value: 'none',            emoji: '🤸', label: '自重',   desc: '不需要任何器械' },
+  { value: 'dumbbell',        emoji: '🏋️', label: '哑铃',   desc: '选择后指定重量' },
+  { value: 'resistance_band', emoji: '🎯', label: '弹力带', desc: '便携阻力训练' },
+];
+
+const DUMBBELL_WEIGHTS = [
+  { value: 'dumbbell_1kg_pair',   label: '1kg × 2' },
+  { value: 'dumbbell_1.5kg_pair', label: '1.5kg × 2' },
+  { value: 'dumbbell_2kg_pair',   label: '2kg × 2' },
+  { value: 'dumbbell_3kg_pair',   label: '3kg × 2' },
+  { value: 'dumbbell_4kg_pair',   label: '4kg × 2' },
+  { value: 'dumbbell_5kg_pair',   label: '5kg × 2' },
+];
+
+const INJURY_OPTIONS = [
+  { value: 'shoulder', label: '肩部' },
+  { value: 'elbow',    label: '肘部' },
+  { value: 'wrist',    label: '腕部' },
+  { value: 'knee',     label: '膝盖' },
+  { value: 'back',     label: '腰背' },
+];
+
+const WEEK_DAYS = [
+  { value: 1, label: '一' },
+  { value: 2, label: '二' },
+  { value: 3, label: '三' },
+  { value: 4, label: '四' },
+  { value: 5, label: '五' },
+  { value: 6, label: '六' },
+  { value: 0, label: '日' },
+];
+
+// ── 基础 Tab 表单状态 ─────────────────────────────────────────────────────────
+
+interface BasicForm {
+  displayName: string;
+  age: string;
+  height: string;
+  weight: string;
+}
+
+// ── 训练设置 Tab 表单状态 ──────────────────────────────────────────────────────
+
+interface TrainingForm {
+  experience: string;
+  equipment: string[];
+  injuries: string[];
+  trainingDays: number[];
+  sessionMaxMin: number;
+}
+
+// ── 主组件 ───────────────────────────────────────────────────────────────────
 
 export const ProfilePage: React.FC = () => {
   const navigate = useNavigate();
+  const [tab, setTab] = useState<'basic' | 'training'>('basic');
   const [profile, setProfile] = useState<any>(null);
   const [stats, setStats] = useState<{ totalWorkouts: number; currentStreak: number } | null>(null);
-  const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState({ displayName: '', age: '', height: '', weight: '' });
-  const [saving, setSaving] = useState(false);
+
+  // 基础信息表单
+  const [basicForm, setBasicForm] = useState<BasicForm>({ displayName: '', age: '', height: '', weight: '' });
+  const [basicSaving, setBasicSaving] = useState(false);
+
+  // 训练设置表单
+  const [trainingForm, setTrainingForm] = useState<TrainingForm>({
+    experience: 'zero',
+    equipment: [],
+    injuries: [],
+    trainingDays: [],
+    sessionMaxMin: 30,
+  });
+  const [trainingSaving, setTrainingSaving] = useState(false);
+  const [trainingSaved, setTrainingSaved] = useState(false);
+  const [dumbbellExpanded, setDumbbellExpanded] = useState(false);
 
   useEffect(() => {
     Promise.all([userApi.getProfile(), recordsApi.getStats()])
       .then(([p, s]) => {
         setProfile(p);
         setStats(s);
-        if (p) setForm({
-          displayName: p.display_name || '',
-          age: p.age || '',
-          height: p.height || '',
-          weight: p.weight || '',
-        });
+        if (p) {
+          setBasicForm({
+            displayName: p.display_name || '',
+            age: p.age ? String(p.age) : '',
+            height: p.height ? String(p.height) : '',
+            weight: p.weight ? String(p.weight) : '',
+          });
+          const equipment: string[] = Array.isArray(p.equipment) ? p.equipment : [];
+          setTrainingForm({
+            experience: p.experience || 'zero',
+            equipment,
+            injuries: Array.isArray(p.injuries) ? p.injuries : [],
+            trainingDays: Array.isArray(p.training_days) ? p.training_days : [],
+            sessionMaxMin: p.session_max_min || 30,
+          });
+          // 若 equipment 含哑铃则展开重量面板
+          if (equipment.some(e => e.startsWith('dumbbell'))) setDumbbellExpanded(true);
+        }
       })
       .catch(() => navigate('/auth'));
   }, [navigate]);
 
-  const handleSave = async () => {
-    setSaving(true);
+  // ── 基础信息保存 ─────────────────────────────────────────────────────────────
+
+  const handleBasicSave = async () => {
+    setBasicSaving(true);
     try {
       await userApi.updateProfile({
-        display_name: form.displayName || undefined,
-        age: form.age ? Number(form.age) : undefined,
-        height: form.height ? Number(form.height) : undefined,
-        weight: form.weight ? Number(form.weight) : undefined,
+        display_name: basicForm.displayName || undefined,
+        age: basicForm.age ? Number(basicForm.age) : undefined,
+        height: basicForm.height ? Number(basicForm.height) : undefined,
+        weight: basicForm.weight ? Number(basicForm.weight) : undefined,
       });
       const updated = await userApi.getProfile();
       setProfile(updated);
-      setEditing(false);
     } finally {
-      setSaving(false);
+      setBasicSaving(false);
     }
   };
+
+  // ── 训练设置保存 ─────────────────────────────────────────────────────────────
+
+  const handleTrainingSave = async () => {
+    setTrainingSaving(true);
+    try {
+      await userApi.updateProfile({
+        experience: trainingForm.experience,
+        equipment: trainingForm.equipment,
+        injuries: trainingForm.injuries,
+        training_days: trainingForm.trainingDays,
+        max_days_per_week: trainingForm.trainingDays.length,
+        session_max_min: trainingForm.sessionMaxMin,
+      });
+      // 训练设置变了，重新生成本周计划
+      await plansApi.generate();
+      const updated = await userApi.getProfile();
+      setProfile(updated);
+      setTrainingSaved(true);
+      setTimeout(() => setTrainingSaved(false), 2000);
+    } finally {
+      setTrainingSaving(false);
+    }
+  };
+
+  // ── 器械切换逻辑 ─────────────────────────────────────────────────────────────
+
+  const hasDumbbell = trainingForm.equipment.some(e => e.startsWith('dumbbell'));
+  const selectedDumbbell = trainingForm.equipment.find(e => e.startsWith('dumbbell')) || null;
+
+  const toggleTopEquip = (value: string) => {
+    if (value === 'dumbbell') {
+      if (hasDumbbell) {
+        setTrainingForm(f => ({ ...f, equipment: f.equipment.filter(e => !e.startsWith('dumbbell')) }));
+        setDumbbellExpanded(false);
+      } else {
+        setDumbbellExpanded(true);
+      }
+    } else {
+      setTrainingForm(f => ({
+        ...f,
+        equipment: f.equipment.includes(value)
+          ? f.equipment.filter(e => e !== value)
+          : [...f.equipment, value],
+      }));
+    }
+  };
+
+  const selectDumbbellWeight = (weight: string) => {
+    setTrainingForm(f => ({
+      ...f,
+      equipment: [...f.equipment.filter(e => !e.startsWith('dumbbell')), weight],
+    }));
+  };
+
+  const toggleDay = (d: number) => {
+    setTrainingForm(f => ({
+      ...f,
+      trainingDays: f.trainingDays.includes(d)
+        ? f.trainingDays.filter(x => x !== d)
+        : [...f.trainingDays, d],
+    }));
+  };
+
+  // ── 加载中 ───────────────────────────────────────────────────────────────────
 
   if (!profile) {
     return (
@@ -72,14 +211,15 @@ export const ProfilePage: React.FC = () => {
   const bmiLabel = bmi
     ? Number(bmi) < 18.5 ? '偏瘦' : Number(bmi) < 24 ? '正常' : Number(bmi) < 28 ? '偏重' : '偏胖'
     : null;
-  const equipList = Array.isArray(profile.equipment) ? profile.equipment : [];
+
+  // ── 渲染 ─────────────────────────────────────────────────────────────────────
 
   return (
     <div className="min-h-screen bg-white pb-24">
 
-      {/* 顶部用户信息 */}
-      <div className="px-5 pt-10 pb-6">
-        <div className="flex items-center gap-4">
+      {/* 顶部：头像 + 统计 */}
+      <div className="px-5 pt-10 pb-5">
+        <div className="flex items-center gap-4 mb-5">
           <div className="w-16 h-16 rounded-2xl bg-brand flex items-center justify-center text-white text-2xl font-bold flex-shrink-0">
             {(profile.display_name || '我')[0]}
           </div>
@@ -88,134 +228,247 @@ export const ProfilePage: React.FC = () => {
               {profile.display_name || '未设置昵称'}
             </h1>
             <p className="text-sm text-muted mt-0.5">
-              {EXPERIENCE_LABELS[profile.experience] || '训练中'} · 每周 {profile.max_days_per_week || '--'} 天
+              {profile.experience === 'zero' ? '零基础' : profile.experience === 'occasional' ? '偶尔练' : '经常练'}
+              {' · '}每周 {profile.training_days ? (Array.isArray(profile.training_days) ? profile.training_days.length : profile.max_days_per_week) : profile.max_days_per_week || '--'} 天
             </p>
           </div>
-          <button
-            onClick={() => setEditing(!editing)}
-            className="text-sm text-brand font-medium px-3 py-1.5 rounded-lg bg-brand-light"
-          >
-            {editing ? '取消' : '编辑'}
-          </button>
+        </div>
+
+        {/* 统计小卡片 */}
+        <div className="grid grid-cols-3 gap-3">
+          <div className="rounded-2xl p-3 bg-ice-light text-center">
+            <div className="text-2xl font-bold text-brand">{stats?.totalWorkouts ?? 0}</div>
+            <div className="text-xs text-muted mt-0.5">累计完成</div>
+          </div>
+          <div className="rounded-2xl p-3 bg-ice-light text-center">
+            <div className="text-2xl font-bold text-brand">{stats?.currentStreak ?? 0}</div>
+            <div className="text-xs text-muted mt-0.5">连续天数</div>
+          </div>
+          <div className="rounded-2xl p-3 bg-ice-light text-center">
+            <div className="text-2xl font-bold text-text">{bmi ?? '--'}</div>
+            <div className="text-xs text-muted mt-0.5">{bmiLabel ?? 'BMI'}</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Tab 切换 */}
+      <div className="px-5 mb-5">
+        <div className="bg-subtle rounded-2xl p-1 flex gap-1">
+          {(['basic', 'training'] as const).map(t => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-all
+                ${tab === t ? 'bg-white text-brand shadow-sm' : 'text-muted hover:text-text'}`}
+            >
+              {t === 'basic' ? '基础信息' : '训练设置'}
+            </button>
+          ))}
         </div>
       </div>
 
       <div className="px-5 space-y-5">
 
-        {/* 编辑表单 */}
-        {editing && (
-          <div className="bg-subtle rounded-2xl p-4 space-y-3">
-            <h2 className="text-sm font-semibold text-text">身体信息</h2>
-            <p className="text-xs text-muted -mt-1">仅用于未来 AI 分析，完全可选</p>
+        {/* ── Tab 1：基础信息 ──────────────────────────────────────────────── */}
+        {tab === 'basic' && (
+          <div className="space-y-4">
             <Input id="displayName" label="昵称" placeholder="你的名字"
-              value={form.displayName} onChange={e => setForm(f => ({ ...f, displayName: e.target.value }))} />
+              value={basicForm.displayName}
+              onChange={e => setBasicForm(f => ({ ...f, displayName: e.target.value }))} />
             <Input id="age" label="年龄" type="number" placeholder="25"
-              value={form.age} onChange={e => setForm(f => ({ ...f, age: e.target.value }))} />
+              value={basicForm.age}
+              onChange={e => setBasicForm(f => ({ ...f, age: e.target.value }))} />
             <div className="grid grid-cols-2 gap-3">
               <Input id="height" label="身高 cm" type="number" placeholder="160"
-                value={form.height} onChange={e => setForm(f => ({ ...f, height: e.target.value }))} />
+                value={basicForm.height}
+                onChange={e => setBasicForm(f => ({ ...f, height: e.target.value }))} />
               <Input id="weight" label="体重 kg" type="number" placeholder="50"
-                value={form.weight} onChange={e => setForm(f => ({ ...f, weight: e.target.value }))} />
+                value={basicForm.weight}
+                onChange={e => setBasicForm(f => ({ ...f, weight: e.target.value }))} />
             </div>
-            <Button onClick={handleSave} className="w-full" disabled={saving}>
-              {saving ? '保存中…' : '保存'}
+            {bmi && (
+              <div className="flex items-center justify-between px-4 py-3 rounded-2xl bg-brand-light">
+                <span className="text-sm text-brand font-medium">BMI</span>
+                <span className="font-bold text-brand">{bmi} · {bmiLabel}</span>
+              </div>
+            )}
+            <Button onClick={handleBasicSave} className="w-full" disabled={basicSaving}>
+              {basicSaving ? '保存中…' : '保存基础信息'}
             </Button>
           </div>
         )}
 
-        {/* 训练成果 */}
-        <div>
-          <h2 className="text-sm font-semibold text-muted uppercase tracking-wide mb-3">训练成果</h2>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-2xl p-4 bg-ice-light">
-              <div className="text-3xl font-bold text-brand">{stats?.totalWorkouts ?? 0}</div>
-              <div className="text-sm text-muted mt-1">累计训练次</div>
-            </div>
-            <div className="rounded-2xl p-4 bg-ice-light">
-              <div className="text-3xl font-bold text-brand">{stats?.currentStreak ?? 0}</div>
-              <div className="text-sm text-muted mt-1">连续打卡天</div>
-            </div>
-          </div>
-          <div className="mt-3 rounded-2xl p-4 border border-dashed border-gray-200 text-center">
-            <p className="text-sm text-muted">AI 训练成果分析 · 即将上线</p>
-          </div>
-        </div>
+        {/* ── Tab 2：训练设置 ──────────────────────────────────────────────── */}
+        {tab === 'training' && (
+          <div className="space-y-6">
 
-        {/* 身体数据（有填才显示） */}
-        {(profile.height || profile.weight || profile.age) && (
-          <div>
-            <h2 className="text-sm font-semibold text-muted uppercase tracking-wide mb-3">身体数据</h2>
-            <div className="grid grid-cols-4 gap-2">
-              {profile.age && (
-                <div className="rounded-xl p-3 bg-subtle text-center">
-                  <div className="font-bold text-text">{profile.age}</div>
-                  <div className="text-xs text-muted mt-0.5">岁</div>
-                </div>
-              )}
-              {profile.height && (
-                <div className="rounded-xl p-3 bg-subtle text-center">
-                  <div className="font-bold text-text">{profile.height}</div>
-                  <div className="text-xs text-muted mt-0.5">cm</div>
-                </div>
-              )}
-              {profile.weight && (
-                <div className="rounded-xl p-3 bg-subtle text-center">
-                  <div className="font-bold text-text">{profile.weight}</div>
-                  <div className="text-xs text-muted mt-0.5">kg</div>
-                </div>
-              )}
-              {bmi && (
-                <div className="rounded-xl p-3 bg-brand-light text-center">
-                  <div className="font-bold text-brand">{bmi}</div>
-                  <div className="text-xs text-brand/70 mt-0.5">{bmiLabel}</div>
-                </div>
-              )}
+            {/* 运动经验 */}
+            <div>
+              <p className="text-sm font-semibold text-text mb-3">运动经验</p>
+              <div className="space-y-2">
+                {EXPERIENCE_OPTIONS.map(opt => {
+                  const active = trainingForm.experience === opt.value;
+                  return (
+                    <button
+                      key={opt.value}
+                      onClick={() => setTrainingForm(f => ({ ...f, experience: opt.value }))}
+                      className={`w-full text-left rounded-2xl px-4 py-3 flex items-center gap-3 transition-all border-l-4
+                        ${active ? 'bg-brand-light border-brand' : 'bg-subtle border-transparent hover:border-gray-200'}`}
+                    >
+                      <span className="text-xl w-7 text-center">{opt.emoji}</span>
+                      <div className="flex-1">
+                        <div className={`font-semibold text-sm ${active ? 'text-brand' : 'text-text'}`}>{opt.label}</div>
+                        <div className="text-xs text-muted">{opt.desc}</div>
+                      </div>
+                      {active && (
+                        <div className="w-5 h-5 rounded-full bg-brand flex items-center justify-center">
+                          <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
+
+            {/* 可用器械 */}
+            <div>
+              <p className="text-sm font-semibold text-text mb-3">可用器械</p>
+              <div className="space-y-2">
+                {EQUIPMENT_TOP.map(opt => {
+                  const active = opt.value === 'dumbbell' ? hasDumbbell : trainingForm.equipment.includes(opt.value);
+                  return (
+                    <div key={opt.value}>
+                      <button
+                        onClick={() => toggleTopEquip(opt.value)}
+                        className={`w-full text-left rounded-2xl px-4 py-3 flex items-center gap-3 transition-all border-l-4
+                          ${active ? 'bg-brand-light border-brand' : 'bg-subtle border-transparent hover:border-gray-200'}`}
+                      >
+                        <span className="text-xl w-7 text-center">{opt.emoji}</span>
+                        <div className="flex-1">
+                          <div className={`font-semibold text-sm ${active ? 'text-brand' : 'text-text'}`}>{opt.label}</div>
+                          <div className="text-xs text-muted">
+                            {opt.value === 'dumbbell' && hasDumbbell && selectedDumbbell
+                              ? `已选：${DUMBBELL_WEIGHTS.find(w => w.value === selectedDumbbell)?.label}`
+                              : opt.desc}
+                          </div>
+                        </div>
+                        {active && (
+                          <div className="w-5 h-5 rounded-full bg-brand flex items-center justify-center">
+                            <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                          </div>
+                        )}
+                      </button>
+                      {opt.value === 'dumbbell' && (hasDumbbell || dumbbellExpanded) && (
+                        <div className="mt-2 ml-10 p-3 bg-gray-50 rounded-xl border border-gray-100">
+                          <p className="text-xs text-muted mb-2">选择你的哑铃重量（单个）</p>
+                          <div className="grid grid-cols-3 gap-2">
+                            {DUMBBELL_WEIGHTS.map(w => (
+                              <button
+                                key={w.value}
+                                onClick={() => selectDumbbellWeight(w.value)}
+                                className={`py-2 rounded-lg text-sm font-medium border-2 transition-all ${
+                                  selectedDumbbell === w.value
+                                    ? 'border-brand bg-brand text-white'
+                                    : 'border-gray-200 bg-white text-text hover:border-brand/50'
+                                }`}
+                              >
+                                {w.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 伤病 */}
+            <div>
+              <p className="text-sm font-semibold text-text mb-1">伤病情况</p>
+              <p className="text-xs text-muted mb-3">有选择的动作会自动过滤</p>
+              <div className="flex flex-wrap gap-2">
+                {INJURY_OPTIONS.map(opt => {
+                  const active = trainingForm.injuries.includes(opt.value);
+                  return (
+                    <button
+                      key={opt.value}
+                      onClick={() => setTrainingForm(f => ({
+                        ...f,
+                        injuries: active ? f.injuries.filter(i => i !== opt.value) : [...f.injuries, opt.value],
+                      }))}
+                      className={`px-4 py-2 rounded-full border-2 text-sm font-medium transition-all ${
+                        active ? 'border-brand bg-brand-light text-brand' : 'border-gray-200 text-muted hover:border-gray-300'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 训练日 */}
+            <div>
+              <p className="text-sm font-semibold text-text mb-1">训练日</p>
+              <p className="text-xs text-muted mb-3">已选 {trainingForm.trainingDays.length} 天</p>
+              <div className="grid grid-cols-7 gap-1.5">
+                {WEEK_DAYS.map(w => {
+                  const active = trainingForm.trainingDays.includes(w.value);
+                  return (
+                    <button
+                      key={w.value}
+                      onClick={() => toggleDay(w.value)}
+                      className={`aspect-square rounded-xl flex items-center justify-center font-bold text-sm transition-all border-2 ${
+                        active
+                          ? 'border-brand bg-brand text-white'
+                          : 'border-gray-200 bg-white text-text hover:border-brand/50'
+                      }`}
+                    >
+                      {w.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 单次时长 */}
+            <div>
+              <p className="text-sm font-semibold text-text mb-3">单次最长时长</p>
+              <div className="grid grid-cols-3 gap-2">
+                {[20, 30, 45].map(m => (
+                  <button
+                    key={m}
+                    onClick={() => setTrainingForm(f => ({ ...f, sessionMaxMin: m }))}
+                    className={`py-3.5 rounded-xl border-2 text-center font-semibold text-sm transition-all ${
+                      trainingForm.sessionMaxMin === m
+                        ? 'border-brand bg-brand text-white'
+                        : 'border-gray-200 bg-white text-text hover:border-brand/50'
+                    }`}
+                  >
+                    {m} 分钟
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <Button onClick={handleTrainingSave} className="w-full" disabled={trainingSaving}>
+              {trainingSaving ? '保存并更新计划…' : trainingSaved ? '已保存 ✓' : '保存训练设置'}
+            </Button>
+            <p className="text-xs text-muted text-center -mt-3">保存后将自动重新生成本周计划</p>
           </div>
         )}
 
-        {/* 训练偏好 */}
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-muted uppercase tracking-wide">训练偏好</h2>
-            <button onClick={() => navigate('/intake')} className="text-xs text-brand font-medium">
-              修改
-            </button>
-          </div>
-          <div className="rounded-2xl bg-subtle p-4 space-y-3">
-            <div className="flex justify-between text-sm">
-              <span className="text-muted">运动经验</span>
-              <span className="font-medium text-text">{EXPERIENCE_LABELS[profile.experience] || '--'}</span>
-            </div>
-            <div className="w-full h-px bg-gray-100" />
-            <div className="flex justify-between text-sm">
-              <span className="text-muted">每周训练</span>
-              <span className="font-medium text-text">{profile.max_days_per_week ? `${profile.max_days_per_week} 天` : '--'}</span>
-            </div>
-            <div className="w-full h-px bg-gray-100" />
-            <div className="flex justify-between text-sm">
-              <span className="text-muted">单次时长</span>
-              <span className="font-medium text-text">{profile.session_max_min ? `${profile.session_max_min} 分钟` : '--'}</span>
-            </div>
-            {equipList.length > 0 && (
-              <>
-                <div className="w-full h-px bg-gray-100" />
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted">可用器械</span>
-                  <span className="font-medium text-text text-right max-w-[60%]">
-                    {equipList.map((e: string) => EQUIPMENT_LABELS[e] || e).join('、')}
-                  </span>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* 退出 */}
+        {/* 退出登录 */}
         <Button variant="outline" onClick={() => { clearToken(); navigate('/auth'); }} className="w-full text-muted">
           退出登录
         </Button>
-
         <div className="h-2" />
       </div>
 

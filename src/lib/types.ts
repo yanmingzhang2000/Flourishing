@@ -45,6 +45,8 @@ export interface UserProfile {
   injuries: string[];
   equipment: string[];
   maxTrainingDaysPerWeek: number;
+  /** 自定义训练日：0=周日 … 6=周六；未设置时按天数自动排期 */
+  trainingDays?: number[];
   selectedProjects: string[];
   singleSessionMaxMin: number;
   // 身体信息（个人页可选填）
@@ -68,6 +70,8 @@ export interface WorkoutDay {
   day: string;
   dayIndex: number;
   type: 'strength' | 'cardio' | 'rest';
+  /** 当天对应的训练项目 ID（多项目轮换时使用） */
+  projectId?: string;
   exercises: WorkoutExercise[];
   warmup: Exercise[];
   cooldown: Exercise[];
