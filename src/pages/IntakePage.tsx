@@ -182,10 +182,9 @@ export const IntakePage: React.FC = () => {
     </div>
   );
 
-  // 选项通用样式
   const optionCls = (active: boolean) =>
-    `p-4 text-left rounded-xl border-2 transition-all ${
-      active ? 'border-brand bg-brand-light' : 'border-gray-200 hover:border-gray-300'
+    `w-full p-4 text-left rounded-xl border-2 transition-all ${
+      active ? 'border-brand bg-brand-light' : 'border-gray-200 hover:border-gray-300 bg-white'
     }`;
 
   const STEP_TITLES = ['你的运动经验？', '器械 & 伤病情况', '每周训练安排'];
@@ -230,7 +229,7 @@ export const IntakePage: React.FC = () => {
         </div>
 
         <Card>
-          <CardContent className="p-5">
+          <CardContent className="p-4">
             {step === 1 && renderStep1()}
             {step === 2 && renderStep2()}
             {step === 3 && renderStep3()}
