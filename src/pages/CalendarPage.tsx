@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { storage } from '@/lib/storage';
 import { plansApi, recordsApi, userApi, isLoggedIn } from '@/lib/api';
 import { WeeklyPlan, TrainingRecord } from '@/lib/types';
@@ -12,7 +12,6 @@ type ViewType = 'week' | 'month' | 'year';
 
 export const CalendarPage: React.FC = () => {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const [view, setView] = useState<ViewType>('week');
   const [currentPlan, setCurrentPlan] = useState<WeeklyPlan | null>(null);
   const [monthPlans, setMonthPlans] = useState<any[]>([]);
@@ -20,10 +19,15 @@ export const CalendarPage: React.FC = () => {
   const [profile, setProfile] = useState<any | null>(null);
   const [stats, setStats] = useState<{ totalWorkouts: number; currentStreak: number }>({ totalWorkouts: 0, currentStreak: 0 });
 
-  // 月/年视图的年月参数
   const today = new Date();
-  const queryYear = parseInt(searchParams.get('year') || String(today.getFullYear()));
-  const queryMonth = parseInt(searchParams.get('month') || String(today.getMonth() + 1));
+  const [viewYear, setViewYear] = useState(today.getFullYear());
+  const [viewMonth, setViewMonth] = useState(today.getMonth() + 1);
+
+  // 月/年视图切换年月
+  const handleMonthChange = (y: number, m: number) => {
+    setViewYear(y);
+    setViewMonth(m);
+  };
 
   useEffect(() => {
     if (isLoggedIn()) {
@@ -59,17 +63,16 @@ export const CalendarPage: React.FC = () => {
   // 月视图需要加载该月所有计划
   useEffect(() => {
     if (view === 'month' && isLoggedIn()) {
-      plansApi.getMonth(queryYear, queryMonth).then(plans => {
+      plansApi.getMonth(viewYear, viewMonth).then(plans => {
         setMonthPlans(plans);
-        // 如果该月没有计划，自动生成
         if (plans.length === 0) {
-          plansApi.generateMonth(queryYear, queryMonth).then(() => {
-            plansApi.getMonth(queryYear, queryMonth).then(setMonthPlans);
+          plansApi.generateMonth(viewYear, viewMonth).then(() => {
+            plansApi.getMonth(viewYear, viewMonth).then(setMonthPlans);
           });
         }
       });
     }
-  }, [view, queryYear, queryMonth]);
+  }, [view, viewYear, viewMonth]);
 
   if (!profile) return null;
 
@@ -132,10 +135,10 @@ export const CalendarPage: React.FC = () => {
           <WeekView plan={currentPlan} records={records} />
         )}
         {view === 'month' && (
-          <MonthView year={queryYear} month={queryMonth} records={records} plans={monthPlans} />
+          <MonthView year={viewYear} month={viewMonth} records={records} plans={monthPlans} onMonthChange={handleMonthChange} />
         )}
         {view === 'year' && (
-          <YearView year={queryYear} records={records} />
+          <YearView year={viewYear} records={records} />
         )}
       </div>
 

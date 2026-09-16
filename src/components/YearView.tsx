@@ -58,7 +58,7 @@ export const YearView: React.FC<Props> = ({ year, records }) => {
                       key={i}
                       className={`aspect-square rounded-sm
                         ${status === 'done' ? 'bg-brand' :
-                          status === 'missed' ? 'bg-amber-light' :
+                          status === 'missed' ? 'bg-accent-light' :
                           'bg-white'
                         }`}
                       title={dateStr}
@@ -78,7 +78,7 @@ export const YearView: React.FC<Props> = ({ year, records }) => {
           <span>已完成</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded bg-amber-light" />
+          <div className="w-3 h-3 rounded bg-accent-light" />
           <span>计划但未完成</span>
         </div>
         <div className="flex items-center gap-1.5">

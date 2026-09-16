@@ -1,5 +1,4 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
 import { TrainingRecord } from '@/lib/types';
 
 interface Props {
@@ -7,12 +6,12 @@ interface Props {
   month: number;
   records: TrainingRecord[];
   plans: any[]; // 该月所有周计划
+  onMonthChange: (year: number, month: number) => void;
 }
 
 const DAY_NAMES = ['日', '一', '二', '三', '四', '五', '六'];
 
-export const MonthView: React.FC<Props> = ({ year, month, records, plans }) => {
-  const navigate = useNavigate();
+export const MonthView: React.FC<Props> = ({ year, month, records, plans, onMonthChange }) => {
 
   // 生成日历格子（包含上月尾、本月、下月初）
   const getCalendarDays = () => {
@@ -57,7 +56,7 @@ export const MonthView: React.FC<Props> = ({ year, month, records, plans }) => {
         const d = new Date(startDate);
         d.setDate(startDate.getDate() + i);
         if (d.toISOString().split('T')[0] === dateStr) {
-          const day = JSON.parse(plan.days)[i];
+          const day = (Array.isArray(plan.days) ? plan.days : JSON.parse(plan.days))[i];
           return day.type === 'rest' ? 'rest' : null;
         }
       }
@@ -73,7 +72,7 @@ export const MonthView: React.FC<Props> = ({ year, month, records, plans }) => {
       {/* 月份标题 */}
       <div className="flex items-center justify-center gap-3">
         <button
-          onClick={() => navigate(`?year=${month === 1 ? year - 1 : year}&month=${month === 1 ? 12 : month - 1}`)}
+          onClick={() => onMonthChange(month === 1 ? year - 1 : year, month === 1 ? 12 : month - 1)}
           className="w-8 h-8 rounded-lg bg-subtle hover:bg-ice-light flex items-center justify-center"
         >
           <svg className="w-4 h-4 text-text" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -84,7 +83,7 @@ export const MonthView: React.FC<Props> = ({ year, month, records, plans }) => {
           {year}年 {month}月
         </h2>
         <button
-          onClick={() => navigate(`?year=${month === 12 ? year + 1 : year}&month=${month === 12 ? 1 : month + 1}`)}
+          onClick={() => onMonthChange(month === 12 ? year + 1 : year, month === 12 ? 1 : month + 1)}
           className="w-8 h-8 rounded-lg bg-subtle hover:bg-ice-light flex items-center justify-center"
         >
           <svg className="w-4 h-4 text-text" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -110,7 +109,7 @@ export const MonthView: React.FC<Props> = ({ year, month, records, plans }) => {
                 className={`aspect-square rounded-lg flex items-center justify-center relative
                   ${!d.inMonth ? 'opacity-30' : ''}
                   ${status === 'done' ? 'bg-brand' :
-                    status === 'missed' ? 'bg-amber-light' :
+                    status === 'missed' ? 'bg-accent-light' :
                     status === 'rest' ? 'bg-subtle' :
                     isToday ? 'ring-2 ring-brand bg-brand-light' :
                     'bg-white'
@@ -138,7 +137,7 @@ export const MonthView: React.FC<Props> = ({ year, month, records, plans }) => {
           <span>已完成</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded bg-amber-light" />
+          <div className="w-3 h-3 rounded bg-accent-light" />
           <span>未完成</span>
         </div>
         <div className="flex items-center gap-1.5">
