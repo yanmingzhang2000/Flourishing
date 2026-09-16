@@ -77,25 +77,17 @@ export const IntakePage: React.FC = () => {
 
   // ── Step 1: 训练经验 ──────────────────────────────────────────────────────
   const renderStep1 = () => (
-    <div className="space-y-4">
-      <h2 className="text-lg font-semibold text-gray-800">你的运动经验？</h2>
-      <p className="text-sm text-gray-500">帮助我们推荐合适的训练强度</p>
-      <div className="grid gap-3">
-        {EXPERIENCE_OPTIONS.map(opt => (
-          <button
-            key={opt.value}
-            onClick={() => update({ experience: opt.value as UserProfile['experience'] })}
-            className={`p-4 text-left rounded-xl border-2 transition-all ${
-              prefs.experience === opt.value
-                ? 'border-[#7DC47A] bg-[#7DC47A]/10'
-                : 'border-gray-200 hover:border-gray-300'
-            }`}
-          >
-            <div className="font-medium text-gray-800">{opt.label}</div>
-            <div className="text-sm text-gray-500 mt-0.5">{opt.desc}</div>
-          </button>
-        ))}
-      </div>
+    <div className="space-y-3">
+      {EXPERIENCE_OPTIONS.map(opt => (
+        <button
+          key={opt.value}
+          onClick={() => update({ experience: opt.value as UserProfile['experience'] })}
+          className={optionCls(prefs.experience === opt.value)}
+        >
+          <div className="font-medium text-text">{opt.label}</div>
+          <div className="text-sm text-muted mt-0.5">{opt.desc}</div>
+        </button>
+      ))}
       {errors.experience && <p className="text-sm text-red-500">{errors.experience}</p>}
     </div>
   );
@@ -104,9 +96,7 @@ export const IntakePage: React.FC = () => {
   const renderStep2 = () => (
     <div className="space-y-5">
       <div>
-        <h2 className="text-lg font-semibold text-gray-800">你有哪些器械？</h2>
-        <p className="text-sm text-gray-500 mt-1">可多选，我们会匹配合适的动作</p>
-        <div className="grid gap-3 mt-3">
+        <div className="grid gap-3">
           {EQUIPMENT_OPTIONS.map(opt => (
             <button
               key={opt.value}
@@ -114,14 +104,10 @@ export const IntakePage: React.FC = () => {
                 const cur = prefs.equipment || [];
                 update({ equipment: cur.includes(opt.value) ? cur.filter(e => e !== opt.value) : [...cur, opt.value] });
               }}
-              className={`p-4 text-left rounded-xl border-2 transition-all ${
-                (prefs.equipment || []).includes(opt.value)
-                  ? 'border-[#7DC47A] bg-[#7DC47A]/10'
-                  : 'border-gray-200 hover:border-gray-300'
-              }`}
+              className={optionCls((prefs.equipment || []).includes(opt.value))}
             >
-              <div className="font-medium text-gray-800">{opt.label}</div>
-              <div className="text-sm text-gray-500 mt-0.5">{opt.desc}</div>
+              <div className="font-medium text-text">{opt.label}</div>
+              <div className="text-sm text-muted mt-0.5">{opt.desc}</div>
             </button>
           ))}
         </div>
@@ -129,9 +115,9 @@ export const IntakePage: React.FC = () => {
       </div>
 
       <div>
-        <h3 className="text-base font-semibold text-gray-800">有需要注意的伤病吗？</h3>
-        <p className="text-sm text-gray-500 mt-1">可跳过，有选择的动作会自动过滤</p>
-        <div className="flex flex-wrap gap-2 mt-3">
+        <h3 className="text-sm font-semibold text-text mb-1">有需要注意的伤病吗？</h3>
+        <p className="text-xs text-muted mb-3">有选择的动作会自动过滤</p>
+        <div className="flex flex-wrap gap-2">
           {INJURY_OPTIONS.map(opt => (
             <button
               key={opt.value}
@@ -139,10 +125,10 @@ export const IntakePage: React.FC = () => {
                 const cur = prefs.injuries || [];
                 update({ injuries: cur.includes(opt.value) ? cur.filter(i => i !== opt.value) : [...cur, opt.value] });
               }}
-              className={`px-4 py-2 rounded-full border-2 text-sm transition-all ${
+              className={`px-4 py-2 rounded-full border-2 text-sm font-medium transition-all ${
                 (prefs.injuries || []).includes(opt.value)
-                  ? 'border-[#F59E0B] bg-[#F59E0B]/10 text-[#F59E0B]'
-                  : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                  ? 'border-brand bg-brand-light text-brand'
+                  : 'border-gray-200 text-muted hover:border-gray-300'
               }`}
             >
               {opt.label}
@@ -157,37 +143,35 @@ export const IntakePage: React.FC = () => {
   const renderStep3 = () => (
     <div className="space-y-5">
       <div>
-        <h2 className="text-lg font-semibold text-gray-800">每周想练几天？</h2>
-        <p className="text-sm text-gray-500 mt-1">计划会按照你的节奏安排</p>
-        <div className="grid grid-cols-4 gap-2 mt-3">
+        <div className="grid grid-cols-4 gap-2">
           {[2, 3, 4, 5].map(d => (
             <button
               key={d}
               onClick={() => update({ maxTrainingDaysPerWeek: d })}
               className={`py-3 rounded-xl border-2 text-center font-medium transition-all ${
                 prefs.maxTrainingDaysPerWeek === d
-                  ? 'border-[#7DC47A] bg-[#7DC47A]/10 text-[#7DC47A]'
-                  : 'border-gray-200 text-gray-700 hover:border-gray-300'
+                  ? 'border-brand bg-brand-light text-brand'
+                  : 'border-gray-200 text-text hover:border-gray-300'
               }`}
             >
               {d} 天
             </button>
           ))}
         </div>
-        {errors.days && <p className="text-sm text-red-500 mt-1">{errors.days}</p>}
+        {errors.days && <p className="text-sm text-red-500 mt-2">{errors.days}</p>}
       </div>
 
       <div>
-        <h3 className="text-base font-semibold text-gray-800">每次最多练多久？</h3>
-        <div className="grid grid-cols-3 gap-2 mt-3">
+        <h3 className="text-sm font-semibold text-text mb-3">每次最多练多久？</h3>
+        <div className="grid grid-cols-3 gap-2">
           {[20, 30, 45].map(m => (
             <button
               key={m}
               onClick={() => update({ singleSessionMaxMin: m })}
               className={`py-3 rounded-xl border-2 text-center font-medium transition-all ${
                 prefs.singleSessionMaxMin === m
-                  ? 'border-[#7DC47A] bg-[#7DC47A]/10 text-[#7DC47A]'
-                  : 'border-gray-200 text-gray-700 hover:border-gray-300'
+                  ? 'border-brand bg-brand-light text-brand'
+                  : 'border-gray-200 text-text hover:border-gray-300'
               }`}
             >
               {m} 分钟
@@ -198,35 +182,55 @@ export const IntakePage: React.FC = () => {
     </div>
   );
 
+  // 选项通用样式
+  const optionCls = (active: boolean) =>
+    `p-4 text-left rounded-xl border-2 transition-all ${
+      active ? 'border-brand bg-brand-light' : 'border-gray-200 hover:border-gray-300'
+    }`;
+
+  const STEP_TITLES = ['你的运动经验？', '器械 & 伤病情况', '每周训练安排'];
+  const STEP_SUBTITLES = ['帮助我们推荐合适的训练强度', '可多选，我们会匹配合适的动作', '计划会按照你的节奏安排'];
+
   return (
-    <div className="min-h-screen bg-[#DCF0FB] p-4">
-      <div className="max-w-md mx-auto pt-8">
-
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="w-14 h-14 rounded-full bg-[#7DC47A] flex items-center justify-center mx-auto mb-3">
-            <svg viewBox="0 0 24 24" fill="none" className="w-8 h-8 text-white" stroke="currentColor" strokeWidth="2">
-              <path d="M12 2C8 2 4 6 4 10c0 6 8 12 8 12s8-6 8-12c0-4-4-8-8-8z" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
+    <div className="min-h-screen bg-bg">
+      {/* 顶部 Banner —— 与 ProjectSelectionPage 统一 */}
+      <div className="bg-gradient-to-r from-brand to-emerald-500 text-white py-10 px-4">
+        <div className="max-w-md mx-auto text-center">
+          <div className="flex items-center justify-center gap-3 mb-2">
+            <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+              <svg viewBox="0 0 24 24" fill="none" className="w-6 h-6 text-white" stroke="currentColor" strokeWidth="2">
+                <path d="M12 2C8 2 4 6 4 10c0 6 8 12 8 12s8-6 8-12c0-4-4-8-8-8z" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </div>
+            <h1 className="text-2xl font-bold">Flourish AI</h1>
           </div>
-          <h1 className="text-2xl font-bold text-gray-800">Flourish AI</h1>
-          <p className="text-gray-500 mt-1 text-sm">让我们了解你一点点</p>
+          <p className="text-white/80 text-sm">让我们先了解你一点点</p>
         </div>
+      </div>
 
+      <div className="max-w-md mx-auto px-4 -mt-3">
         {/* 步骤指示 */}
-        <div className="flex justify-center gap-2 mb-6">
+        <div className="flex items-center justify-center gap-2 mb-5 pt-5">
           {[1, 2, 3].map(s => (
-            <div
-              key={s}
-              className={`h-1.5 rounded-full transition-all duration-300 ${
-                s <= step ? 'bg-[#7DC47A] w-8' : 'bg-gray-200 w-5'
-              }`}
-            />
+            <div key={s} className="flex items-center gap-2">
+              <div className={`flex items-center justify-center rounded-full text-xs font-bold transition-all ${
+                s < step  ? 'w-6 h-6 bg-brand text-white' :
+                s === step ? 'w-7 h-7 bg-brand text-white ring-4 ring-brand/20' :
+                             'w-6 h-6 bg-gray-200 text-gray-400'
+              }`}>{s < step ? '✓' : s}</div>
+              {s < 3 && <div className={`w-8 h-0.5 rounded-full ${s < step ? 'bg-brand' : 'bg-gray-200'}`} />}
+            </div>
           ))}
         </div>
 
+        {/* 步骤标题 */}
+        <div className="mb-4">
+          <h2 className="text-lg font-bold text-text">{STEP_TITLES[step - 1]}</h2>
+          <p className="text-sm text-muted mt-0.5">{STEP_SUBTITLES[step - 1]}</p>
+        </div>
+
         <Card>
-          <CardContent className="p-6">
+          <CardContent className="p-5">
             {step === 1 && renderStep1()}
             {step === 2 && renderStep2()}
             {step === 3 && renderStep3()}
@@ -240,15 +244,15 @@ export const IntakePage: React.FC = () => {
             </Button>
           )}
           <Button onClick={handleNext} className="flex-1" disabled={submitting}>
-            {step === 3 ? (submitting ? '保存中…' : '下一步，选训练项目') : '下一步'}
+            {step === 3 ? (submitting ? '保存中…' : '选择训练项目 →') : '下一步'}
           </Button>
         </div>
 
         {step === 2 && (
-          <p className="text-center text-sm text-gray-400 mt-3">
-            没有伤病可以直接跳过
-          </p>
+          <p className="text-center text-sm text-muted mt-3">没有伤病可以直接跳过</p>
         )}
+
+        <div className="h-6" />
       </div>
     </div>
   );

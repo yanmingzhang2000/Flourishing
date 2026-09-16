@@ -141,7 +141,7 @@ export const DayWorkoutPage: React.FC = () => {
         {/* 左栏：热身 */}
         <div className="w-72 border-r border-gray-200 bg-white overflow-y-auto p-4 flex-shrink-0">
           <div className="flex items-center gap-2 mb-4">
-            <span className="w-6 h-6 rounded-full bg-yellow-400 text-white flex items-center justify-center text-xs font-bold">
+            <span className="w-6 h-6 rounded-full bg-brand/60 text-white flex items-center justify-center text-xs font-bold">
               热
             </span>
             <h2 className="font-bold text-gray-800">热身</h2>
@@ -150,10 +150,10 @@ export const DayWorkoutPage: React.FC = () => {
           
           <div className="space-y-3">
             {day.warmup.map((exercise) => (
-              <div key={exercise.id} className="p-3 bg-yellow-50 rounded-lg border border-yellow-100">
+              <div key={exercise.id} className="p-3 bg-brand-light rounded-lg border border-brand/20">
                 <div className="font-medium text-gray-800 text-sm">{exercise.name}</div>
                 <div className="text-xs text-gray-500 mt-1">{exercise.sets}组 × {exercise.reps}次</div>
-                <div className="text-xs text-yellow-600 mt-1">{exercise.rhythm}</div>
+                <div className="text-xs text-brand mt-1">{exercise.rhythm}</div>
                 <p className="text-xs text-gray-500 mt-2">{exercise.description}</p>
               </div>
             ))}
@@ -207,7 +207,7 @@ export const DayWorkoutPage: React.FC = () => {
                     onClick={() => setFeedback('too_easy')}
                     className={`p-3 rounded-lg border-2 text-center transition-all ${
                       feedback === 'too_easy'
-                        ? 'border-green-500 bg-green-50'
+                        ? 'border-brand bg-brand-light'
                         : 'border-gray-200 hover:border-gray-300'
                     }`}
                   >
@@ -267,7 +267,7 @@ export const DayWorkoutPage: React.FC = () => {
         {/* 右栏：拉伸 */}
         <div className="w-72 border-l border-gray-200 bg-white overflow-y-auto p-4 flex-shrink-0">
           <div className="flex items-center gap-2 mb-4">
-            <span className="w-6 h-6 rounded-full bg-blue-400 text-white flex items-center justify-center text-xs font-bold">
+            <span className="w-6 h-6 rounded-full bg-accent/60 text-white flex items-center justify-center text-xs font-bold">
               拉
             </span>
             <h2 className="font-bold text-gray-800">拉伸</h2>
@@ -276,10 +276,10 @@ export const DayWorkoutPage: React.FC = () => {
 
           <div className="space-y-3">
             {day.cooldown.map((exercise) => (
-              <div key={exercise.id} className="p-3 bg-blue-50 rounded-lg border border-blue-100">
+              <div key={exercise.id} className="p-3 bg-accent-light rounded-lg border border-accent/20">
                 <div className="font-medium text-gray-800 text-sm">{exercise.name}</div>
                 <div className="text-xs text-gray-500 mt-1">保持{exercise.reps}秒</div>
-                <div className="text-xs text-blue-600 mt-1">{exercise.rhythm}</div>
+                <div className="text-xs text-accent mt-1">{exercise.rhythm}</div>
                 <p className="text-xs text-gray-500 mt-2">{exercise.description}</p>
               </div>
             ))}
