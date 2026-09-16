@@ -9,6 +9,43 @@ router.use(authMiddleware);
 
 const DAY_NAMES = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
 
+// 伤病 tag → warning 关键字映射（前端存英文 tag，warning 是中文）
+const INJURY_KEYWORDS: Record<string, string[]> = {
+  shoulder:  ['肩'],
+  elbow:     ['肘'],
+  wrist:     ['腕', '手腕'],
+  knee:      ['膝', '膝盖'],
+  back:      ['腰', '背'],
+};
+
+function exerciseMatchesInjury(warning: string, injuries: string[]): boolean {
+  return injuries.some(inj => {
+    const keywords = INJURY_KEYWORDS[inj] || [inj];
+    return keywords.some(kw => warning.includes(kw));
+  });
+}
+
+// difficulty: beginner=1, intermediate=2  → sets/reps 调整系数
+function applyDifficultyLevel(sets: number, reps: number, level: number): { sets: number; reps: number } {
+  if (level === 1) return { sets: Math.max(sets - 1, 1), reps: Math.max(Math.round(reps * 0.8), 6) };
+  if (level === 3) return { sets: sets + 1, reps: Math.round(reps * 1.25) };
+  return { sets, reps };
+}
+
+// 根据最近反馈决定难度等级: 1=降级 2=保持 3=升级
+function getDifficultyLevel(userId: number | undefined): number {
+  if (!userId) return 2;
+  const recent = db.prepare(
+    `SELECT feedback FROM training_records WHERE user_id = ? AND completed = 1 ORDER BY created_at DESC LIMIT 4`
+  ).all(userId) as { feedback: string }[];
+  if (recent.length === 0) return 2;
+  const tooEasy  = recent.filter(r => r.feedback === 'too_easy').length;
+  const tooHard  = recent.filter(r => r.feedback === 'too_hard').length;
+  if (tooHard >= 1) return 1;
+  if (tooEasy >= 2) return 3;
+  return 2;
+}
+
 function loadExercises() {
   const p = path.join(__dirname, '../../../src/data/exercises.json');
   return JSON.parse(fs.readFileSync(p, 'utf-8')) as Record<string, any>;
@@ -53,21 +90,26 @@ router.post('/generate', (req: AuthRequest, res: Response) => {
     }
 
     const filtered = projectExercises.exercises.filter((ex: any) =>
-      !injuries.some((inj: string) => ex.warning?.toLowerCase().includes(inj.toLowerCase()))
+      !exerciseMatchesInjury(ex.warning || '', injuries)
     ).slice(0, 5);
+
+    const diffLevel = getDifficultyLevel(req.userId);
 
     return {
       day: dayLabel,
       dayIndex: i,
       type: 'strength',
-      exercises: filtered.map((ex: any) => ({
-        exerciseId: ex.id,
-        exercise: ex,
-        sets: ex.sets,
-        reps: ex.reps,
-        restBetweenSet: ex.rest_between_set,
-        completed: false,
-      })),
+      exercises: filtered.map((ex: any) => {
+        const { sets, reps } = applyDifficultyLevel(ex.sets, ex.reps, diffLevel);
+        return {
+          exerciseId: ex.id,
+          exercise: ex,
+          sets,
+          reps,
+          restBetweenSet: ex.rest_between_set,
+          completed: false,
+        };
+      }),
       warmup: projectExercises.warmup.slice(0, 2),
       cooldown: projectExercises.cooldown.slice(0, 2),
     };
@@ -187,21 +229,26 @@ router.post('/month/:year/:month/generate', (req: AuthRequest, res: Response) =>
         }
 
         const filtered = projectExercises.exercises.filter((ex: any) =>
-          !injuries.some((inj: string) => ex.warning?.toLowerCase().includes(inj.toLowerCase()))
+          !exerciseMatchesInjury(ex.warning || '', injuries)
         ).slice(0, 5);
+
+        const diffLevel = getDifficultyLevel(req.userId);
 
         return {
           day: dayLabel,
           dayIndex: i,
           type: 'strength',
-          exercises: filtered.map((ex: any) => ({
-            exerciseId: ex.id,
-            exercise: ex,
-            sets: ex.sets,
-            reps: ex.reps,
-            restBetweenSet: ex.rest_between_set,
-            completed: false,
-          })),
+          exercises: filtered.map((ex: any) => {
+            const { sets, reps } = applyDifficultyLevel(ex.sets, ex.reps, diffLevel);
+            return {
+              exerciseId: ex.id,
+              exercise: ex,
+              sets,
+              reps,
+              restBetweenSet: ex.rest_between_set,
+              completed: false,
+            };
+          }),
           warmup: projectExercises.warmup.slice(0, 2),
           cooldown: projectExercises.cooldown.slice(0, 2),
         };

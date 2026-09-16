@@ -12,7 +12,7 @@
     "color": "#7DC47A"
   },
   {
-    "id": "hip_width",
+    "id": "hip_thigh_tone",
     "name": "假胯宽改善",
     "subtitle": "瘦腿提臀",
     "target_area": "臀腿",
@@ -24,7 +24,7 @@
     "color": "#F59E0B"
   },
   {
-    "id": "lower_abs",
+    "id": "lower_abs_tone",
     "name": "下腹收紧",
     "subtitle": "瘦小肚子",
     "target_area": "腹部",
@@ -36,7 +36,7 @@
     "color": "#60B8D4"
   },
   {
-    "id": "trapezius_relax",
+    "id": "trap_relax",
     "name": "斜方肌放松",
     "subtitle": "瘦肩颈",
     "target_area": "肩颈",
@@ -48,7 +48,7 @@
     "color": "#A78BFA"
   },
   {
-    "id": "rounded_shoulders",
+    "id": "round_shoulder_fix",
     "name": "圆肩改善",
     "subtitle": "挺拔体态",
     "target_area": "背部",
@@ -60,7 +60,7 @@
     "color": "#34D399"
   },
   {
-    "id": "full_body",
+    "id": "full_body_basic",
     "name": "居家基础体能",
     "subtitle": "入门全身训练",
     "target_area": "全身",
