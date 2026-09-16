@@ -193,7 +193,7 @@ export const IntakePage: React.FC = () => {
   return (
     <div className="min-h-screen bg-surface">
       {/* 顶部 Banner —— 与 ProjectSelectionPage 统一 */}
-      <div className="bg-gradient-to-r from-brand to-emerald-500 text-white py-10 px-4">
+      <div className="bg-gradient-to-r from-brand to-emerald-500 text-white py-12 px-4">
         <div className="max-w-md mx-auto text-center">
           <div className="flex items-center justify-center gap-3 mb-2">
             <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
@@ -207,9 +207,9 @@ export const IntakePage: React.FC = () => {
         </div>
       </div>
 
-      <div className="max-w-md mx-auto px-4 -mt-3">
+      <div className="max-w-md mx-auto px-4">
         {/* 步骤指示 */}
-        <div className="flex items-center justify-center gap-2 mb-5 pt-5">
+        <div className="flex items-center justify-center gap-2 py-8">
           {[1, 2, 3].map(s => (
             <div key={s} className="flex items-center gap-2">
               <div className={`flex items-center justify-center rounded-full text-xs font-bold transition-all ${
@@ -223,7 +223,7 @@ export const IntakePage: React.FC = () => {
         </div>
 
         {/* 步骤标题 */}
-        <div className="mb-4">
+        <div className="mb-6">
           <h2 className="text-lg font-bold text-text">{STEP_TITLES[step - 1]}</h2>
           <p className="text-sm text-muted mt-0.5">{STEP_SUBTITLES[step - 1]}</p>
         </div>
