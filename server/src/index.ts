@@ -43,9 +43,11 @@ const distPath = path.join(__dirname, '../../dist');
 app.use(express.static(distPath));
 
 // SPA fallback — 所有非 /api 路由返回 index.html
-app.get('*', (req, res) => {
+app.use((req, res, next) => {
   if (!req.path.startsWith('/api')) {
     res.sendFile(path.join(distPath, 'index.html'));
+  } else {
+    next();
   }
 });
 
