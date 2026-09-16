@@ -1,58 +1,46 @@
-# Flourish AI 一键部署脚本
-# 使用方法: 在PowerShell中运行 .\deploy-server.ps1
+$SERVER    = "root@47.93.29.237"
+$REMOTE    = "/root/Flourishing"
+$LOCAL     = "C:\Users\maggie.zhang\Desktop\code\Flourishing"
+$SSH_OPTS  = @("-o", "StrictHostKeyChecking=no", "-o", "BatchMode=yes")
 
-$SERVER = "root@47.93.29.237"
-$REMOTE_DIR = "/opt/flourish-ai"
-$LOCAL_DIR = "C:\Users\yanmingzhang\Desktop\Code\Flourishing-latest"
+function Log  { param($m, $c = "Cyan")   Write-Host "[deploy] $m" -ForegroundColor $c }
+function Step { param($m)                Write-Host "" ; Write-Host ">>> $m" -ForegroundColor Yellow }
 
-Write-Host "=== Flourish AI 部署 ===" -ForegroundColor Green
+Step "1. Build frontend"
+Set-Location $LOCAL
+npm run build
+Log "Frontend built" Green
 
-# 1. 打包项目（排除不需要的文件）
-Write-Host "打包项目文件..." -ForegroundColor Yellow
+Step "2. Build backend"
+Set-Location ($LOCAL + "\server")
+npm run build
+Log "Backend built" Green
 
-$archive = "$LOCAL_DIR\flourish-ai-deploy.tar.gz"
+Step "3. Upload files"
+$distDest   = $SERVER + ":" + $REMOTE + "/dist/index.html"
+$serverDest = $SERVER + ":" + $REMOTE + "/server/"
+$pkgDest    = $SERVER + ":" + $REMOTE + "/server/package.json"
 
-# 使用 tar 打包（Windows 10+ 自带 tar）
-tar -czf $archive `
-    --exclude="node_modules" `
-    --exclude="dist" `
-    --exclude=".git" `
-    --exclude="*.log" `
-    -C $LOCAL_DIR `
-    src/ data/ public/ scripts/ server/ docs/ `
-    package.json package-lock.json `
-    tsconfig.json tsconfig.app.json tsconfig.node.json `
-    vite.config.ts eslint.config.js index.html `
-    deploy.sh server/.env
+Log "Uploading dist/index.html ..."
+& scp @SSH_OPTS ($LOCAL + "\dist\index.html") $distDest
 
-Write-Host "打包完成: $archive" -ForegroundColor Green
+Log "Uploading server/dist/ ..."
+& scp @SSH_OPTS -r ($LOCAL + "\server\dist") $serverDest
 
-# 2. 上传到服务器
-Write-Host "上传到服务器..." -ForegroundColor Yellow
-scp $archive "${SERVER}:/tmp/"
+Log "Uploading server/package.json ..."
+& scp @SSH_OPTS ($LOCAL + "\server\package.json") $pkgDest
 
-# 3. 远程执行部署
-Write-Host "在服务器上执行部署..." -ForegroundColor Yellow
-ssh $SERVER @"
-set -e
-cd /tmp
+Log "Upload complete" Green
 
-# 解压
-rm -rf $REMOTE_DIR
-mkdir -p $REMOTE_DIR
-tar -xzf flourish-ai-deploy.tar.gz -C $REMOTE_DIR
+Step "4. Restart server"
+$tmpScript = [System.IO.Path]::GetTempFileName() + ".sh"
+$scriptContent = "#!/bin/bash`ncd " + $REMOTE + "/server`nnpm install --omit=dev 2>&1 | tail -3`npm2 restart flourish-api`npm2 save`npm2 list`nsleep 2`ncurl -s http://localhost:80/api/health"
+$scriptContent | Set-Content -Path $tmpScript -Encoding ASCII
 
-# 确保 deploy.sh 可执行
-chmod +x $REMOTE_DIR/deploy.sh
-
-# 执行部署脚本
-cd $REMOTE_DIR
-bash deploy.sh
-
-# 清理
-rm -f /tmp/flourish-ai-deploy.tar.gz
-"@
+$tmpDest = $SERVER + ":/tmp/flourish-deploy.sh"
+& scp @SSH_OPTS $tmpScript $tmpDest
+& ssh @SSH_OPTS $SERVER "bash /tmp/flourish-deploy.sh && rm /tmp/flourish-deploy.sh"
+Remove-Item $tmpScript -Force
 
 Write-Host ""
-Write-Host "=== 部署完成! ===" -ForegroundColor Green
-Write-Host "访问: http://47.93.29.237" -ForegroundColor Cyan
+Write-Host "Deploy complete! http://47.93.29.237" -ForegroundColor Green
