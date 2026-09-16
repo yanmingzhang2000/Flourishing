@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { storage } from '@/lib/storage';
 import { plansApi, recordsApi, userApi, isLoggedIn } from '@/lib/api';
-import { WeeklyPlan, TrainingRecord } from '@/lib/types';
+import { WeeklyPlan, PlanSnapshot, TrainingRecord, StructuredUnavailableResult } from '@/lib/types';
 import { BottomNav } from '@/components/BottomNav';
 import { WeekView } from '@/components/WeekView';
 import { MonthView } from '@/components/MonthView';
@@ -14,10 +14,10 @@ export const CalendarPage: React.FC = () => {
   const navigate = useNavigate();
   const [view, setView] = useState<ViewType>('week');
   const [currentPlan, setCurrentPlan] = useState<WeeklyPlan | null>(null);
-  const [monthPlans, setMonthPlans] = useState<any[]>([]);
+  const [monthPlans, setMonthPlans] = useState<PlanSnapshot[]>([]);
   const [records, setRecords] = useState<TrainingRecord[]>([]);
   const [profile, setProfile] = useState<any | null>(null);
-  const [stats, setStats] = useState<{ totalWorkouts: number; currentStreak: number }>({ totalWorkouts: 0, currentStreak: 0 });
+  const [unavailable, setUnavailable] = useState<StructuredUnavailableResult | null>(null);
 
   const today = new Date();
   const [viewYear, setViewYear] = useState(today.getFullYear());
@@ -45,7 +45,13 @@ export const CalendarPage: React.FC = () => {
 
         // 如果当前没有计划，自动生成
         if (!planRes) {
-          plansApi.generate().then(() => plansApi.getCurrent().then(setCurrentPlan));
+          plansApi.generate().then(result => {
+            if (result.outcome === 'temporarily_unavailable') {
+              setUnavailable(result);
+              return;
+            }
+            plansApi.getCurrent().then(setCurrentPlan);
+          });
         }
       }).catch(() => navigate('/'));
     } else {
@@ -66,7 +72,11 @@ export const CalendarPage: React.FC = () => {
       plansApi.getMonth(viewYear, viewMonth).then(plans => {
         setMonthPlans(plans);
         if (plans.length === 0) {
-          plansApi.generateMonth(viewYear, viewMonth).then(() => {
+          plansApi.generateMonth(viewYear, viewMonth).then(result => {
+            if (result.outcome === 'temporarily_unavailable') {
+              setUnavailable(result);
+              return;
+            }
             plansApi.getMonth(viewYear, viewMonth).then(setMonthPlans);
           });
         }
@@ -112,6 +122,13 @@ export const CalendarPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {unavailable && (
+        <div className="mx-5 mb-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-center">
+          <p className="font-semibold text-amber-800">{unavailable.display_message}</p>
+          <p className="mt-1 text-xs text-amber-700">当前条件下没有安全、合格的动作，请调整训练偏好后重试。</p>
+        </div>
+      )}
 
       {/* Tab 切换 */}
       <div className="px-5 mb-5">

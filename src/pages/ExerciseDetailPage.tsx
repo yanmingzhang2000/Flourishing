@@ -1,37 +1,65 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
-import exercisesData from '@/data/exercises.json';
-import { Exercise, ProjectExercises } from '@/lib/types';
-import { storage } from '@/lib/storage';
+import { plansApi, exercisesApi } from '@/lib/api';
+import { ExerciseSnapshot } from '@/lib/types';
+
+interface ExerciseNavigationState {
+  /** Current workout navigation uses this field; it may also be an old snapshot. */
+  exercise?: ExerciseSnapshot;
+  /** Explicit snapshot name for historical-plan navigation. */
+  snapshot?: ExerciseSnapshot;
+  /** Optional persisted-plan lookup when navigation carries only an ID. */
+  planId?: number | string;
+}
 
 export const ExerciseDetailPage: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { exerciseId } = useParams<{ exerciseId: string }>();
-  const [exercise, setExercise] = useState<Exercise | null>(null);
+  const [exercise, setExercise] = useState<ExerciseSnapshot | null>(null);
   const [timerActive, setTimerActive] = useState(false);
   const [timerSeconds, setTimerSeconds] = useState(0);
   const [mediaMode, setMediaMode] = useState<'video' | 'image'>('video');
 
   useEffect(() => {
-    const allProjectExercises = exercisesData as ProjectExercises;
-    const profile = storage.getUserProfile();
-    const selectedProjectId = profile?.selectedProjects?.[0] || 'tricep_tone';
-    const exercises = allProjectExercises[selectedProjectId];
-    
-    if (!exercises) {
-      navigate('/calendar');
+    const navigationState = (location.state as ExerciseNavigationState | null) || null;
+    const snapshot = navigationState?.snapshot || navigationState?.exercise;
+
+    // A workout contains a self-contained snapshot. Render it first so a
+    // deprecated or removed current-library record cannot replace history.
+    if (
+      snapshot
+      && exerciseId
+      && (snapshot.id === exerciseId || snapshot.canonical_exercise_id === exerciseId)
+    ) {
+      setExercise(snapshot);
       return;
     }
-    
-    const allExercises = [...exercises.warmup, ...exercises.exercises, ...exercises.cooldown];
-    const found = allExercises.find(e => e.id === exerciseId);
-    if (!found) {
-      navigate('/calendar');
+    if (!exerciseId) { navigate('/calendar'); return; }
+
+    const loadCurrentExercise = () =>
+      exercisesApi.getById(exerciseId).then(setExercise);
+
+    // If navigation only carries a persisted-plan ID, recover the historical
+    // snapshot before falling back to the current approved-content endpoint.
+    if (navigationState?.planId !== undefined) {
+      plansApi.getById(navigationState.planId).then(plan => {
+        const historical = plan.days
+          .flatMap(day => [
+            ...day.exercises.map(item => item.exercise),
+            ...day.warmup,
+            ...day.cooldown,
+          ])
+          .find(item => item.id === exerciseId || item.canonical_exercise_id === exerciseId);
+        if (historical) setExercise(historical);
+        else loadCurrentExercise().catch(() => navigate('/calendar'));
+      }).catch(() => loadCurrentExercise().catch(() => navigate('/calendar')));
       return;
     }
-    setExercise(found);
-  }, [exerciseId, navigate]);
+
+    loadCurrentExercise().catch(() => navigate('/calendar'));
+  }, [exerciseId, location.state, navigate]);
 
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
@@ -68,6 +96,7 @@ export const ExerciseDetailPage: React.FC = () => {
 
   const getEquipmentLabel = (equip: string) => {
     const labels: Record<string, string> = {
+      bodyweight: '自重',
       none: '自重',
       chair: '椅子',
       'dumbbell_1kg_pair': '1kg哑铃',

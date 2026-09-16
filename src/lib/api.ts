@@ -1,3 +1,13 @@
+import {
+  CurrentExercise,
+  HistoricalPlanSnapshot,
+  MonthPlanGenerationResponse,
+  PlanGenerationResponse,
+  PlanSnapshot,
+  ProjectExercisesResponse,
+  StructuredUnavailableResult,
+} from './types';
+
 // 生产环境下前端和后端同源，使用相对路径；开发环境指向本地后端
 const BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3001' : '');
 
@@ -58,21 +68,27 @@ export const userApi = {
 export const projectsApi = {
   getAll: () => request<any[]>('/api/projects'),
   getById: (id: string) => request<any>(`/api/projects/${id}`),
-  getExercises: (id: string) => request<any>(`/api/projects/${id}/exercises`),
+  getExercises: (id: string) => request<ProjectExercisesResponse>(`/api/projects/${id}/exercises`),
+  getExercise: (id: string) => request<CurrentExercise>(`/api/exercises/${id}`),
+};
+
+export const exercisesApi = {
+  getById: (id: string) => request<CurrentExercise>(`/api/exercises/${id}`),
 };
 
 // 训练计划
 export const plansApi = {
   generate: (weekNumber?: number) =>
-    request<any>('/api/plans/generate', {
+    request<PlanGenerationResponse>('/api/plans/generate', {
       method: 'POST',
       body: JSON.stringify({ weekNumber }),
     }),
-  getCurrent: () => request<any>('/api/plans/current'),
-  getMonth: (year: number, month: number) => 
-    request<any[]>(`/api/plans/month/${year}/${month}`),
-  generateMonth: (year: number, month: number) =>
-    request<any>(`/api/plans/month/${year}/${month}/generate`, {
+  getCurrent: () => request<PlanSnapshot | null>('/api/plans/current'),
+  getById: (id: number | string) => request<HistoricalPlanSnapshot>(`/api/plans/${id}`),
+  getMonth: (year: number, month: number) =>
+    request<HistoricalPlanSnapshot[]>(`/api/plans/month/${year}/${month}`),
+  generateMonth: (year: number, month: number): Promise<MonthPlanGenerationResponse> =>
+    request<MonthPlanGenerationResponse>(`/api/plans/month/${year}/${month}/generate`, {
       method: 'POST',
     }),
 };

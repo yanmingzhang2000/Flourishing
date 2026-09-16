@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { userApi, plansApi, clearToken } from '@/lib/api';
+import { StructuredUnavailableResult } from '@/lib/types';
 import projectsData from '@/data/projects.json';
 import { Project } from '@/lib/types';
 
@@ -10,6 +11,7 @@ export const ProjectSelectionPage: React.FC = () => {
   const projects = projectsData as Project[];
   const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const [unavailable, setUnavailable] = useState<StructuredUnavailableResult | null>(null);
 
   const toggleProject = (projectId: string) => {
     setSelectedProjects(prev =>
@@ -22,10 +24,23 @@ export const ProjectSelectionPage: React.FC = () => {
     setLoading(true);
     try {
       await userApi.updateProfile({ selected_projects: selectedProjects });
-      await plansApi.generate(1);
+      const result = await plansApi.generate(1);
+      if (result.outcome === 'temporarily_unavailable') {
+        setUnavailable(result);
+        return;
+      }
       navigate('/calendar');
     } catch {
-      navigate('/calendar');
+      // A failed generation is not a successful plan. Keep the selected
+      // projects visible so the user can adjust them and retry explicitly.
+      setUnavailable({
+        outcome: 'temporarily_unavailable',
+        display_message: '暂不可生成',
+        requested_project_ids: [...selectedProjects],
+        failed_eligibility_categories_by_project: {},
+        unknown_input_values: [],
+        experience: null,
+      });
     } finally {
       setLoading(false);
     }
@@ -148,6 +163,13 @@ export const ProjectSelectionPage: React.FC = () => {
           {loading ? '生成计划中…' : `开始训练 ${selectedProjects.length > 0 ? `(${selectedProjects.length})` : ''}`}
           </Button>
         </div>
+
+        {unavailable && (
+          <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-center">
+            <p className="font-semibold text-amber-800">{unavailable.display_message}</p>
+            <p className="mt-1 text-sm text-amber-700">当前选择没有安全且合格的动作，请调整个人偏好。</p>
+          </div>
+        )}
 
         {selectedProjects.length > 0 && (
           <div className="mt-6 p-4 bg-gradient-to-r from-[#7DC47A]/10 to-[#10B981]/10 rounded-xl border border-[#7DC47A]/20">

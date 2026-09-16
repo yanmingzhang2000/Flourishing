@@ -178,7 +178,15 @@ export const DayWorkoutPage: React.FC = () => {
                 index={index + 1}
                 isCompleted={completedExercises.has(workoutExercise.exerciseId)}
                 onToggle={() => toggleExercise(workoutExercise.exerciseId)}
-                onClick={() => navigate(`/exercise/${workoutExercise.exerciseId}`)}
+                onClick={() => navigate(`/exercise/${workoutExercise.exerciseId}`, {
+                  state: {
+                    snapshot: workoutExercise.exercise,
+                    // Keep the legacy field for existing callers while making
+                    // the historical-snapshot contract explicit.
+                    exercise: workoutExercise.exercise,
+                    planId: plan.id,
+                  },
+                })}
               />
             ))}
           </div>

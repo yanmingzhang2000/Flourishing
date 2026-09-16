@@ -8,6 +8,7 @@ import userRouter from './routes/user';
 import projectsRouter from './routes/projects';
 import plansRouter from './routes/plans';
 import recordsRouter from './routes/records';
+import exercisesRouter from './routes/exercises';
 
 const app = express();
 const PORT = process.env.PORT || 80;
@@ -34,6 +35,7 @@ app.use('/api/user', userRouter);
 app.use('/api/projects', projectsRouter);
 app.use('/api/plans', plansRouter);
 app.use('/api/records', recordsRouter);
+app.use('/api/exercises', exercisesRouter);
 
 // 健康检查
 app.get('/api/health', (_req, res) => res.json({ status: 'ok', version: 'v2' }));

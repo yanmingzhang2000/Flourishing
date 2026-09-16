@@ -29,11 +29,22 @@ export interface Exercise {
   alternative?: string[];
 }
 
-export interface ExerciseData {
-  warmup: Exercise[];
-  exercises: Exercise[];
-  cooldown: Exercise[];
+/**
+ * A rendered exercise snapshot. New plans include canonical identity/version,
+ * while older persisted plans may contain only the legacy display fields.
+ */
+export interface ExerciseSnapshot extends Exercise {
+  canonical_exercise_id?: string;
+  library_version?: string;
 }
+
+export interface ExerciseData {
+  warmup: ExerciseSnapshot[];
+  exercises: ExerciseSnapshot[];
+  cooldown: ExerciseSnapshot[];
+}
+
+export type ProjectExerciseContent = ExerciseData;
 
 export interface ProjectExercises {
   [projectId: string]: ExerciseData;
@@ -57,7 +68,7 @@ export interface UserProfile {
 
 export interface WorkoutExercise {
   exerciseId: string;
-  exercise: Exercise;
+  exercise: ExerciseSnapshot;
   sets: number;
   reps: number;
   restBetweenSet: number;
@@ -69,20 +80,24 @@ export interface WorkoutDay {
   dayIndex: number;
   type: 'strength' | 'cardio' | 'rest';
   exercises: WorkoutExercise[];
-  warmup: Exercise[];
-  cooldown: Exercise[];
+  warmup: ExerciseSnapshot[];
+  cooldown: ExerciseSnapshot[];
 }
 
 export interface WeeklyPlan {
-  id: string;
+  id: string | number;
   weekNumber: number;
   startDate: string;
   days: WorkoutDay[];
 }
 
+/** The immutable plan payload returned by current, month, and :id endpoints. */
+export type PlanSnapshot = WeeklyPlan;
+export type HistoricalPlanSnapshot = WeeklyPlan;
+
 export interface TrainingRecord {
   date: string;
-  weekPlanId: string;
+  weekPlanId: string | number;
   dayIndex: number;
   completed: boolean;
   feedback?: 'too_easy' | 'just_right' | 'too_hard';
@@ -96,3 +111,41 @@ export interface UserStats {
   longestStreak: number;
   completedDays: string[];
 }
+
+export interface StructuredUnavailableResult {
+  outcome: 'temporarily_unavailable';
+  display_message: '暂不可生成';
+  requested_project_ids: string[];
+  failed_eligibility_categories_by_project: Record<string, string[]>;
+  unknown_input_values: Array<{
+    field: 'injuries' | 'equipment' | 'experience' | 'selected_projects' | string;
+    value: string;
+  }>;
+  experience: string | null;
+}
+
+export interface PlanGenerationSuccess extends WeeklyPlan {
+  outcome: 'generated';
+  libraryVersion: string;
+}
+
+/** Discriminated response shared by week and month generation callers. */
+export type PlanGenerationResponse = PlanGenerationSuccess | StructuredUnavailableResult;
+
+export interface MonthPlanGenerationSuccess {
+  outcome: 'generated';
+  generated: number;
+  plans: PlanSnapshot[];
+  libraryVersion: string;
+}
+
+export type MonthPlanGenerationResponse = MonthPlanGenerationSuccess | StructuredUnavailableResult;
+
+export interface CurrentExercise extends ExerciseSnapshot {
+  canonical_exercise_id: string;
+  library_version: string;
+}
+
+export type CurrentExerciseResponse = CurrentExercise;
+export type HistoricalExerciseSnapshot = ExerciseSnapshot;
+export type ProjectExercisesResponse = ProjectExerciseContent;
