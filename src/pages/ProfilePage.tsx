@@ -76,6 +76,8 @@ export const ProfilePage: React.FC = () => {
   // 基础信息表单
   const [basicForm, setBasicForm] = useState<BasicForm>({ displayName: '', age: '', height: '', weight: '' });
   const [basicSaving, setBasicSaving] = useState(false);
+  const [basicError, setBasicError] = useState<string | null>(null);
+  const [basicSaved, setBasicSaved] = useState(false);
 
   // 训练设置表单
   const [trainingForm, setTrainingForm] = useState<TrainingForm>({
@@ -87,6 +89,7 @@ export const ProfilePage: React.FC = () => {
   });
   const [trainingSaving, setTrainingSaving] = useState(false);
   const [trainingSaved, setTrainingSaved] = useState(false);
+  const [trainingError, setTrainingError] = useState<string | null>(null);
   const [dumbbellExpanded, setDumbbellExpanded] = useState(false);
 
   useEffect(() => {
@@ -120,6 +123,7 @@ export const ProfilePage: React.FC = () => {
 
   const handleBasicSave = async () => {
     setBasicSaving(true);
+    setBasicError(null);
     try {
       await userApi.updateProfile({
         display_name: basicForm.displayName || undefined,
@@ -129,6 +133,10 @@ export const ProfilePage: React.FC = () => {
       });
       const updated = await userApi.getProfile();
       setProfile(updated);
+      setBasicSaved(true);
+      setTimeout(() => setBasicSaved(false), 2000);
+    } catch {
+      setBasicError('保存失败，请检查网络后重试');
     } finally {
       setBasicSaving(false);
     }
@@ -138,6 +146,7 @@ export const ProfilePage: React.FC = () => {
 
   const handleTrainingSave = async () => {
     setTrainingSaving(true);
+    setTrainingError(null);
     try {
       await userApi.updateProfile({
         experience: trainingForm.experience,
@@ -153,6 +162,8 @@ export const ProfilePage: React.FC = () => {
       setProfile(updated);
       setTrainingSaved(true);
       setTimeout(() => setTrainingSaved(false), 2000);
+    } catch {
+      setTrainingError('保存失败，请检查网络后重试');
     } finally {
       setTrainingSaving(false);
     }
@@ -293,8 +304,16 @@ export const ProfilePage: React.FC = () => {
               </div>
             )}
             <Button onClick={handleBasicSave} className="w-full" disabled={basicSaving}>
-              {basicSaving ? '保存中…' : '保存基础信息'}
+              {basicSaving ? '保存中…' : basicSaved ? '已保存 ✓' : '保存基础信息'}
             </Button>
+            {basicError && (
+              <div className="flex items-center gap-2 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600">
+                <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                </svg>
+                {basicError}
+              </div>
+            )}
           </div>
         )}
 
@@ -461,6 +480,14 @@ export const ProfilePage: React.FC = () => {
             <Button onClick={handleTrainingSave} className="w-full" disabled={trainingSaving}>
               {trainingSaving ? '保存并更新计划…' : trainingSaved ? '已保存 ✓' : '保存训练设置'}
             </Button>
+            {trainingError && (
+              <div className="flex items-center gap-2 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600">
+                <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                </svg>
+                {trainingError}
+              </div>
+            )}
             <p className="text-xs text-muted text-center -mt-3">保存后将自动重新生成本周计划</p>
           </div>
         )}

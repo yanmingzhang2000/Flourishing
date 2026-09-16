@@ -92,6 +92,7 @@ export const IntakePage: React.FC = () => {
   const [dumbbellExpanded, setDumbbellExpanded] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const update = (updates: Partial<Prefs>) => { setPrefs(prev => ({ ...prev, ...updates })); setErrors({}); };
 
@@ -138,6 +139,7 @@ export const IntakePage: React.FC = () => {
   };
 
   const handleSubmit = async () => {
+    setSaveError(null);
     setSubmitting(true);
     try {
       const trainingDays = prefs.trainingDays || [];
@@ -149,8 +151,12 @@ export const IntakePage: React.FC = () => {
         session_max_min: prefs.singleSessionMaxMin || 30,
         training_days: trainingDays,
       });
-    } catch { /* 失败也继续 */ }
-    finally { setSubmitting(false); navigate('/'); }
+      navigate('/');
+    } catch {
+      setSaveError('保存失败，请检查网络后重试');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   // ── Step 渲染 ───────────────────────────────────────────────────────────────
@@ -356,6 +362,15 @@ export const IntakePage: React.FC = () => {
             {step === 3 ? (submitting ? '保存中…' : '选择训练项目 →') : '下一步'}
           </Button>
         </div>
+
+        {saveError && (
+          <div className="mt-3 flex items-center gap-2 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600">
+            <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+            </svg>
+            {saveError}
+          </div>
+        )}
 
         {step === 2 && (
           <p className="text-center text-sm text-muted mt-3">没有伤病可以直接跳过</p>

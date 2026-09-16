@@ -18,6 +18,8 @@ export const CalendarPage: React.FC = () => {
   const [records, setRecords] = useState<TrainingRecord[]>([]);
   const [profile, setProfile] = useState<any | null>(null);
   const [stats, setStats] = useState<{ totalWorkouts: number; currentStreak: number }>({ totalWorkouts: 0, currentStreak: 0 });
+  const [loading, setLoading] = useState(true);
+  const [planLoading, setPlanLoading] = useState(false);
 
   const today = new Date();
   const [viewYear, setViewYear] = useState(today.getFullYear());
@@ -45,9 +47,10 @@ export const CalendarPage: React.FC = () => {
 
         // 如果当前没有计划，自动生成
         if (!planRes) {
-          plansApi.generate().then(() => plansApi.getCurrent().then(setCurrentPlan));
+          setPlanLoading(true);
+          plansApi.generate().then(() => plansApi.getCurrent().then(setCurrentPlan)).finally(() => setPlanLoading(false));
         }
-      }).catch(() => navigate('/'));
+      }).catch(() => navigate('/')).finally(() => setLoading(false));
     } else {
       const savedPlan = storage.getWeeklyPlan();
       const savedRecords = storage.getTrainingRecords();
@@ -74,7 +77,13 @@ export const CalendarPage: React.FC = () => {
     }
   }, [view, viewYear, viewMonth]);
 
-  if (!profile) return null;
+  if (loading || !profile) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-brand border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white pb-24">
@@ -131,8 +140,10 @@ export const CalendarPage: React.FC = () => {
 
       {/* 视图内容 */}
       <div className="px-5">
-        {view === 'week' && currentPlan && (
-          <WeekView plan={currentPlan} records={records} />
+        {view === 'week' && (
+          currentPlan
+            ? <WeekView plan={currentPlan} records={records} />
+            : <div className="text-center text-muted py-10 text-sm">{planLoading ? '正在生成训练计划…' : '暂无本周计划'}</div>
         )}
         {view === 'month' && (
           <MonthView year={viewYear} month={viewMonth} records={records} plans={monthPlans} onMonthChange={handleMonthChange} />

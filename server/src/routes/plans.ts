@@ -195,6 +195,33 @@ router.get('/current', (req: AuthRequest, res: Response) => {
   });
 });
 
+// ── 按日期获取所属周计划（用于历史跳练页）─────────────────────────────────────
+router.get('/by-date/:date', (req: AuthRequest, res: Response) => {
+  const date = String(req.params.date); // YYYY-MM-DD
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return res.status(400).json({ error: '日期格式无效' });
+
+  // 找该日期所在周的周一
+  const dow = d.getDay(); // 0=Sun
+  const diff = dow === 0 ? -6 : 1 - dow;
+  const monday = new Date(d);
+  monday.setDate(d.getDate() + diff);
+  const startDate = monday.toISOString().split('T')[0];
+
+  const plan = db.prepare(
+    'SELECT * FROM weekly_plans WHERE user_id = ? AND start_date = ? ORDER BY id DESC LIMIT 1'
+  ).get(req.userId, startDate) as any;
+
+  if (!plan) return res.json(null);
+
+  return res.json({
+    id: plan.id,
+    weekNumber: plan.week_number,
+    startDate: plan.start_date,
+    days: JSON.parse(plan.days),
+  });
+});
+
 // ── 获取指定月份的所有周计划 ───────────────────────────────────────────────────
 router.get('/month/:year/:month', (req: AuthRequest, res: Response) => {
   const year = parseInt(req.params.year as string);

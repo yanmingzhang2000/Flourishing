@@ -69,6 +69,7 @@ export const plansApi = {
       body: JSON.stringify({ weekNumber }),
     }),
   getCurrent: () => request<any>('/api/plans/current'),
+  getByDate: (date: string) => request<any>(`/api/plans/by-date/${date}`),
   getMonth: (year: number, month: number) => 
     request<any[]>(`/api/plans/month/${year}/${month}`),
   generateMonth: (year: number, month: number) =>

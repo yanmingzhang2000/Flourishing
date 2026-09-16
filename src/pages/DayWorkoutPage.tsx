@@ -17,6 +17,8 @@ export const DayWorkoutPage: React.FC = () => {
   const [showFeedback, setShowFeedback] = useState(false);
   const [feedback, setFeedback] = useState<'too_easy' | 'just_right' | 'too_hard' | null>(null);
   const [hasJointPain, setHasJointPain] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [activeTab, setActiveTab] = useState<'warmup' | 'workout' | 'cooldown'>('workout');
 
   useEffect(() => {
     if (!date || dayIndex === undefined) {
@@ -25,7 +27,7 @@ export const DayWorkoutPage: React.FC = () => {
     }
 
     if (isLoggedIn()) {
-      plansApi.getCurrent().then(planRes => {
+      plansApi.getByDate(date).then(planRes => {
         if (!planRes) {
           navigate('/calendar');
           return;
@@ -70,24 +72,24 @@ export const DayWorkoutPage: React.FC = () => {
   };
 
   const handleSubmitFeedback = async () => {
-    if (!feedback) return;
+    if (!feedback || submitting) return;
+    setSubmitting(true);
 
     if (isLoggedIn()) {
       try {
         await recordsApi.submit({
           date: date!,
-          dayIndex: parseInt(dayIndex),
+          dayIndex: parseInt(dayIndex!),
           completed: true,
           feedback,
           hasJointPain,
           completedExercises: Array.from(completedExercises),
         });
       } catch (e) {
-        // fallback to local
         storage.addTrainingRecord({
           date: date!,
           weekPlanId: plan.id,
-          dayIndex: parseInt(dayIndex),
+          dayIndex: parseInt(dayIndex!),
           completed: true,
           feedback,
           hasJointPain,
@@ -98,7 +100,7 @@ export const DayWorkoutPage: React.FC = () => {
       storage.addTrainingRecord({
         date: date!,
         weekPlanId: plan.id,
-        dayIndex: parseInt(dayIndex),
+        dayIndex: parseInt(dayIndex!),
         completed: true,
         feedback,
         hasJointPain,
@@ -130,7 +132,7 @@ export const DayWorkoutPage: React.FC = () => {
             {day.projectId ? PROJECT_NAME_MAP[day.projectId] ?? '力量训练' : '力量训练'}
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="hidden md:flex items-center gap-3">
           <div className="text-sm text-gray-600">
             进度 <span className="font-bold text-[#7DC47A]">{completedCount}/{totalExercises}</span>
           </div>
@@ -143,10 +145,44 @@ export const DayWorkoutPage: React.FC = () => {
         </div>
       </div>
 
-      {/* 三栏布局 */}
+      {/* 移动端 Tab 切换 */}
+      <div className="md:hidden bg-white border-b border-gray-200 flex">
+        <button
+          onClick={() => setActiveTab('warmup')}
+          className={`flex-1 py-3 text-sm font-medium transition-colors ${
+            activeTab === 'warmup'
+              ? 'text-brand border-b-2 border-brand'
+              : 'text-gray-500'
+          }`}
+        >
+          热身
+        </button>
+        <button
+          onClick={() => setActiveTab('workout')}
+          className={`flex-1 py-3 text-sm font-medium transition-colors ${
+            activeTab === 'workout'
+              ? 'text-[#7DC47A] border-b-2 border-[#7DC47A]'
+              : 'text-gray-500'
+          }`}
+        >
+          训练 ({completedCount}/{totalExercises})
+        </button>
+        <button
+          onClick={() => setActiveTab('cooldown')}
+          className={`flex-1 py-3 text-sm font-medium transition-colors ${
+            activeTab === 'cooldown'
+              ? 'text-accent border-b-2 border-accent'
+              : 'text-gray-500'
+          }`}
+        >
+          拉伸
+        </button>
+      </div>
+
+      {/* 桌面端三栏布局 / 移动端单栏 */}
       <div className="flex-1 flex overflow-hidden">
         {/* 左栏：热身 */}
-        <div className="w-72 border-r border-gray-200 bg-white overflow-y-auto p-4 flex-shrink-0">
+        <div className={`${activeTab === 'warmup' ? 'flex' : 'hidden'} md:flex md:w-72 border-r border-gray-200 bg-white overflow-y-auto p-4 flex-shrink-0 flex-col w-full`}>
           <div className="flex items-center gap-2 mb-4">
             <span className="w-6 h-6 rounded-full bg-brand/60 text-white flex items-center justify-center text-xs font-bold">
               热
@@ -155,20 +191,26 @@ export const DayWorkoutPage: React.FC = () => {
             <span className="text-xs text-gray-400 ml-auto">5分钟</span>
           </div>
           
-          <div className="space-y-3">
-            {day.warmup.map((exercise) => (
-              <div key={exercise.id} className="p-3 bg-brand-light rounded-lg border border-brand/20">
-                <div className="font-medium text-gray-800 text-sm">{exercise.name}</div>
-                <div className="text-xs text-gray-500 mt-1">{exercise.sets}组 × {exercise.reps}次</div>
-                <div className="text-xs text-brand mt-1">{exercise.rhythm}</div>
-                <p className="text-xs text-gray-500 mt-2">{exercise.description}</p>
-              </div>
-            ))}
-          </div>
+          {day.warmup && day.warmup.length > 0 ? (
+            <div className="space-y-3">
+              {day.warmup.map((exercise) => (
+                <div key={exercise.id} className="p-3 bg-brand-light rounded-lg border border-brand/20">
+                  <div className="font-medium text-gray-800 text-sm">{exercise.name}</div>
+                  <div className="text-xs text-gray-500 mt-1">{exercise.sets}组 × {exercise.reps}次</div>
+                  <div className="text-xs text-brand mt-1">{exercise.rhythm}</div>
+                  <p className="text-xs text-gray-500 mt-2">{exercise.description}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex-1 flex items-center justify-center text-gray-400 text-sm">
+              今日无热身动作
+            </div>
+          )}
         </div>
 
         {/* 中栏：主训练动作 */}
-        <div className="flex-1 bg-[#DCF0FB] overflow-y-auto p-4">
+        <div className={`${activeTab === 'workout' ? 'flex' : 'hidden'} md:flex flex-1 bg-[#DCF0FB] overflow-y-auto p-4 flex-col w-full`}>
           <div className="flex items-center gap-2 mb-4">
             <span className="w-6 h-6 rounded-full bg-[#7DC47A] text-white flex items-center justify-center text-xs font-bold">
               练
@@ -177,102 +219,110 @@ export const DayWorkoutPage: React.FC = () => {
             <span className="text-xs text-gray-400 ml-auto">点击查看详情</span>
           </div>
 
-          <div className="space-y-3">
-            {day.exercises.map((workoutExercise, index) => (
-              <ExerciseCard
-                key={workoutExercise.exerciseId}
-                workoutExercise={workoutExercise}
-                index={index + 1}
-                isCompleted={completedExercises.has(workoutExercise.exerciseId)}
-                onToggle={() => toggleExercise(workoutExercise.exerciseId)}
-                onClick={() => navigate(`/exercise/${workoutExercise.exerciseId}`)}
-              />
-            ))}
-          </div>
-
-          {/* 完成按钮 */}
-          <div className="mt-6">
-            {!showFeedback ? (
-              <button
-                onClick={handleComplete}
-                disabled={!allCompleted}
-                className={`w-full py-4 rounded-xl font-bold text-lg transition-all ${
-                  allCompleted
-                    ? 'bg-[#7DC47A] hover:bg-[#6DB569] text-white'
-                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                }`}
-              >
-                {allCompleted ? '完成训练' : `完成所有动作 (${completedCount}/${totalExercises})`}
-              </button>
-            ) : (
-              <div className="bg-white rounded-xl p-5 border border-gray-200">
-                <h3 className="font-bold text-gray-800 mb-2">训练反馈</h3>
-                <p className="text-sm text-gray-500 mb-4">今天的训练感觉如何？</p>
-
-                <div className="grid grid-cols-3 gap-3 mb-4">
-                  <button
-                    onClick={() => setFeedback('too_easy')}
-                    className={`p-3 rounded-lg border-2 text-center transition-all ${
-                      feedback === 'too_easy'
-                        ? 'border-brand bg-brand-light'
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                  >
-                    <div className="text-2xl mb-1">😊</div>
-                    <div className="text-xs font-medium">太轻松</div>
-                  </button>
-                  <button
-                    onClick={() => setFeedback('just_right')}
-                    className={`p-3 rounded-lg border-2 text-center transition-all ${
-                      feedback === 'just_right'
-                        ? 'border-[#7DC47A] bg-[#7DC47A]/10'
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                  >
-                    <div className="text-2xl mb-1">💪</div>
-                    <div className="text-xs font-medium">刚刚好</div>
-                  </button>
-                  <button
-                    onClick={() => setFeedback('too_hard')}
-                    className={`p-3 rounded-lg border-2 text-center transition-all ${
-                      feedback === 'too_hard'
-                        ? 'border-[#F59E0B] bg-[#F59E0B]/10'
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                  >
-                    <div className="text-2xl mb-1">😫</div>
-                    <div className="text-xs font-medium">太难了</div>
-                  </button>
-                </div>
-
-                <label className="flex items-center gap-2 text-sm text-gray-600 mb-4">
-                  <input
-                    type="checkbox"
-                    checked={hasJointPain}
-                    onChange={(e) => setHasJointPain(e.target.checked)}
-                    className="w-4 h-4 rounded border-gray-300 text-[#7DC47A] focus:ring-[#7DC47A]"
+          {day.exercises && day.exercises.length > 0 ? (
+            <>
+              <div className="space-y-3">
+                {day.exercises.map((workoutExercise, index) => (
+                  <ExerciseCard
+                    key={workoutExercise.exerciseId}
+                    workoutExercise={workoutExercise}
+                    index={index + 1}
+                    isCompleted={completedExercises.has(workoutExercise.exerciseId)}
+                    onToggle={() => toggleExercise(workoutExercise.exerciseId)}
+                    onClick={() => navigate(`/exercise/${workoutExercise.exerciseId}`)}
                   />
-                  有关节不适
-                </label>
-
-                <button
-                  onClick={handleSubmitFeedback}
-                  disabled={!feedback}
-                  className={`w-full py-3 rounded-lg font-medium transition-all ${
-                    feedback
-                      ? 'bg-[#7DC47A] hover:bg-[#6DB569] text-white'
-                      : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                  }`}
-                >
-                  提交反馈
-                </button>
+                ))}
               </div>
-            )}
-          </div>
+
+              {/* 完成按钮 */}
+              <div className="mt-6">
+                {!showFeedback ? (
+                  <button
+                    onClick={handleComplete}
+                    disabled={!allCompleted}
+                    className={`w-full py-4 rounded-xl font-bold text-lg transition-all ${
+                      allCompleted
+                        ? 'bg-[#7DC47A] hover:bg-[#6DB569] text-white'
+                        : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                    }`}
+                  >
+                    {allCompleted ? '完成训练' : `完成所有动作 (${completedCount}/${totalExercises})`}
+                  </button>
+                ) : (
+                  <div className="bg-white rounded-xl p-5 border border-gray-200">
+                    <h3 className="font-bold text-gray-800 mb-2">训练反馈</h3>
+                    <p className="text-sm text-gray-500 mb-4">今天的训练感觉如何？</p>
+
+                    <div className="grid grid-cols-3 gap-3 mb-4">
+                      <button
+                        onClick={() => setFeedback('too_easy')}
+                        className={`p-3 rounded-lg border-2 text-center transition-all ${
+                          feedback === 'too_easy'
+                            ? 'border-brand bg-brand-light'
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        <div className="text-2xl mb-1">😊</div>
+                        <div className="text-xs font-medium">太轻松</div>
+                      </button>
+                      <button
+                        onClick={() => setFeedback('just_right')}
+                        className={`p-3 rounded-lg border-2 text-center transition-all ${
+                          feedback === 'just_right'
+                            ? 'border-[#7DC47A] bg-[#7DC47A]/10'
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        <div className="text-2xl mb-1">💪</div>
+                        <div className="text-xs font-medium">刚刚好</div>
+                      </button>
+                      <button
+                        onClick={() => setFeedback('too_hard')}
+                        className={`p-3 rounded-lg border-2 text-center transition-all ${
+                          feedback === 'too_hard'
+                            ? 'border-[#F59E0B] bg-[#F59E0B]/10'
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        <div className="text-2xl mb-1">😫</div>
+                        <div className="text-xs font-medium">太难了</div>
+                      </button>
+                    </div>
+
+                    <label className="flex items-center gap-2 text-sm text-gray-600 mb-4">
+                      <input
+                        type="checkbox"
+                        checked={hasJointPain}
+                        onChange={(e) => setHasJointPain(e.target.checked)}
+                        className="w-4 h-4 rounded border-gray-300 text-[#7DC47A] focus:ring-[#7DC47A]"
+                      />
+                      有关节不适
+                    </label>
+
+                    <button
+                      onClick={handleSubmitFeedback}
+                      disabled={!feedback || submitting}
+                      className={`w-full py-3 rounded-lg font-medium transition-all ${
+                        feedback && !submitting
+                          ? 'bg-[#7DC47A] hover:bg-[#6DB569] text-white'
+                          : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                      }`}
+                    >
+                      {submitting ? '提交中...' : '提交反馈'}
+                    </button>
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
+            <div className="flex-1 flex items-center justify-center text-gray-400 text-sm">
+              今日无训练动作
+            </div>
+          )}
         </div>
 
         {/* 右栏：拉伸 */}
-        <div className="w-72 border-l border-gray-200 bg-white overflow-y-auto p-4 flex-shrink-0">
+        <div className={`${activeTab === 'cooldown' ? 'flex' : 'hidden'} md:flex md:w-72 border-l border-gray-200 bg-white overflow-y-auto p-4 flex-shrink-0 flex-col w-full`}>
           <div className="flex items-center gap-2 mb-4">
             <span className="w-6 h-6 rounded-full bg-accent/60 text-white flex items-center justify-center text-xs font-bold">
               拉
@@ -281,16 +331,22 @@ export const DayWorkoutPage: React.FC = () => {
             <span className="text-xs text-gray-400 ml-auto">3分钟</span>
           </div>
 
-          <div className="space-y-3">
-            {day.cooldown.map((exercise) => (
-              <div key={exercise.id} className="p-3 bg-accent-light rounded-lg border border-accent/20">
-                <div className="font-medium text-gray-800 text-sm">{exercise.name}</div>
-                <div className="text-xs text-gray-500 mt-1">保持{exercise.reps}秒</div>
-                <div className="text-xs text-accent mt-1">{exercise.rhythm}</div>
-                <p className="text-xs text-gray-500 mt-2">{exercise.description}</p>
-              </div>
-            ))}
-          </div>
+          {day.cooldown && day.cooldown.length > 0 ? (
+            <div className="space-y-3">
+              {day.cooldown.map((exercise) => (
+                <div key={exercise.id} className="p-3 bg-accent-light rounded-lg border border-accent/20">
+                  <div className="font-medium text-gray-800 text-sm">{exercise.name}</div>
+                  <div className="text-xs text-gray-500 mt-1">保持{exercise.reps}秒</div>
+                  <div className="text-xs text-accent mt-1">{exercise.rhythm}</div>
+                  <p className="text-xs text-gray-500 mt-2">{exercise.description}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex-1 flex items-center justify-center text-gray-400 text-sm">
+              今日无拉伸动作
+            </div>
+          )}
         </div>
       </div>
     </div>
