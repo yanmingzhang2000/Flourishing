@@ -45,7 +45,7 @@ export const ProjectSelectionPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-bg">
+    <div className="min-h-screen bg-surface">
       {/* 品牌 Banner */}
       <div className="bg-gradient-to-r from-[#7DC47A] to-[#10B981] text-white py-12 px-4">
         <div className="max-w-3xl mx-auto flex items-center justify-between">

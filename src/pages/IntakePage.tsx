@@ -192,7 +192,7 @@ export const IntakePage: React.FC = () => {
   const STEP_SUBTITLES = ['帮助我们推荐合适的训练强度', '可多选，我们会匹配合适的动作', '计划会按照你的节奏安排'];
 
   return (
-    <div className="min-h-screen bg-bg">
+    <div className="min-h-screen bg-surface">
       {/* 顶部 Banner —— 与 ProjectSelectionPage 统一 */}
       <div className="bg-gradient-to-r from-brand to-emerald-500 text-white py-10 px-4">
         <div className="max-w-md mx-auto text-center">
