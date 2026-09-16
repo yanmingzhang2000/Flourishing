@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
 import { storage } from '@/lib/storage';
 import { plansApi, recordsApi, userApi, isLoggedIn, clearToken } from '@/lib/api';
 import { WeeklyPlan, TrainingRecord } from '@/lib/types';
+import { BottomNav } from '@/components/BottomNav';
 
 const DAY_LABELS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
 
@@ -23,7 +23,10 @@ export const CalendarPage: React.FC = () => {
         userApi.getProfile(),
         recordsApi.getStats(),
       ]).then(([planRes, recordsRes, profileRes, statsRes]) => {
-        if (!planRes || !profileRes) { navigate('/'); return; }
+        // 未完成引导（experience 为空）→ 去引导页
+        if (!profileRes || !profileRes.experience) { navigate('/intake'); return; }
+        // 未生成计划 → 去选项目
+        if (!planRes) { navigate('/'); return; }
         setPlan(planRes);
         setRecords(recordsRes || []);
         setProfile(profileRes);
@@ -105,14 +108,17 @@ export const CalendarPage: React.FC = () => {
   if (!plan || !profile) return null;
 
   return (
-    <div className="min-h-screen bg-[#DCF0FB] p-4">
-      <div className="max-w-md mx-auto">
+    <div className="min-h-screen bg-[#DCF0FB] pb-24">
+      <div className="max-w-md mx-auto px-4 pt-6">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold text-gray-800">本周训练</h1>
-            <p className="text-sm text-gray-500">第{plan.weekNumber}周</p>
+            <p className="text-sm text-gray-500">第 {plan.weekNumber} 周</p>
           </div>
-          <Button variant="ghost" onClick={handleReset}>退出</Button>
+          <div className="text-right">
+            <div className="text-sm font-medium text-gray-700">{profile.display_name || '我的计划'}</div>
+            <div className="text-xs text-gray-400">{profile.experience === 'zero' ? '零基础' : profile.experience === 'occasional' ? '偶尔练' : '经常练'}</div>
+          </div>
         </div>
 
         <div className="grid grid-cols-3 gap-3 mb-6">
@@ -184,7 +190,7 @@ export const CalendarPage: React.FC = () => {
           </CardContent>
         </Card>
 
-        <div className="flex items-center gap-2 text-xs text-gray-500">
+        <div className="flex items-center gap-2 text-xs text-gray-500 mb-4">
           <span className="w-3 h-3 rounded bg-[#7DC47A]/10 border border-[#7DC47A]"></span>
           <span>力量训练日</span>
           <span className="w-3 h-3 rounded bg-blue-100 border border-blue-300 ml-2"></span>
@@ -193,6 +199,8 @@ export const CalendarPage: React.FC = () => {
           <span>休息日</span>
         </div>
       </div>
+
+      <BottomNav />
     </div>
   );
 };

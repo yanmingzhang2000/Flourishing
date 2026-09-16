@@ -30,6 +30,8 @@ export function initDB() {
     CREATE TABLE IF NOT EXISTS user_profiles (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+      display_name TEXT,
+      age INTEGER,
       height REAL,
       weight REAL,
       bmi REAL,

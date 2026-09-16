@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
-import { userApi, clearToken } from '@/lib/api';
+import { userApi, plansApi, clearToken } from '@/lib/api';
 import projectsData from '@/data/projects.json';
 import { Project } from '@/lib/types';
 
@@ -22,9 +22,10 @@ export const ProjectSelectionPage: React.FC = () => {
     setLoading(true);
     try {
       await userApi.updateProfile({ selected_projects: selectedProjects });
-      navigate('/intake');
+      await plansApi.generate(1);
+      navigate('/calendar');
     } catch {
-      navigate('/intake');
+      navigate('/calendar');
     } finally {
       setLoading(false);
     }
@@ -144,7 +145,7 @@ export const ProjectSelectionPage: React.FC = () => {
         <div className="flex gap-3">
           <Button variant="outline" onClick={handleLogout} className="flex-1">退出登录</Button>
           <Button onClick={handleContinue} className="flex-1" disabled={selectedProjects.length === 0 || loading}>
-            {loading ? '保存中...' : `继续 ${selectedProjects.length > 0 ? `(${selectedProjects.length})` : ''}`}
+          {loading ? '生成计划中…' : `开始训练 ${selectedProjects.length > 0 ? `(${selectedProjects.length})` : ''}`}
           </Button>
         </div>
 

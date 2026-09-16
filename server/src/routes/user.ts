@@ -20,7 +20,12 @@ router.get('/profile', (req: AuthRequest, res: Response) => {
 
 // 更新用户档案
 router.put('/profile', (req: AuthRequest, res: Response) => {
-  const { height, weight, experience, injuries, equipment, selected_projects, max_days_per_week, session_max_min } = req.body;
+  const {
+    display_name, age,
+    height, weight,
+    experience, injuries, equipment, selected_projects,
+    max_days_per_week, session_max_min,
+  } = req.body;
 
   const bmi = height && weight ? Number((weight / ((height / 100) ** 2)).toFixed(1)) : null;
 
@@ -29,29 +34,51 @@ router.put('/profile', (req: AuthRequest, res: Response) => {
   if (existing) {
     db.prepare(`
       UPDATE user_profiles SET
-        height = ?, weight = ?, bmi = ?, experience = ?,
-        injuries = ?, equipment = ?, selected_projects = ?,
-        max_days_per_week = ?, session_max_min = ?, updated_at = CURRENT_TIMESTAMP
+        display_name = COALESCE(?, display_name),
+        age = COALESCE(?, age),
+        height = COALESCE(?, height),
+        weight = COALESCE(?, weight),
+        bmi = COALESCE(?, bmi),
+        experience = COALESCE(?, experience),
+        injuries = COALESCE(?, injuries),
+        equipment = COALESCE(?, equipment),
+        selected_projects = COALESCE(?, selected_projects),
+        max_days_per_week = COALESCE(?, max_days_per_week),
+        session_max_min = COALESCE(?, session_max_min),
+        updated_at = CURRENT_TIMESTAMP
       WHERE user_id = ?
     `).run(
-      height, weight, bmi, experience,
-      JSON.stringify(injuries || []),
-      JSON.stringify(equipment || []),
-      JSON.stringify(selected_projects || []),
-      max_days_per_week, session_max_min,
+      display_name ?? null,
+      age ?? null,
+      height ?? null,
+      weight ?? null,
+      bmi ?? null,
+      experience ?? null,
+      injuries !== undefined ? JSON.stringify(injuries) : null,
+      equipment !== undefined ? JSON.stringify(equipment) : null,
+      selected_projects !== undefined ? JSON.stringify(selected_projects) : null,
+      max_days_per_week ?? null,
+      session_max_min ?? null,
       req.userId
     );
   } else {
     db.prepare(`
       INSERT INTO user_profiles
-        (user_id, height, weight, bmi, experience, injuries, equipment, selected_projects, max_days_per_week, session_max_min)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (user_id, display_name, age, height, weight, bmi, experience, injuries, equipment, selected_projects, max_days_per_week, session_max_min)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
-      req.userId, height, weight, bmi, experience,
+      req.userId,
+      display_name ?? null,
+      age ?? null,
+      height ?? null,
+      weight ?? null,
+      bmi ?? null,
+      experience ?? null,
       JSON.stringify(injuries || []),
       JSON.stringify(equipment || []),
       JSON.stringify(selected_projects || []),
-      max_days_per_week, session_max_min
+      max_days_per_week ?? 3,
+      session_max_min ?? 30
     );
   }
 

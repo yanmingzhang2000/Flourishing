@@ -1,148 +1,98 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
-import { Card, CardHeader, CardContent } from '@/components/ui/Card';
-import { userApi, plansApi } from '@/lib/api';
+import { Card, CardContent } from '@/components/ui/Card';
+import { userApi } from '@/lib/api';
 import { UserProfile } from '@/lib/types';
 
 const EXPERIENCE_OPTIONS = [
-  { value: 'zero', label: '零基础', desc: '从没运动过' },
-  { value: 'occasional', label: '偶尔练', desc: '每周1-2次' },
-  { value: 'regular', label: '经常练', desc: '每周3次以上' },
+  { value: 'zero',       label: '零基础', desc: '从没运动过，从头开始' },
+  { value: 'occasional', label: '偶尔练', desc: '每周 1-2 次，断断续续' },
+  { value: 'regular',    label: '经常练', desc: '每周 3 次以上，有习惯' },
 ];
 
 const EQUIPMENT_OPTIONS = [
-  { value: 'none', label: '自重', desc: '不需要器械' },
-  { value: 'dumbbell_1.5kg_pair', label: '1.5kg哑铃一对', desc: '轻重量' },
-  { value: 'dumbbell_2kg_pair', label: '2kg哑铃一对', desc: '中等重量' },
-  { value: 'resistance_band', label: '弹力带', desc: '便携阻力训练' },
+  { value: 'none',                  label: '自重',          desc: '不需要任何器械' },
+  { value: 'dumbbell_1.5kg_pair',   label: '1.5kg 哑铃一对', desc: '轻重量入门' },
+  { value: 'dumbbell_2kg_pair',     label: '2kg 哑铃一对',   desc: '中等重量' },
+  { value: 'resistance_band',       label: '弹力带',         desc: '便携阻力训练' },
 ];
 
 const INJURY_OPTIONS = [
   { value: 'shoulder', label: '肩部' },
-  { value: 'elbow', label: '肘部' },
-  { value: 'wrist', label: '腕部' },
+  { value: 'elbow',    label: '肘部' },
+  { value: 'wrist',    label: '腕部' },
+  { value: 'knee',     label: '膝盖' },
+  { value: 'back',     label: '腰背' },
 ];
+
+type Prefs = Pick<UserProfile, 'experience' | 'injuries' | 'equipment' | 'maxTrainingDaysPerWeek' | 'singleSessionMaxMin'>;
 
 export const IntakePage: React.FC = () => {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
-  const [profile, setProfile] = useState<Partial<UserProfile>>({
-    selectedProjects: ['tricep_tone'],
+  const [prefs, setPrefs] = useState<Partial<Prefs>>({
     singleSessionMaxMin: 30,
   });
   const [submitting, setSubmitting] = useState(false);
-
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const updateProfile = (updates: Partial<UserProfile>) => {
-    setProfile(prev => ({ ...prev, ...updates }));
+  const update = (updates: Partial<Prefs>) => {
+    setPrefs(prev => ({ ...prev, ...updates }));
     setErrors({});
   };
 
-  const validateStep = (currentStep: number): boolean => {
-    const newErrors: Record<string, string> = {};
-
-    if (currentStep === 1) {
-      if (!profile.height || profile.height < 140 || profile.height > 200) {
-        newErrors.height = '请输入有效的身高 (140-200cm)';
-      }
-      if (!profile.weight || profile.weight < 35 || profile.weight > 120) {
-        newErrors.weight = '请输入有效的体重 (35-120kg)';
-      }
-    } else if (currentStep === 2) {
-      if (!profile.experience) {
-        newErrors.experience = '请选择训练经验';
-      }
-    } else if (currentStep === 3) {
-      if (!profile.equipment || profile.equipment.length === 0) {
-        newErrors.equipment = '请至少选择一种器械';
-      }
-    } else if (currentStep === 4) {
-      if (!profile.maxTrainingDaysPerWeek) {
-        newErrors.maxTrainingDaysPerWeek = '请选择训练天数';
-      }
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+  const validate = (s: number): boolean => {
+    const e: Record<string, string> = {};
+    if (s === 1 && !prefs.experience)                            e.experience = '请选择训练经验';
+    if (s === 2 && (!prefs.equipment || !prefs.equipment.length)) e.equipment  = '请至少选择一种器械';
+    if (s === 3 && !prefs.maxTrainingDaysPerWeek)                e.days       = '请选择每周训练天数';
+    setErrors(e);
+    return Object.keys(e).length === 0;
   };
 
   const handleNext = () => {
-    if (validateStep(step)) {
-      if (step < 4) {
-        setStep(step + 1);
-      } else {
-        handleSubmit();
-      }
-    }
+    if (!validate(step)) return;
+    if (step < 3) { setStep(step + 1); return; }
+    handleSubmit();
   };
 
   const handleSubmit = async () => {
     setSubmitting(true);
-    const height = profile.height || 160;
-    const weight = profile.weight || 50;
-
     try {
       await userApi.updateProfile({
-        height,
-        weight,
-        experience: profile.experience || 'zero',
-        injuries: profile.injuries || [],
-        equipment: profile.equipment || ['none'],
-        max_days_per_week: profile.maxTrainingDaysPerWeek || 3,
-        session_max_min: profile.singleSessionMaxMin || 30,
+        experience: prefs.experience!,
+        injuries: prefs.injuries || [],
+        equipment: prefs.equipment!,
+        max_days_per_week: prefs.maxTrainingDaysPerWeek!,
+        session_max_min: prefs.singleSessionMaxMin || 30,
       });
-      await plansApi.generate(1);
-      navigate('/calendar');
     } catch {
-      navigate('/calendar');
+      // 保存失败也继续，选项目时再保存
     } finally {
       setSubmitting(false);
+      navigate('/');
     }
   };
 
+  // ── Step 1: 训练经验 ──────────────────────────────────────────────────────
   const renderStep1 = () => (
     <div className="space-y-4">
-      <h2 className="text-lg font-semibold text-gray-800">基本信息</h2>
-      <Input
-        id="height"
-        label="身高 (cm)"
-        type="number"
-        placeholder="160"
-        value={profile.height || ''}
-        onChange={(e) => updateProfile({ height: Number(e.target.value) })}
-        error={errors.height}
-      />
-      <Input
-        id="weight"
-        label="体重 (kg)"
-        type="number"
-        placeholder="50"
-        value={profile.weight || ''}
-        onChange={(e) => updateProfile({ weight: Number(e.target.value) })}
-        error={errors.weight}
-      />
-    </div>
-  );
-
-  const renderStep2 = () => (
-    <div className="space-y-4">
-      <h2 className="text-lg font-semibold text-gray-800">训练经验</h2>
+      <h2 className="text-lg font-semibold text-gray-800">你的运动经验？</h2>
+      <p className="text-sm text-gray-500">帮助我们推荐合适的训练强度</p>
       <div className="grid gap-3">
-        {EXPERIENCE_OPTIONS.map((option) => (
+        {EXPERIENCE_OPTIONS.map(opt => (
           <button
-            key={option.value}
-            onClick={() => updateProfile({ experience: option.value as UserProfile['experience'] })}
-            className={`p-4 text-left rounded-lg border-2 transition-all ${
-              profile.experience === option.value
+            key={opt.value}
+            onClick={() => update({ experience: opt.value as UserProfile['experience'] })}
+            className={`p-4 text-left rounded-xl border-2 transition-all ${
+              prefs.experience === opt.value
                 ? 'border-[#7DC47A] bg-[#7DC47A]/10'
                 : 'border-gray-200 hover:border-gray-300'
             }`}
           >
-            <div className="font-medium">{option.label}</div>
-            <div className="text-sm text-gray-500">{option.desc}</div>
+            <div className="font-medium text-gray-800">{opt.label}</div>
+            <div className="text-sm text-gray-500 mt-0.5">{opt.desc}</div>
           </button>
         ))}
       </div>
@@ -150,55 +100,52 @@ export const IntakePage: React.FC = () => {
     </div>
   );
 
-  const renderStep3 = () => (
-    <div className="space-y-4">
-      <h2 className="text-lg font-semibold text-gray-800">可用器械</h2>
-      <p className="text-sm text-gray-500">可多选</p>
-      <div className="grid gap-3">
-        {EQUIPMENT_OPTIONS.map((option) => (
-          <button
-            key={option.value}
-            onClick={() => {
-              const current = profile.equipment || [];
-              const newEquipment = current.includes(option.value)
-                ? current.filter(e => e !== option.value)
-                : [...current, option.value];
-              updateProfile({ equipment: newEquipment });
-            }}
-            className={`p-4 text-left rounded-lg border-2 transition-all ${
-              (profile.equipment || []).includes(option.value)
-                ? 'border-[#7DC47A] bg-[#7DC47A]/10'
-                : 'border-gray-200 hover:border-gray-300'
-            }`}
-          >
-            <div className="font-medium">{option.label}</div>
-            <div className="text-sm text-gray-500">{option.desc}</div>
-          </button>
-        ))}
-      </div>
-      {errors.equipment && <p className="text-sm text-red-500">{errors.equipment}</p>}
-
-      <div className="mt-6">
-        <h3 className="text-md font-semibold text-gray-800 mb-3">伤病情况</h3>
-        <p className="text-sm text-gray-500 mb-3">可多选，我们会过滤不合适的动作</p>
-        <div className="flex flex-wrap gap-2">
-          {INJURY_OPTIONS.map((option) => (
+  // ── Step 2: 器械 + 伤病 ──────────────────────────────────────────────────
+  const renderStep2 = () => (
+    <div className="space-y-5">
+      <div>
+        <h2 className="text-lg font-semibold text-gray-800">你有哪些器械？</h2>
+        <p className="text-sm text-gray-500 mt-1">可多选，我们会匹配合适的动作</p>
+        <div className="grid gap-3 mt-3">
+          {EQUIPMENT_OPTIONS.map(opt => (
             <button
-              key={option.value}
+              key={opt.value}
               onClick={() => {
-                const current = profile.injuries || [];
-                const newInjuries = current.includes(option.value)
-                  ? current.filter(i => i !== option.value)
-                  : [...current, option.value];
-                updateProfile({ injuries: newInjuries });
+                const cur = prefs.equipment || [];
+                update({ equipment: cur.includes(opt.value) ? cur.filter(e => e !== opt.value) : [...cur, opt.value] });
+              }}
+              className={`p-4 text-left rounded-xl border-2 transition-all ${
+                (prefs.equipment || []).includes(opt.value)
+                  ? 'border-[#7DC47A] bg-[#7DC47A]/10'
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <div className="font-medium text-gray-800">{opt.label}</div>
+              <div className="text-sm text-gray-500 mt-0.5">{opt.desc}</div>
+            </button>
+          ))}
+        </div>
+        {errors.equipment && <p className="text-sm text-red-500 mt-1">{errors.equipment}</p>}
+      </div>
+
+      <div>
+        <h3 className="text-base font-semibold text-gray-800">有需要注意的伤病吗？</h3>
+        <p className="text-sm text-gray-500 mt-1">可跳过，有选择的动作会自动过滤</p>
+        <div className="flex flex-wrap gap-2 mt-3">
+          {INJURY_OPTIONS.map(opt => (
+            <button
+              key={opt.value}
+              onClick={() => {
+                const cur = prefs.injuries || [];
+                update({ injuries: cur.includes(opt.value) ? cur.filter(i => i !== opt.value) : [...cur, opt.value] });
               }}
               className={`px-4 py-2 rounded-full border-2 text-sm transition-all ${
-                (profile.injuries || []).includes(option.value)
+                (prefs.injuries || []).includes(opt.value)
                   ? 'border-[#F59E0B] bg-[#F59E0B]/10 text-[#F59E0B]'
                   : 'border-gray-200 text-gray-600 hover:border-gray-300'
               }`}
             >
-              {option.label}
+              {opt.label}
             </button>
           ))}
         </div>
@@ -206,42 +153,44 @@ export const IntakePage: React.FC = () => {
     </div>
   );
 
-  const renderStep4 = () => (
-    <div className="space-y-4">
-      <h2 className="text-lg font-semibold text-gray-800">训练安排</h2>
+  // ── Step 3: 每周安排 ──────────────────────────────────────────────────────
+  const renderStep3 = () => (
+    <div className="space-y-5">
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">每周训练天数</label>
-        <div className="grid grid-cols-4 gap-2">
-          {[2, 3, 4, 5].map((days) => (
+        <h2 className="text-lg font-semibold text-gray-800">每周想练几天？</h2>
+        <p className="text-sm text-gray-500 mt-1">计划会按照你的节奏安排</p>
+        <div className="grid grid-cols-4 gap-2 mt-3">
+          {[2, 3, 4, 5].map(d => (
             <button
-              key={days}
-              onClick={() => updateProfile({ maxTrainingDaysPerWeek: days })}
-              className={`py-3 rounded-lg border-2 text-center transition-all ${
-                profile.maxTrainingDaysPerWeek === days
-                  ? 'border-[#7DC47A] bg-[#7DC47A]/10 text-[#7DC47A] font-medium'
-                  : 'border-gray-200 hover:border-gray-300'
+              key={d}
+              onClick={() => update({ maxTrainingDaysPerWeek: d })}
+              className={`py-3 rounded-xl border-2 text-center font-medium transition-all ${
+                prefs.maxTrainingDaysPerWeek === d
+                  ? 'border-[#7DC47A] bg-[#7DC47A]/10 text-[#7DC47A]'
+                  : 'border-gray-200 text-gray-700 hover:border-gray-300'
               }`}
             >
-              {days}天
+              {d} 天
             </button>
           ))}
         </div>
-        {errors.maxTrainingDaysPerWeek && <p className="text-sm text-red-500 mt-1">{errors.maxTrainingDaysPerWeek}</p>}
+        {errors.days && <p className="text-sm text-red-500 mt-1">{errors.days}</p>}
       </div>
+
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">单次最长训练时长</label>
-        <div className="grid grid-cols-3 gap-2">
-          {[20, 30, 45].map((min) => (
+        <h3 className="text-base font-semibold text-gray-800">每次最多练多久？</h3>
+        <div className="grid grid-cols-3 gap-2 mt-3">
+          {[20, 30, 45].map(m => (
             <button
-              key={min}
-              onClick={() => updateProfile({ singleSessionMaxMin: min })}
-              className={`py-3 rounded-lg border-2 text-center transition-all ${
-                profile.singleSessionMaxMin === min
-                  ? 'border-[#7DC47A] bg-[#7DC47A]/10 text-[#7DC47A] font-medium'
-                  : 'border-gray-200 hover:border-gray-300'
+              key={m}
+              onClick={() => update({ singleSessionMaxMin: m })}
+              className={`py-3 rounded-xl border-2 text-center font-medium transition-all ${
+                prefs.singleSessionMaxMin === m
+                  ? 'border-[#7DC47A] bg-[#7DC47A]/10 text-[#7DC47A]'
+                  : 'border-gray-200 text-gray-700 hover:border-gray-300'
               }`}
             >
-              {min}分钟
+              {m} 分钟
             </button>
           ))}
         </div>
@@ -252,22 +201,25 @@ export const IntakePage: React.FC = () => {
   return (
     <div className="min-h-screen bg-[#DCF0FB] p-4">
       <div className="max-w-md mx-auto pt-8">
+
+        {/* Header */}
         <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-full bg-[#7DC47A] flex items-center justify-center">
-              <img src="./vite.svg" alt="Flourish AI Logo" className="w-6 h-6" />
-            </div>
-            <h1 className="text-2xl font-bold text-gray-800">Flourish AI</h1>
+          <div className="w-14 h-14 rounded-full bg-[#7DC47A] flex items-center justify-center mx-auto mb-3">
+            <svg viewBox="0 0 24 24" fill="none" className="w-8 h-8 text-white" stroke="currentColor" strokeWidth="2">
+              <path d="M12 2C8 2 4 6 4 10c0 6 8 12 8 12s8-6 8-12c0-4-4-8-8-8z" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
           </div>
-          <p className="text-gray-500 mt-1">让我帮你制定专属训练计划</p>
+          <h1 className="text-2xl font-bold text-gray-800">Flourish AI</h1>
+          <p className="text-gray-500 mt-1 text-sm">让我们了解你一点点</p>
         </div>
 
-        <div className="flex justify-center mb-6">
-          {[1, 2, 3, 4].map((s) => (
+        {/* 步骤指示 */}
+        <div className="flex justify-center gap-2 mb-6">
+          {[1, 2, 3].map(s => (
             <div
               key={s}
-              className={`w-8 h-1 rounded-full mx-1 transition-colors ${
-                s <= step ? 'bg-[#7DC47A]' : 'bg-gray-200'
+              className={`h-1.5 rounded-full transition-all duration-300 ${
+                s <= step ? 'bg-[#7DC47A] w-8' : 'bg-gray-200 w-5'
               }`}
             />
           ))}
@@ -278,24 +230,25 @@ export const IntakePage: React.FC = () => {
             {step === 1 && renderStep1()}
             {step === 2 && renderStep2()}
             {step === 3 && renderStep3()}
-            {step === 4 && renderStep4()}
           </CardContent>
         </Card>
 
-        <div className="flex gap-3 mt-6">
+        <div className="flex gap-3 mt-5">
           {step > 1 && (
-            <Button
-              variant="outline"
-              onClick={() => setStep(step - 1)}
-              className="flex-1"
-            >
+            <Button variant="outline" onClick={() => setStep(step - 1)} className="flex-1">
               上一步
             </Button>
           )}
           <Button onClick={handleNext} className="flex-1" disabled={submitting}>
-            {step === 4 ? (submitting ? '生成中...' : '生成计划') : '下一步'}
+            {step === 3 ? (submitting ? '保存中…' : '下一步，选训练项目') : '下一步'}
           </Button>
         </div>
+
+        {step === 2 && (
+          <p className="text-center text-sm text-gray-400 mt-3">
+            没有伤病可以直接跳过
+          </p>
+        )}
       </div>
     </div>
   );

@@ -40,15 +40,19 @@ export interface ProjectExercises {
 }
 
 export interface UserProfile {
-  height: number;
-  weight: number;
-  bmi: number;
+  // 训练偏好（引导必填）
   experience: 'zero' | 'occasional' | 'regular';
   injuries: string[];
   equipment: string[];
   maxTrainingDaysPerWeek: number;
-  selectedProjects: string[]; // 改为数组支持多项目
+  selectedProjects: string[];
   singleSessionMaxMin: number;
+  // 身体信息（个人页可选填）
+  height?: number;
+  weight?: number;
+  bmi?: number;
+  age?: number;
+  displayName?: string;
 }
 
 export interface WorkoutExercise {
