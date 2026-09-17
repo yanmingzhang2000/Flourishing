@@ -58,19 +58,41 @@ export const CalendarPage: React.FC = () => {
           setRecords(recordsRes || []);
           setStats(statsRes);
 
-          // 若有 instanceId，加载对应实例信息
+          // ── V2：有 instanceId 时独立加载该项目的计划 ──────────────────────
           if (instanceId) {
             const instances = await projectInstancesApi.getAll();
             const inst = instances.find((i: any) => String(i.id) === instanceId);
             if (!inst) { navigate('/'); return; }
-            setInstance(inst);
 
-            // 为该实例所对应的 projectId 更新 selected_projects，再生成计划
-            await userApi.updateProfile({ selected_projects: [inst.projectId] });
+            // 自动推进 currentWeek（不破坏其他实例）
+            const startMs = new Date(inst.startDate).getTime();
+            const nowMs = new Date().setHours(0, 0, 0, 0);
+            const elapsed = Math.floor((nowMs - startMs) / (7 * 24 * 3600 * 1000));
+            const computedWeek = Math.min(Math.max(elapsed + 1, 1), inst.targetWeeks);
+            const updatedInst = { ...inst, currentWeek: computedWeek };
+            setInstance(updatedInst);
+            if (computedWeek !== inst.currentWeek) {
+              projectInstancesApi.update(inst.id, { currentWeek: computedWeek }).catch(() => {});
+            }
+
+            // 按 projectId 生成计划（不写入 profile.selected_projects）
+            if (!planRes) {
+              setPlanLoading(true);
+              try {
+                await plansApi.generateForProject([inst.projectId]);
+                const fresh = await plansApi.getCurrent();
+                setCurrentPlan(fresh);
+              } finally {
+                setPlanLoading(false);
+              }
+            } else {
+              setCurrentPlan(planRes);
+            }
+            return; // instanceId 分支处理完毕，finally 会 setLoading(false)
           }
 
+          // ── 旧版全局日历 ───────────────────────────────────────────────────
           setCurrentPlan(planRes);
-
           if (!planRes) {
             setPlanLoading(true);
             try {
@@ -122,11 +144,9 @@ export const CalendarPage: React.FC = () => {
     );
   }
 
-  // 项目颜色（V2 日历有对应项目）
   const projectColor = instance ? (PROJECT_MAP[instance.projectId]?.color ?? '#7DC47A') : '#7DC47A';
   const projectName = instance ? (PROJECT_MAP[instance.projectId]?.name ?? '训练日历') : null;
 
-  // 训练页路由：V2 带 instanceId，旧版不带
   const workoutPath = (date: string, dayIndex: number) =>
     instanceId
       ? `/workout/${instanceId}/${date}/${dayIndex}`

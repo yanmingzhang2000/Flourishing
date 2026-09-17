@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { authApi, saveToken } from '@/lib/api';
+import { authApi, userApi, saveToken } from '@/lib/api';
 
 type Mode = 'login' | 'register';
 
@@ -26,7 +26,13 @@ export const AuthPage: React.FC = () => {
         ? await authApi.login(email, password)
         : await authApi.register(email, password);
       saveToken(res.token);
-      navigate('/');
+      // 检查 onboarding 是否完成，新用户跳引导页
+      const profile = await userApi.getProfile();
+      if (!profile || !profile.onboarding_completed) {
+        navigate('/onboarding');
+      } else {
+        navigate('/');
+      }
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -39,6 +45,7 @@ export const AuthPage: React.FC = () => {
     try {
       const res = await authApi.guest();
       saveToken(res.token);
+      // 游客模式：直接跳主页（游客不做 onboarding）
       navigate('/');
     } catch (e: any) {
       setError(e.message);

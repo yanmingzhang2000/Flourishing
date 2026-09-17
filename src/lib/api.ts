@@ -85,9 +85,15 @@ export const plansApi = {
       method: 'POST',
       body: JSON.stringify({ weekNumber }),
     }),
+  /** V2：按指定项目列表生成计划，不改写 profile.selected_projects */
+  generateForProject: (projectIds: string[], weekNumber?: number) =>
+    request<any>('/api/plans/generate', {
+      method: 'POST',
+      body: JSON.stringify({ projectIds, weekNumber }),
+    }),
   getCurrent: () => request<any>('/api/plans/current'),
   getByDate: (date: string) => request<any>(`/api/plans/by-date/${date}`),
-  getMonth: (year: number, month: number) => 
+  getMonth: (year: number, month: number) =>
     request<any[]>(`/api/plans/month/${year}/${month}`),
   generateMonth: (year: number, month: number) =>
     request<any>(`/api/plans/month/${year}/${month}/generate`, {

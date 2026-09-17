@@ -139,7 +139,11 @@ router.post('/generate', (req: AuthRequest, res: Response) => {
   const profile = db.prepare('SELECT * FROM user_profiles WHERE user_id = ?').get(req.userId) as any;
   if (!profile) return res.status(400).json({ error: '请先完善个人信息' });
 
-  const selectedProjects: string[] = JSON.parse(profile.selected_projects || '["tricep_tone"]');
+  // projectIds 参数优先（V2 按实例生成，不写入 profile.selected_projects）
+  const selectedProjects: string[] = req.body.projectIds && Array.isArray(req.body.projectIds) && req.body.projectIds.length > 0
+    ? req.body.projectIds
+    : JSON.parse(profile.selected_projects || '["tricep_tone"]');
+
   const allExercises = loadExercises();
   const injuries: string[] = JSON.parse(profile.injuries || '[]');
   const trainingDays: number[] | null = profile.training_days ? JSON.parse(profile.training_days) : null;
