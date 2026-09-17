@@ -39,6 +39,17 @@ export interface ProjectExercises {
   [projectId: string]: ExerciseData;
 }
 
+/** 单个训练项目实例，代表用户正在进行的一个独立训练计划 */
+export interface ProjectInstance {
+  id: string;
+  projectId: string;
+  status: 'active' | 'paused' | 'completed';
+  startDate: string;           // ISO 日期字符串 YYYY-MM-DD
+  targetWeeks: 4 | 6 | 8;
+  currentWeek: number;
+  createdAt: string;
+}
+
 export interface UserProfile {
   // 训练偏好（引导必填）
   experience: 'zero' | 'occasional' | 'regular';
@@ -47,8 +58,11 @@ export interface UserProfile {
   maxTrainingDaysPerWeek: number;
   /** 自定义训练日：0=周日 … 6=周六；未设置时按天数自动排期 */
   trainingDays?: number[];
+  /** @deprecated V2 改为 projectInstances，保留向后兼容 */
   selectedProjects: string[];
   singleSessionMaxMin: number;
+  /** V2 onboarding 完成标志 */
+  onboardingCompleted?: boolean;
   // 身体信息（个人页可选填）
   height?: number;
   weight?: number;

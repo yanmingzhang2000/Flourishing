@@ -69,8 +69,35 @@ export function initDB() {
     );
   `);
 
+  // 项目实例表（V2 新增）
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS project_instances (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      project_id TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'active',
+      start_date TEXT NOT NULL,
+      target_weeks INTEGER NOT NULL DEFAULT 6,
+      current_week INTEGER NOT NULL DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
   // Migrations — ALTER TABLE 已存在列时会抛异常，用 try/catch 跳过
   try { db.exec(`ALTER TABLE user_profiles ADD COLUMN training_days TEXT DEFAULT NULL`); } catch {}
+  try { db.exec(`ALTER TABLE user_profiles ADD COLUMN onboarding_completed INTEGER DEFAULT 0`); } catch {}
+  // 以下列在早期版本中可能缺失，逐一补齐
+  try { db.exec(`ALTER TABLE user_profiles ADD COLUMN display_name TEXT`); } catch {}
+  try { db.exec(`ALTER TABLE user_profiles ADD COLUMN age INTEGER`); } catch {}
+  try { db.exec(`ALTER TABLE user_profiles ADD COLUMN height REAL`); } catch {}
+  try { db.exec(`ALTER TABLE user_profiles ADD COLUMN weight REAL`); } catch {}
+  try { db.exec(`ALTER TABLE user_profiles ADD COLUMN bmi REAL`); } catch {}
+  try { db.exec(`ALTER TABLE user_profiles ADD COLUMN experience TEXT`); } catch {}
+  try { db.exec(`ALTER TABLE user_profiles ADD COLUMN injuries TEXT DEFAULT '[]'`); } catch {}
+  try { db.exec(`ALTER TABLE user_profiles ADD COLUMN equipment TEXT DEFAULT '[]'`); } catch {}
+  try { db.exec(`ALTER TABLE user_profiles ADD COLUMN selected_projects TEXT DEFAULT '[]'`); } catch {}
+  try { db.exec(`ALTER TABLE user_profiles ADD COLUMN max_days_per_week INTEGER DEFAULT 3`); } catch {}
+  try { db.exec(`ALTER TABLE user_profiles ADD COLUMN session_max_min INTEGER DEFAULT 30`); } catch {}
 
   console.log('Database initialized');
 }

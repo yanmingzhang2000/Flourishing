@@ -16,6 +16,7 @@ router.get('/profile', (req: AuthRequest, res: Response) => {
     equipment: JSON.parse(profile.equipment || '[]'),
     selected_projects: JSON.parse(profile.selected_projects || '[]'),
     training_days: profile.training_days ? JSON.parse(profile.training_days) : null,
+    onboarding_completed: !!profile.onboarding_completed,
   });
 });
 
@@ -26,6 +27,7 @@ router.put('/profile', (req: AuthRequest, res: Response) => {
     height, weight,
     experience, injuries, equipment, selected_projects,
     max_days_per_week, session_max_min, training_days,
+    onboarding_completed,
   } = req.body;
 
   const bmi = height && weight ? Number((weight / ((height / 100) ** 2)).toFixed(1)) : null;
@@ -47,6 +49,7 @@ router.put('/profile', (req: AuthRequest, res: Response) => {
         max_days_per_week = COALESCE(?, max_days_per_week),
         session_max_min = COALESCE(?, session_max_min),
         training_days = COALESCE(?, training_days),
+        onboarding_completed = COALESCE(?, onboarding_completed),
         updated_at = CURRENT_TIMESTAMP
       WHERE user_id = ?
     `).run(
@@ -62,13 +65,14 @@ router.put('/profile', (req: AuthRequest, res: Response) => {
       max_days_per_week ?? null,
       session_max_min ?? null,
       training_days !== undefined ? JSON.stringify(training_days) : null,
+      onboarding_completed !== undefined ? (onboarding_completed ? 1 : 0) : null,
       req.userId
     );
   } else {
     db.prepare(`
       INSERT INTO user_profiles
-        (user_id, display_name, age, height, weight, bmi, experience, injuries, equipment, selected_projects, max_days_per_week, session_max_min, training_days)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (user_id, display_name, age, height, weight, bmi, experience, injuries, equipment, selected_projects, max_days_per_week, session_max_min, training_days, onboarding_completed)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       req.userId,
       display_name ?? null,
@@ -82,7 +86,8 @@ router.put('/profile', (req: AuthRequest, res: Response) => {
       JSON.stringify(selected_projects || []),
       max_days_per_week ?? 3,
       session_max_min ?? 30,
-      training_days !== undefined ? JSON.stringify(training_days) : null
+      training_days !== undefined ? JSON.stringify(training_days) : null,
+      onboarding_completed !== undefined ? (onboarding_completed ? 1 : 0) : 0
     );
   }
 

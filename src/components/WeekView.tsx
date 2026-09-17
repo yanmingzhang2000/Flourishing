@@ -13,10 +13,20 @@ const PROJECT_NAME_MAP: Record<string, string> = Object.fromEntries(
 interface Props {
   plan: WeeklyPlan;
   records: TrainingRecord[];
+  /** V2：由外部提供跳转逻辑（携带 instanceId）；不传时使用内部默认路由 */
+  onDayClick?: (date: string, dayIndex: number) => void;
 }
 
-export const WeekView: React.FC<Props> = ({ plan, records }) => {
+export const WeekView: React.FC<Props> = ({ plan, records, onDayClick }) => {
   const navigate = useNavigate();
+
+  const goToDay = (date: string, dayIndex: number) => {
+    if (onDayClick) {
+      onDayClick(date, dayIndex);
+    } else {
+      navigate(`/workout/${date}/${dayIndex}`);
+    }
+  };
 
   const getDate = (dayIndex: number): string => {
     const d = new Date(plan.startDate);
@@ -38,7 +48,7 @@ export const WeekView: React.FC<Props> = ({ plan, records }) => {
       {/* 今日快捷入口 */}
       {todayDay && todayDay.type !== 'rest' && !getRecord(todayIndex)?.completed && (
         <button
-          onClick={() => navigate(`/workout/${getDate(todayIndex)}/${todayIndex}`)}
+          onClick={() => goToDay(getDate(todayIndex), todayIndex)}
           className="w-full bg-brand rounded-2xl p-4 flex items-center justify-between text-white"
         >
           <div>
@@ -69,7 +79,7 @@ export const WeekView: React.FC<Props> = ({ plan, records }) => {
             return (
               <button
                 key={index}
-                onClick={() => !isRest && navigate(`/workout/${getDate(index)}/${index}`)}
+                onClick={() => !isRest && goToDay(getDate(index), index)}
                 disabled={isRest}
                 className={`aspect-square rounded-xl flex flex-col items-center justify-center transition-all
                   ${isRest ? 'cursor-default' : 'cursor-pointer active:scale-95'}
@@ -103,7 +113,7 @@ export const WeekView: React.FC<Props> = ({ plan, records }) => {
             return (
               <button
                 key={index}
-                onClick={() => navigate(`/workout/${dateStr}/${index}`)}
+                onClick={() => goToDay(dateStr, index)}
                 className={`w-full flex items-center gap-4 p-4 rounded-2xl transition-all text-left
                   ${done ? 'bg-brand-light' : today ? 'bg-ice-light ring-1 ring-brand/30' : 'bg-subtle hover:bg-ice-light'}`}
               >

@@ -7,11 +7,13 @@ interface Props {
   records: TrainingRecord[];
   plans: any[]; // 该月所有周计划
   onMonthChange: (year: number, month: number) => void;
+  /** V2：由外部提供跳转逻辑 */
+  onDayClick?: (date: string, dayIndex: number) => void;
 }
 
 const DAY_NAMES = ['日', '一', '二', '三', '四', '五', '六'];
 
-export const MonthView: React.FC<Props> = ({ year, month, records, plans, onMonthChange }) => {
+export const MonthView: React.FC<Props> = ({ year, month, records, plans, onMonthChange, onDayClick }) => {
 
   // 生成日历格子（包含上月尾、本月、下月初）
   const getCalendarDays = () => {
@@ -103,11 +105,30 @@ export const MonthView: React.FC<Props> = ({ year, month, records, plans, onMont
           {calendarDays.map((d, i) => {
             const status = getRecordStatus(d.date);
             const isToday = d.date === today;
+
+            // 找到该日期对应的 dayIndex（用于跳转）
+            const getDayIndex = (): number => {
+              for (const plan of plans) {
+                const startDate = new Date(plan.startDate);
+                for (let idx = 0; idx < 7; idx++) {
+                  const pd = new Date(startDate);
+                  pd.setDate(startDate.getDate() + idx);
+                  if (pd.toISOString().split('T')[0] === d.date) return idx;
+                }
+              }
+              return 0;
+            };
+
             return (
               <div
                 key={i}
+                onClick={() => {
+                  if (!d.inMonth || status === 'rest') return;
+                  if (onDayClick) onDayClick(d.date, getDayIndex());
+                }}
                 className={`aspect-square rounded-lg flex items-center justify-center relative
                   ${!d.inMonth ? 'opacity-30' : ''}
+                  ${status === 'done' || (d.inMonth && status !== 'rest') ? 'cursor-pointer' : ''}
                   ${status === 'done' ? 'bg-brand' :
                     status === 'missed' ? 'bg-accent-light' :
                     status === 'rest' ? 'bg-subtle' :

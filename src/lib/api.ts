@@ -54,6 +54,23 @@ export const userApi = {
     }),
 };
 
+// 项目实例（V2）
+export const projectInstancesApi = {
+  getAll: () => request<any[]>('/api/project-instances'),
+  create: (projectId: string, targetWeeks: 4 | 6 | 8, startDate?: string) =>
+    request<any>('/api/project-instances', {
+      method: 'POST',
+      body: JSON.stringify({ projectId, targetWeeks, startDate }),
+    }),
+  update: (id: string, data: { status?: 'active' | 'paused' | 'completed'; currentWeek?: number }) =>
+    request<any>(`/api/project-instances/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  remove: (id: string) =>
+    request<{ ok: boolean }>(`/api/project-instances/${id}`, { method: 'DELETE' }),
+};
+
 // 项目
 export const projectsApi = {
   getAll: () => request<any[]>('/api/projects'),
