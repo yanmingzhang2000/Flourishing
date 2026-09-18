@@ -11,7 +11,9 @@
     "test": "vitest run",
     "test:unit": "vitest run --config vitest.config.ts",
     "test:ci": "vitest run --config vitest.config.ts --passWithNoTests",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "library:validate": "ts-node src/exercise-library/check-published.ts",
+    "library:release-check": "ts-node src/exercise-library/check-published.ts --migration-report ../data/exercise-library-reports/initial-2026-03-20.migration.json --report ../data/exercise-library-reports/current.validation.json"
   },
   "keywords": [],
   "author": "",

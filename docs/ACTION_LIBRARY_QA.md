@@ -1,9 +1,10 @@
 # 动作库人工 QA 清单（入库前必过）
-> 适用文件：`/workspace/flourish_rag_exercise_library_v2.json`（= 教练原稿 57 条 + 本次补全 10 条，共 67 条）
+> 适用文件：`data/canonical-exercise-library.json`（当前 canonical 动作库）
+> 运行命令：`python scripts/validate_exercises.py`（或设置 `FLOURISH_EXERCISE_LIBRARY` 指向候选文件）
 > 原则：**误杀可接受，漏标 = 危险**。任何涉及关节负荷/过头的动作，若 contraindications 为空或偏少，必须人工复核是否漏标。
 > 本清单与《动作库标注规范与内容管线.md》配套使用。
 ## 一、自动化校验结论（已通过，机器可复跑）
-命令：`python3.11 /workspace/validate_v2.py`
+命令：`python scripts/validate_exercises.py`
 | 检查项 | 结果 |
 |--------|------|
 | 缺字段 / 重复 ID | 0 处 OK |
