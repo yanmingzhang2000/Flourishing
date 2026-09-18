@@ -56,6 +56,8 @@ export interface UserProfile {
   injuries: string[];
   equipment: string[];
   maxTrainingDaysPerWeek: number;
+  /** ISO-week day indices the user wants to train: 0=Mon … 6=Sun */
+  trainingDays?: number[];
   selectedProjects: string[];
   singleSessionMaxMin: number;
   // 身体信息（个人页可选填）

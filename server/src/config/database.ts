@@ -69,6 +69,19 @@ export function initDB() {
     );
   `);
 
+  // ── 幂等列迁移：为已存在的数据库补加新列 ─────────────────────────────────
+  // SQLite 不支持 ADD COLUMN IF NOT EXISTS，用 try/catch 代替。
+  const migrations: string[] = [
+    `ALTER TABLE user_profiles ADD COLUMN training_days TEXT DEFAULT NULL`,
+  ];
+  for (const sql of migrations) {
+    try {
+      db.exec(sql);
+    } catch {
+      // "duplicate column name" 是预期报错，忽略即可；其他错误重新抛出。
+    }
+  }
+
   console.log('Database initialized');
 }
 

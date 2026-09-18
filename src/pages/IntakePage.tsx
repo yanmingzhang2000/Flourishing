@@ -37,7 +37,20 @@ const INJURY_OPTIONS = [
   { value: 'back',     label: '腰背' },
 ];
 
-type Prefs = Pick<UserProfile, 'experience' | 'injuries' | 'equipment' | 'maxTrainingDaysPerWeek' | 'singleSessionMaxMin'>;
+// 星期选择（ISO 周：0=周一 … 6=周日）
+const WEEK_DAYS = [
+  { index: 0, label: '周一' },
+  { index: 1, label: '周二' },
+  { index: 2, label: '周三' },
+  { index: 3, label: '周四' },
+  { index: 4, label: '周五' },
+  { index: 5, label: '周六' },
+  { index: 6, label: '周日' },
+];
+
+type Prefs = Pick<UserProfile, 'experience' | 'injuries' | 'equipment' | 'trainingDays' | 'singleSessionMaxMin'>;
+
+
 
 // ── 通用选项卡片 ──────────────────────────────────────────────────────────────
 
@@ -115,7 +128,7 @@ export const IntakePage: React.FC = () => {
     if (s === 1 && !prefs.experience) e.experience = '请选择训练经验';
     if (s === 2 && (!prefs.equipment || !prefs.equipment.length)) e.equipment = '请至少选择一种器械';
     if (s === 2 && hasDumbbell && !selectedDumbbell) e.equipment = '请选择哑铃重量';
-    if (s === 3 && !prefs.maxTrainingDaysPerWeek) e.days = '请选择每周训练天数';
+    if (s === 3 && (!prefs.trainingDays || prefs.trainingDays.length === 0)) e.days = '请至少选择一天';
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -129,12 +142,16 @@ export const IntakePage: React.FC = () => {
   const handleSubmit = async () => {
     setSubmitting(true);
     try {
+      const trainingDays = prefs.trainingDays ?? [];
       await userApi.updateProfile({
         experience: prefs.experience!,
         injuries: prefs.injuries || [],
         equipment: prefs.equipment!,
-        max_days_per_week: prefs.maxTrainingDaysPerWeek!,
+        // Derive max_days_per_week from the selected days count so legacy
+        // fallback logic in the schedule engine still has a reasonable value.
+        max_days_per_week: trainingDays.length || 3,
         session_max_min: prefs.singleSessionMaxMin || 30,
+        training_days: trainingDays,
       });
     } catch { /* 失败也继续 */ }
     finally { setSubmitting(false); navigate('/'); }
@@ -227,53 +244,73 @@ export const IntakePage: React.FC = () => {
     </div>
   );
 
-  const renderStep3 = () => (
-    <div className="space-y-6">
-      <div>
-        <p className="text-sm font-semibold text-text mb-3">每周想练几天？</p>
-        <div className="grid grid-cols-4 gap-2">
-          {[2, 3, 4, 5].map(d => (
-            <button
-              key={d}
-              onClick={() => update({ maxTrainingDaysPerWeek: d })}
-              className={`py-3.5 rounded-xl border-2 text-center font-semibold text-sm transition-all ${
-                prefs.maxTrainingDaysPerWeek === d
-                  ? 'border-brand bg-brand text-white'
-                  : 'border-gray-200 bg-white text-text hover:border-brand/50'
-              }`}
-            >
-              {d} 天
-            </button>
-          ))}
-        </div>
-        {errors.days && <p className="text-sm text-red-500 mt-2">{errors.days}</p>}
-      </div>
+  const renderStep3 = () => {
+    const selected = prefs.trainingDays || [];
+    const toggle = (index: number) => {
+      update({
+        trainingDays: selected.includes(index)
+          ? selected.filter(d => d !== index)
+          : [...selected, index],
+      });
+    };
 
-      <div>
-        <p className="text-sm font-semibold text-text mb-3">每次最多练多久？</p>
-        <div className="grid grid-cols-3 gap-2">
-          {[20, 30, 45].map(m => (
-            <button
-              key={m}
-              onClick={() => update({ singleSessionMaxMin: m })}
-              className={`py-3.5 rounded-xl border-2 text-center font-semibold text-sm transition-all ${
-                prefs.singleSessionMaxMin === m
-                  ? 'border-brand bg-brand text-white'
-                  : 'border-gray-200 bg-white text-text hover:border-brand/50'
-              }`}
-            >
-              {m} 分钟
-            </button>
-          ))}
+    return (
+      <div className="space-y-6">
+        <div>
+          <p className="text-sm font-semibold text-text mb-1">选择你的训练日</p>
+          <p className="text-xs text-muted mb-4">可以多选，系统会自动保证肌群有足够恢复时间</p>
+          <div className="grid grid-cols-7 gap-1.5">
+            {WEEK_DAYS.map(day => {
+              const isSelected = selected.includes(day.index);
+              return (
+                <button
+                  key={day.index}
+                  onClick={() => toggle(day.index)}
+                  className={`py-3 rounded-xl border-2 text-center font-semibold text-sm transition-all flex flex-col items-center gap-0.5 ${
+                    isSelected
+                      ? 'border-brand bg-brand text-white'
+                      : 'border-gray-200 bg-white text-text hover:border-brand/50'
+                  }`}
+                >
+                  <span>{day.label.slice(1)}</span>
+                </button>
+              );
+            })}
+          </div>
+          {selected.length > 0 && (
+            <p className="text-xs text-brand mt-2 font-medium">
+              已选 {selected.length} 天：{[...selected].sort((a, b) => a - b).map(i => WEEK_DAYS[i].label).join('、')}
+            </p>
+          )}
+          {errors.days && <p className="text-sm text-red-500 mt-2">{errors.days}</p>}
+        </div>
+
+        <div>
+          <p className="text-sm font-semibold text-text mb-3">每次最多练多久？</p>
+          <div className="grid grid-cols-3 gap-2">
+            {[20, 30, 45].map(m => (
+              <button
+                key={m}
+                onClick={() => update({ singleSessionMaxMin: m })}
+                className={`py-3.5 rounded-xl border-2 text-center font-semibold text-sm transition-all ${
+                  prefs.singleSessionMaxMin === m
+                    ? 'border-brand bg-brand text-white'
+                    : 'border-gray-200 bg-white text-text hover:border-brand/50'
+                }`}
+              >
+                {m} 分钟
+              </button>
+            ))}
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   // ── 页面结构 ─────────────────────────────────────────────────────────────────
 
-  const STEP_TITLES    = ['你的运动经验？', '器械 & 伤病情况', '每周训练安排'];
-  const STEP_SUBTITLES = ['帮助我们推荐合适的训练强度', '可多选，我们会匹配合适的动作', '计划会按照你的节奏安排'];
+  const STEP_TITLES    = ['你的运动经验？', '器械 & 伤病情况', '训练日安排'];
+  const STEP_SUBTITLES = ['帮助我们推荐合适的训练强度', '可多选，我们会匹配合适的动作', '选择你想训练的星期，系统自动照顾恢复节奏'];
 
   return (
     <div className="min-h-screen bg-surface">

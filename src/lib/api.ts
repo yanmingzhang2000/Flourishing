@@ -57,7 +57,20 @@ export const authApi = {
 // 用户档案
 export const userApi = {
   getProfile: () => request<any>('/api/user/profile'),
-  updateProfile: (data: any) =>
+  updateProfile: (data: {
+    experience?: string;
+    injuries?: string[];
+    equipment?: string[];
+    selected_projects?: string[];
+    max_days_per_week?: number;
+    session_max_min?: number;
+    /** ISO-week day indices: 0=Mon … 6=Sun */
+    training_days?: number[];
+    display_name?: string;
+    age?: number;
+    height?: number;
+    weight?: number;
+  }) =>
     request<{ ok: boolean }>('/api/user/profile', {
       method: 'PUT',
       body: JSON.stringify(data),
