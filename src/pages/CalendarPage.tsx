@@ -19,6 +19,7 @@ export const CalendarPage: React.FC = () => {
   const [monthPlans, setMonthPlans] = useState<PlanSnapshot[]>([]);
   const [records, setRecords] = useState<TrainingRecord[]>([]);
   const [profile, setProfile] = useState<any | null>(null);
+  const [stats, setStats] = useState<{ totalWorkouts: number; currentStreak: number }>({ totalWorkouts: 0, currentStreak: 0 });
   const [unavailable, setUnavailable] = useState<StructuredUnavailableResult | null>(null);
 
   const today = new Date();

@@ -122,7 +122,8 @@ export const storage = {
     const profile = storage.getUserProfile();
     if (profile && !profile.projectInstances) {
       // Migrate selectedProjects to projectInstances
-      const instances: ProjectInstance[] = (profile.selectedProjects || []).map((projectId, index) => ({
+      const selectedProjects = (profile as any).selectedProjects || [];
+      const instances: ProjectInstance[] = selectedProjects.map((projectId: string, index: number) => ({
         id: `legacy_${projectId}_${Date.now()}_${index}`,
         projectId,
         status: 'active' as const,
