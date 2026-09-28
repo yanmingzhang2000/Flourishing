@@ -29,13 +29,17 @@ jobs:
           echo "$SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -p 22 $SERVER_HOST >> ~/.ssh/known_hosts 2>/dev/null
+          echo "Key first line: $(head -1 ~/.ssh/deploy_key)"
+          echo "Key last line: $(tail -1 ~/.ssh/deploy_key)"
+          echo "Key lines: $(wc -l < ~/.ssh/deploy_key)"
+          ls -la ~/.ssh/deploy_key
         env:
           SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           SERVER_HOST: ${{ secrets.SERVER_HOST }}
 
       - name: Test SSH connection
         run: |
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+          ssh -vvv -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
             ${{ secrets.DEPLOY_USER }}@${{ secrets.SERVER_HOST }} "echo SSH_OK"
         env:
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
