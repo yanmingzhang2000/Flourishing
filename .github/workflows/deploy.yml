@@ -26,28 +26,40 @@ jobs:
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          echo "$SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+          ssh-keyscan -p 22 $SERVER_HOST >> ~/.ssh/known_hosts 2>/dev/null
+        env:
+          SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+
+      - name: Test SSH connection
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+            ${{ secrets.DEPLOY_USER }}@${{ secrets.SERVER_HOST }} "echo SSH_OK"
+        env:
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
 
       - name: Upload frontend
         run: |
-          scp -i ~/.ssh/deploy_key \
+          scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
             dist/index.html \
             ${{ secrets.DEPLOY_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.DEPLOY_PATH }}/dist/index.html
 
       - name: Upload backend
         run: |
-          scp -i ~/.ssh/deploy_key -r \
+          scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -r \
             server/dist \
             ${{ secrets.DEPLOY_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.DEPLOY_PATH }}/server/
-          scp -i ~/.ssh/deploy_key \
+          scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
             server/package.json \
             ${{ secrets.DEPLOY_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.DEPLOY_PATH }}/server/package.json
 
       - name: Restart server
         run: |
-          ssh -i ~/.ssh/deploy_key ${{ secrets.DEPLOY_USER }}@${{ secrets.SERVER_HOST }} \
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+            ${{ secrets.DEPLOY_USER }}@${{ secrets.SERVER_HOST }} \
             "cd ${{ secrets.DEPLOY_PATH }}/server && npm install --omit=dev 2>&1 | tail -3 && pm2 restart flourish-api && sleep 2 && curl -s http://localhost:80/api/health"
 
       - name: Cleanup SSH
