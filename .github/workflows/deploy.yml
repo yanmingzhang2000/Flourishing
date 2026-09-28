@@ -1,0 +1,55 @@
+name: Deploy to Server
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Upload frontend
+        run: |
+          scp -i ~/.ssh/deploy_key \
+            dist/index.html \
+            ${{ secrets.DEPLOY_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.DEPLOY_PATH }}/dist/index.html
+
+      - name: Upload backend
+        run: |
+          scp -i ~/.ssh/deploy_key -r \
+            server/dist \
+            ${{ secrets.DEPLOY_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.DEPLOY_PATH }}/server/
+          scp -i ~/.ssh/deploy_key \
+            server/package.json \
+            ${{ secrets.DEPLOY_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.DEPLOY_PATH }}/server/package.json
+
+      - name: Restart server
+        run: |
+          ssh -i ~/.ssh/deploy_key ${{ secrets.DEPLOY_USER }}@${{ secrets.SERVER_HOST }} \
+            "cd ${{ secrets.DEPLOY_PATH }}/server && npm install --omit=dev 2>&1 | tail -3 && pm2 restart flourish-api && sleep 2 && curl -s http://localhost:80/api/health"
+
+      - name: Cleanup SSH
+        if: always()
+        run: rm -rf ~/.ssh/deploy_key
