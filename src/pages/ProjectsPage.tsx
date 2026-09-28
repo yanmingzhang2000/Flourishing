@@ -16,75 +16,58 @@ export const ProjectsPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-white pb-24">
+    <div className="min-h-screen bg-ice-light pb-24">
       {/* Header */}
-      <div className="px-5 pt-10 pb-4">
+      <div className="bg-white px-5 pt-10 pb-4">
         <div className="flex items-center justify-between mb-2">
           <button onClick={() => navigate('/')} className="text-brand text-sm font-medium">
             ← 返回
           </button>
-          <h1 className="text-lg font-bold text-text">浏览项目</h1>
+          <h1 className="text-lg font-bold text-text">选择训练项目</h1>
           <div className="w-12" />
         </div>
-        <p className="text-sm text-muted">选择一个项目开始训练</p>
+        <p className="text-sm text-muted">选择你想改善的目标部位</p>
       </div>
 
-      {/* Project List */}
-      <div className="px-5 space-y-3">
+      {/* Project Grid */}
+      <div className="px-4 pt-4 grid grid-cols-3 gap-3">
         {projects.map(project => (
           <div
             key={project.id}
             onClick={() => navigate(`/projects/${project.id}/start`)}
-            className="relative bg-white rounded-2xl overflow-hidden cursor-pointer transition-all shadow-sm hover:shadow-md"
+            className="bg-white rounded-2xl overflow-hidden cursor-pointer transition-all shadow-sm hover:shadow-md active:scale-[0.97]"
           >
-            {/* Left color bar */}
+            {/* Icon */}
             <div
-              className="absolute left-0 top-0 bottom-0 w-1.5 rounded-l-2xl"
-              style={{ backgroundColor: project.color }}
-            />
+              className="pt-5 pb-3 flex justify-center"
+              style={{ backgroundColor: `${project.color}12` }}
+            >
+              <div
+                className="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl"
+                style={{ backgroundColor: `${project.color}20` }}
+              >
+                {project.icon}
+              </div>
+            </div>
 
-            <div className="pl-6 pr-5 py-5">
-              <div className="flex items-center gap-4">
-                <div
-                  className="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl flex-shrink-0"
-                  style={{ backgroundColor: `${project.color}18` }}
+            {/* Content */}
+            <div className="px-2.5 py-3 text-center">
+              <h3 className="text-sm font-bold text-gray-800 leading-tight">{project.name}</h3>
+              <p className="text-[11px] text-gray-400 mt-0.5">{project.subtitle}</p>
+
+              <div className="flex items-center justify-center gap-1.5 mt-2.5">
+                <span
+                  className="px-2 py-0.5 rounded-full text-[10px] font-medium"
+                  style={{ backgroundColor: `${project.color}15`, color: project.color }}
                 >
-                  {project.icon}
-                </div>
-
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <h3 className="text-lg font-bold text-gray-800">{project.name}</h3>
-                    <span className="text-sm text-gray-400">{project.subtitle}</span>
-                  </div>
-                  <p className="text-sm text-gray-500 leading-relaxed mb-3">{project.description}</p>
-                  <div className="flex flex-wrap gap-2">
-                    <span
-                      className="px-2.5 py-0.5 rounded-full text-xs font-medium"
-                      style={{ backgroundColor: `${project.color}15`, color: project.color }}
-                    >
-                      {getDifficultyLabel(project.difficulty)}
-                    </span>
-                    <span
-                      className="px-2.5 py-0.5 rounded-full text-xs font-medium"
-                      style={{ backgroundColor: `${project.color}15`, color: project.color }}
-                    >
-                      {project.duration_minutes} 分钟
-                    </span>
-                    <span
-                      className="px-2.5 py-0.5 rounded-full text-xs font-medium"
-                      style={{ backgroundColor: `${project.color}15`, color: project.color }}
-                    >
-                      {project.target_area}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="text-gray-300">
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </div>
+                  {project.duration_minutes}min
+                </span>
+                <span
+                  className="px-2 py-0.5 rounded-full text-[10px] font-medium"
+                  style={{ backgroundColor: `${project.color}15`, color: project.color }}
+                >
+                  {getDifficultyLabel(project.difficulty)}
+                </span>
               </div>
             </div>
           </div>
