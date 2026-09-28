@@ -1,17 +1,19 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { storage } from '@/lib/storage';
-import { plansApi, recordsApi, userApi, isLoggedIn } from '@/lib/api';
-import { WeeklyPlan, PlanSnapshot, TrainingRecord, StructuredUnavailableResult } from '@/lib/types';
+import { plansApi, recordsApi, userApi, isLoggedIn, projectPlansApi } from '@/lib/api';
+import { WeeklyPlan, PlanSnapshot, TrainingRecord, StructuredUnavailableResult, Project } from '@/lib/types';
 import { BottomNav } from '@/components/BottomNav';
 import { WeekView } from '@/components/WeekView';
 import { MonthView } from '@/components/MonthView';
 import { YearView } from '@/components/YearView';
+import projectsData from '@/data/projects.json';
 
 type ViewType = 'week' | 'month' | 'year';
 
 export const CalendarPage: React.FC = () => {
   const navigate = useNavigate();
+  const { projectId } = useParams<{ projectId?: string }>();
   const [view, setView] = useState<ViewType>('week');
   const [currentPlan, setCurrentPlan] = useState<WeeklyPlan | null>(null);
   const [monthPlans, setMonthPlans] = useState<PlanSnapshot[]>([]);
@@ -29,10 +31,17 @@ export const CalendarPage: React.FC = () => {
     setViewMonth(m);
   };
 
+  // Get project info if projectId is provided
+  const projectInfo = projectId ? (projectsData as Project[]).find(p => p.id === projectId) : null;
+
   useEffect(() => {
     if (isLoggedIn()) {
+      const planPromise = projectId
+        ? projectPlansApi.getCurrent(projectId)
+        : plansApi.getCurrent();
+      
       Promise.all([
-        plansApi.getCurrent(),
+        planPromise,
         recordsApi.getAll(),
         userApi.getProfile(),
         recordsApi.getStats(),
@@ -44,19 +53,19 @@ export const CalendarPage: React.FC = () => {
         setStats(statsRes);
 
         // 如果当前没有计划，自动生成
-        if (!planRes) {
-          plansApi.generate().then(result => {
+        if (!planRes && projectId) {
+          projectPlansApi.generate(projectId).then(result => {
             if (result.outcome === 'temporarily_unavailable') {
               setUnavailable(result);
               return;
             }
-            plansApi.getCurrent().then(setCurrentPlan);
+            projectPlansApi.getCurrent(projectId).then(setCurrentPlan);
           });
         }
       }).catch(() => navigate('/'));
     } else {
-      const savedPlan = storage.getWeeklyPlan();
-      const savedRecords = storage.getTrainingRecords();
+      const savedPlan = projectId ? storage.getProjectWeeklyPlan(projectId) : storage.getWeeklyPlan();
+      const savedRecords = projectId ? storage.getProjectTrainingRecords(projectId) : storage.getTrainingRecords();
       const savedProfile = storage.getUserProfile();
       if (!savedPlan || !savedProfile) { navigate('/'); return; }
       setCurrentPlan(savedPlan);
@@ -64,25 +73,25 @@ export const CalendarPage: React.FC = () => {
       setProfile(savedProfile);
       setStats({ totalWorkouts: savedRecords.filter(r => r.completed).length, currentStreak: calculateStreak(savedRecords) });
     }
-  }, [navigate]);
+  }, [navigate, projectId]);
 
   // 月视图需要加载该月所有计划
   useEffect(() => {
-    if (view === 'month' && isLoggedIn()) {
-      plansApi.getMonth(viewYear, viewMonth).then(plans => {
+    if (view === 'month' && isLoggedIn() && projectId) {
+      projectPlansApi.getMonth(projectId, viewYear, viewMonth).then(plans => {
         setMonthPlans(plans);
         if (plans.length === 0) {
-          plansApi.generateMonth(viewYear, viewMonth).then(result => {
+          projectPlansApi.generateMonth(projectId, viewYear, viewMonth).then(result => {
             if (result.outcome === 'temporarily_unavailable') {
               setUnavailable(result);
               return;
             }
-            plansApi.getMonth(viewYear, viewMonth).then(setMonthPlans);
+            projectPlansApi.getMonth(projectId, viewYear, viewMonth).then(setMonthPlans);
           });
         }
       });
     }
-  }, [view, viewYear, viewMonth]);
+  }, [view, viewYear, viewMonth, projectId]);
 
   if (!profile) return null;
 
@@ -92,6 +101,15 @@ export const CalendarPage: React.FC = () => {
       <div className="px-5 pt-10 pb-4">
         <div className="flex items-center justify-between">
           <div>
+            {projectId && projectInfo && (
+              <div className="flex items-center gap-2 mb-1">
+                <button onClick={() => navigate('/')} className="text-brand text-sm font-medium">
+                  ← 我的训练
+                </button>
+                <span className="text-muted">/</span>
+                <span className="text-sm text-text font-medium">{projectInfo.name}</span>
+              </div>
+            )}
             <p className="text-sm text-muted mb-0.5">
               {today.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' })}
             </p>

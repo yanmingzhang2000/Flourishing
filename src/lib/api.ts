@@ -70,10 +70,55 @@ export const userApi = {
     age?: number;
     height?: number;
     weight?: number;
+    onboarding_completed?: boolean;
   }) =>
     request<{ ok: boolean }>('/api/user/profile', {
       method: 'PUT',
       body: JSON.stringify(data),
+    }),
+};
+
+// V2: 项目实例
+export const projectInstancesApi = {
+  create: (data: {
+    project_id: string;
+    target_weeks: 4 | 6 | 8;
+    training_days_per_week?: number;
+    session_minutes?: number;
+  }) =>
+    request<{ id: string; project_id: string }>('/api/user/projects/instances', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  
+  getAll: () => request<any[]>('/api/user/projects/instances'),
+  
+  update: (instanceId: string, data: { status?: 'active' | 'paused' | 'completed' }) =>
+    request<{ ok: boolean }>(`/api/user/projects/instances/${instanceId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  
+  delete: (instanceId: string) =>
+    request<{ ok: boolean }>(`/api/user/projects/instances/${instanceId}`, {
+      method: 'DELETE',
+    }),
+};
+
+// V2: 按项目生成计划
+export const projectPlansApi = {
+  generate: (projectId: string, weekNumber?: number) =>
+    request<PlanGenerationResponse>(`/api/projects/${projectId}/plans/generate`, {
+      method: 'POST',
+      body: JSON.stringify({ weekNumber }),
+    }),
+  getCurrent: (projectId: string) =>
+    request<PlanSnapshot | null>(`/api/projects/${projectId}/plans/current`),
+  getMonth: (projectId: string, year: number, month: number) =>
+    request<HistoricalPlanSnapshot[]>(`/api/projects/${projectId}/plans/month/${year}/${month}`),
+  generateMonth: (projectId: string, year: number, month: number): Promise<MonthPlanGenerationResponse> =>
+    request<MonthPlanGenerationResponse>(`/api/projects/${projectId}/plans/month/${year}/${month}/generate`, {
+      method: 'POST',
     }),
 };
 

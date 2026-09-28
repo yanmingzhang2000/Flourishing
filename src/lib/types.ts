@@ -50,22 +50,39 @@ export interface ProjectExercises {
   [projectId: string]: ExerciseData;
 }
 
+export interface ProjectInstance {
+  id: string;
+  projectId: string;
+  status: 'active' | 'paused' | 'completed';
+  startDate: string;
+  targetWeeks: 4 | 6 | 8;
+  currentWeek: number;
+  trainingDaysPerWeek: number;
+  sessionMinutes: number;
+  createdAt: string;
+}
+
 export interface UserProfile {
-  // 训练偏好（引导必填）
-  experience: 'zero' | 'occasional' | 'regular';
-  injuries: string[];
-  equipment: string[];
-  maxTrainingDaysPerWeek: number;
-  /** ISO-week day indices the user wants to train: 0=Mon … 6=Sun */
-  trainingDays?: number[];
-  selectedProjects: string[];
-  singleSessionMaxMin: number;
-  // 身体信息（个人页可选填）
+  // 身体信息
   height?: number;
   weight?: number;
   bmi?: number;
   age?: number;
   displayName?: string;
+  // 训练背景
+  experience: 'zero' | 'occasional' | 'regular';
+  injuries: string[];
+  // 可用器械
+  equipment: string[];
+  // 训练偏好（全局默认值）
+  maxTrainingDaysPerWeek: number;
+  /** ISO-week day indices the user wants to train: 0=Mon … 6=Sun */
+  trainingDays?: number[];
+  singleSessionMaxMin: number;
+  // 状态
+  onboardingCompleted: boolean;
+  // 项目实例列表
+  projectInstances: ProjectInstance[];
 }
 
 export interface WorkoutExercise {

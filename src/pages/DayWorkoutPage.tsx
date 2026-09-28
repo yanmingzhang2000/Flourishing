@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { storage } from '@/lib/storage';
-import { plansApi, recordsApi, isLoggedIn } from '@/lib/api';
+import { plansApi, recordsApi, isLoggedIn, projectPlansApi } from '@/lib/api';
 import { WeeklyPlan, WorkoutExercise } from '@/lib/types';
 
 export const DayWorkoutPage: React.FC = () => {
   const navigate = useNavigate();
-  const { date, dayIndex } = useParams<{ date: string; dayIndex: string }>();
+  const { projectId, date, dayIndex } = useParams<{ projectId?: string; date: string; dayIndex: string }>();
   const [plan, setPlan] = useState<WeeklyPlan | null>(null);
   const [completedExercises, setCompletedExercises] = useState<Set<string>>(new Set());
   const [showFeedback, setShowFeedback] = useState(false);
@@ -20,22 +20,26 @@ export const DayWorkoutPage: React.FC = () => {
     }
 
     if (isLoggedIn()) {
-      plansApi.getCurrent().then(planRes => {
+      const planPromise = projectId
+        ? projectPlansApi.getCurrent(projectId)
+        : plansApi.getCurrent();
+      
+      planPromise.then(planRes => {
         if (!planRes) {
-          navigate('/calendar');
+          navigate(projectId ? `/projects/${projectId}/calendar` : '/calendar');
           return;
         }
         setPlan(planRes);
-      }).catch(() => navigate('/calendar'));
+      }).catch(() => navigate(projectId ? `/projects/${projectId}/calendar` : '/calendar'));
     } else {
-      const savedPlan = storage.getWeeklyPlan();
+      const savedPlan = projectId ? storage.getProjectWeeklyPlan(projectId) : storage.getWeeklyPlan();
       if (!savedPlan) {
-        navigate('/calendar');
+        navigate(projectId ? `/projects/${projectId}/calendar` : '/calendar');
         return;
       }
       setPlan(savedPlan);
     }
-  }, [navigate, date, dayIndex]);
+  }, [navigate, date, dayIndex, projectId]);
 
   if (!plan || dayIndex === undefined) {
     return null;
@@ -101,7 +105,7 @@ export const DayWorkoutPage: React.FC = () => {
       });
     }
 
-    navigate('/calendar');
+    navigate(projectId ? `/projects/${projectId}/calendar` : '/calendar');
   };
 
   const totalExercises = day.exercises.length;
@@ -112,7 +116,7 @@ export const DayWorkoutPage: React.FC = () => {
       {/* 顶部导航栏 */}
       <div className="h-14 bg-white border-b border-gray-200 flex items-center px-4 flex-shrink-0">
         <button
-          onClick={() => navigate('/calendar')}
+          onClick={() => navigate(projectId ? `/projects/${projectId}/calendar` : '/calendar')}
           className="p-2 rounded-lg hover:bg-gray-100 mr-3"
         >
           <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">

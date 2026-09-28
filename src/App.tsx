@@ -1,15 +1,25 @@
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthPage } from '@/pages/AuthPage';
-import { ProjectSelectionPage } from '@/pages/ProjectSelectionPage';
-import { IntakePage } from '@/pages/IntakePage';
+import { MyProjectsPage } from '@/pages/MyProjectsPage';
+import { SettingsPage } from '@/pages/SettingsPage';
+import { ProjectsPage } from '@/pages/ProjectsPage';
+import { ProjectStartPage } from '@/pages/ProjectStartPage';
 import { CalendarPage } from '@/pages/CalendarPage';
 import { DayWorkoutPage } from '@/pages/DayWorkoutPage';
 import { ExerciseDetailPage } from '@/pages/ExerciseDetailPage';
-import { ProfilePage } from '@/pages/ProfilePage';
 import { isLoggedIn } from '@/lib/api';
+import { storage } from '@/lib/storage';
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   if (!isLoggedIn()) return <Navigate to="/auth" replace />;
+  return <>{children}</>;
+}
+
+function RequireOnboarding({ children }: { children: React.ReactNode }) {
+  const profile = storage.getUserProfile();
+  if (profile && !profile.onboardingCompleted && !profile.experience) {
+    return <Navigate to="/settings" replace />;
+  }
   return <>{children}</>;
 }
 
@@ -18,17 +28,19 @@ function App() {
     <HashRouter>
       <Routes>
         <Route path="/auth" element={<AuthPage />} />
-        {/* 首次引导：填训练偏好 */}
-        <Route path="/intake" element={<RequireAuth><IntakePage /></RequireAuth>} />
-        {/* 选训练项目（引导完成后 or 修改计划时） */}
-        <Route path="/" element={<RequireAuth><ProjectSelectionPage /></RequireAuth>} />
-        {/* 主 Tab：日历 */}
-        <Route path="/calendar" element={<RequireAuth><CalendarPage /></RequireAuth>} />
-        {/* 主 Tab：个人 */}
-        <Route path="/profile" element={<RequireAuth><ProfilePage /></RequireAuth>} />
-        {/* 训练详情 */}
-        <Route path="/workout/:date/:dayIndex" element={<RequireAuth><DayWorkoutPage /></RequireAuth>} />
+        {/* V2 Routes */}
+        <Route path="/" element={<RequireAuth><RequireOnboarding><MyProjectsPage /></RequireOnboarding></RequireAuth>} />
+        <Route path="/settings" element={<RequireAuth><SettingsPage /></RequireAuth>} />
+        <Route path="/projects" element={<RequireAuth><ProjectsPage /></RequireAuth>} />
+        <Route path="/projects/:id/start" element={<RequireAuth><ProjectStartPage /></RequireAuth>} />
+        <Route path="/projects/:projectId/calendar" element={<RequireAuth><CalendarPage /></RequireAuth>} />
+        <Route path="/workout/:projectId/:date/:dayIndex" element={<RequireAuth><DayWorkoutPage /></RequireAuth>} />
         <Route path="/exercise/:exerciseId" element={<RequireAuth><ExerciseDetailPage /></RequireAuth>} />
+        {/* Legacy routes - redirect to V2 */}
+        <Route path="/calendar" element={<RequireAuth><CalendarPage /></RequireAuth>} />
+        <Route path="/workout/:date/:dayIndex" element={<RequireAuth><DayWorkoutPage /></RequireAuth>} />
+        <Route path="/intake" element={<Navigate to="/settings" replace />} />
+        <Route path="/profile" element={<Navigate to="/settings" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </HashRouter>
