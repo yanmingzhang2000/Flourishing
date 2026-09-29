@@ -81,16 +81,13 @@ export const ProjectStartPage: React.FC = () => {
       <div className="flex-1 max-w-4xl mx-auto w-full px-8 py-8 grid grid-cols-2 gap-8 items-start">
 
         {/* 左栏：项目信息 */}
-        <div
-          className="bg-white rounded-2xl overflow-hidden shadow-sm h-full flex flex-col"
-          style={{ borderTop: `4px solid ${project.color}` }}
-        >
+        <div className="bg-white rounded-2xl overflow-hidden shadow-sm h-full flex flex-col border-t-4 border-brand">
           <div className="p-7 flex flex-col flex-1">
             {/* 图标 + 名称 */}
             <div className="flex items-center gap-4 mb-5">
               <div
                 className="w-20 h-20 rounded-2xl flex items-center justify-center text-5xl flex-shrink-0"
-                style={{ backgroundColor: `${project.color}18` }}
+                style={{ backgroundColor: `${project.color}20` }}
               >
                 {project.icon}
               </div>
@@ -105,26 +102,17 @@ export const ProjectStartPage: React.FC = () => {
 
             {/* Stats */}
             <div className="grid grid-cols-3 gap-3 mt-auto">
-              <div
-                className="rounded-xl p-3 text-center"
-                style={{ backgroundColor: `${project.color}12` }}
-              >
+              <div className="rounded-xl p-3 text-center bg-brand-light">
                 <div className="text-xs text-muted mb-1">目标部位</div>
-                <div className="text-sm font-semibold" style={{ color: project.color }}>{project.target_area}</div>
+                <div className="text-sm font-semibold text-brand">{project.target_area}</div>
               </div>
-              <div
-                className="rounded-xl p-3 text-center"
-                style={{ backgroundColor: `${project.color}12` }}
-              >
+              <div className="rounded-xl p-3 text-center bg-brand-light">
                 <div className="text-xs text-muted mb-1">每次时长</div>
-                <div className="text-sm font-semibold" style={{ color: project.color }}>{project.duration_minutes} 分钟</div>
+                <div className="text-sm font-semibold text-brand">{project.duration_minutes} 分钟</div>
               </div>
-              <div
-                className="rounded-xl p-3 text-center"
-                style={{ backgroundColor: `${project.color}12` }}
-              >
+              <div className="rounded-xl p-3 text-center bg-brand-light">
                 <div className="text-xs text-muted mb-1">难度</div>
-                <div className="text-sm font-semibold" style={{ color: project.color }}>
+                <div className="text-sm font-semibold text-brand">
                   {project.difficulty === 'beginner' ? '新手' : project.difficulty === 'intermediate' ? '中级' : '进阶'}
                 </div>
               </div>
@@ -146,19 +134,15 @@ export const ProjectStartPage: React.FC = () => {
                 key={w}
                 onClick={() => setTargetWeeks(w)}
                 className={`flex items-center gap-4 px-4 py-4 rounded-2xl border-2 text-left transition-all ${
-                  targetWeeks === w ? 'shadow-sm' : 'border-gray-200 hover:border-gray-300'
+                  targetWeeks === w
+                    ? 'border-brand bg-brand-light shadow-sm'
+                    : 'border-gray-200 hover:border-gray-300'
                 }`}
-                style={targetWeeks === w
-                  ? { borderColor: project.color, backgroundColor: `${project.color}0E` }
-                  : {}
-                }
               >
                 <div
-                  className="w-12 h-12 rounded-xl flex flex-col items-center justify-center flex-shrink-0 font-bold text-xl"
-                  style={targetWeeks === w
-                    ? { backgroundColor: project.color, color: '#fff' }
-                    : { backgroundColor: '#F3F4F6', color: '#374151' }
-                  }
+                  className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center flex-shrink-0 font-bold text-xl ${
+                    targetWeeks === w ? 'bg-brand text-white' : 'bg-gray-100 text-gray-700'
+                  }`}
                 >
                   {w}
                 </div>
@@ -166,10 +150,7 @@ export const ProjectStartPage: React.FC = () => {
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-semibold text-text">{w} 周计划</span>
                     {w === 6 && (
-                      <span
-                        className="text-xs px-2 py-0.5 rounded-full font-medium"
-                        style={{ backgroundColor: `${project.color}18`, color: project.color }}
-                      >
+                      <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-brand-light text-brand">
                         推荐
                       </span>
                     )}
@@ -181,20 +162,15 @@ export const ProjectStartPage: React.FC = () => {
           </div>
 
           {/* 预计完成 */}
-          <div
-            className="flex items-center gap-3 px-4 py-3 rounded-xl"
-            style={{ backgroundColor: `${project.color}10` }}
-          >
-            <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5 flex-shrink-0" stroke="currentColor" strokeWidth={2} style={{ color: project.color }}>
+          <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-brand-light">
+            <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5 flex-shrink-0 text-brand" stroke="currentColor" strokeWidth={2}>
               <rect x="3" y="4" width="18" height="18" rx="2" />
               <path d="M3 9h18" strokeLinecap="round" />
               <path d="M8 2v4M16 2v4" strokeLinecap="round" />
             </svg>
             <div>
               <p className="text-xs text-muted">预计完成</p>
-              <p className="text-sm font-semibold" style={{ color: project.color }}>
-                {getCompletionDate(targetWeeks)}
-              </p>
+              <p className="text-sm font-semibold text-brand">{getCompletionDate(targetWeeks)}</p>
             </div>
           </div>
 
@@ -212,8 +188,7 @@ export const ProjectStartPage: React.FC = () => {
           <button
             onClick={handleStart}
             disabled={submitting}
-            className="w-full py-4 rounded-2xl font-bold text-base text-white transition-all disabled:opacity-60 hover:opacity-90 mt-auto"
-            style={{ backgroundColor: project.color }}
+            className="w-full py-4 rounded-2xl font-bold text-base text-white bg-brand hover:bg-brand-dark transition-all disabled:opacity-60 mt-auto"
           >
             {submitting ? '创建中…' : `开始 ${targetWeeks} 周训练计划`}
           </button>
