@@ -36,10 +36,10 @@ export const ProfilePage: React.FC = () => {
   return (
     <div className="min-h-screen bg-subtle pb-28">
       {/* Hero 区：品牌绿背景，头像 + 昵称 + stats */}
-      <div className="bg-brand px-8 pt-12 pb-8">
+      <div className="bg-brand px-8 pt-8 pb-6">
         <div className="max-w-3xl mx-auto">
           {/* 头像 + 昵称行 */}
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-5">
             <div className="flex items-center gap-4">
               <div className="w-16 h-16 rounded-2xl bg-white/20 flex items-center justify-center text-white text-2xl font-bold flex-shrink-0">
                 {(profile?.display_name || '我')[0]}
@@ -73,17 +73,17 @@ export const ProfilePage: React.FC = () => {
 
           {/* Stats 卡片行 */}
           <div className="grid grid-cols-3 gap-3">
-            <div className="rounded-2xl p-4 bg-white/15 text-center">
-              <div className="text-2xl font-bold text-white">{stats?.totalWorkouts ?? 0}</div>
-              <div className="text-xs text-white/70 mt-0.5">累计完成</div>
+            <div className="rounded-2xl p-4 bg-white/90 text-center">
+              <div className="text-2xl font-bold text-brand">{stats?.totalWorkouts ?? 0}</div>
+              <div className="text-xs text-gray-600 mt-0.5">累计完成</div>
             </div>
-            <div className="rounded-2xl p-4 bg-white/15 text-center">
-              <div className="text-2xl font-bold text-white">{stats?.currentStreak ?? 0}</div>
-              <div className="text-xs text-white/70 mt-0.5">连续天数</div>
+            <div className="rounded-2xl p-4 bg-white/90 text-center">
+              <div className="text-2xl font-bold text-brand">{stats?.currentStreak ?? 0}</div>
+              <div className="text-xs text-gray-600 mt-0.5">连续天数</div>
             </div>
-            <div className="rounded-2xl p-4 bg-white/15 text-center">
-              <div className="text-2xl font-bold text-white">{bmi ?? '--'}</div>
-              <div className="text-xs text-white/70 mt-0.5">{bmiLabel ?? 'BMI'}</div>
+            <div className="rounded-2xl p-4 bg-white/90 text-center">
+              <div className="text-2xl font-bold text-text">{bmi ?? '--'}</div>
+              <div className="text-xs text-gray-600 mt-0.5">{bmiLabel ?? 'BMI'}</div>
             </div>
           </div>
         </div>
