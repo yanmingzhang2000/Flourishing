@@ -34,65 +34,39 @@ export const ProjectsPage: React.FC = () => {
         </div>
       </div>
 
-      <div className="max-w-md mx-auto px-4 py-5 space-y-3">
+      <div className="max-w-md mx-auto px-4 py-5 grid grid-cols-3 gap-3">
         {projects.map(project => (
           <button
             key={project.id}
-            className="w-full text-left bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all"
-            style={{ borderLeft: `4px solid ${project.color}` }}
+            className="text-center bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all p-4 flex flex-col items-center"
             onClick={() => navigate(`/projects/${project.id}/start`)}
           >
-            <div className="pl-5 pr-5 py-4">
-              <div className="flex items-center gap-4">
-                {/* 图标 */}
-                <div
-                  className="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl flex-shrink-0"
-                  style={{ backgroundColor: `${project.color}18` }}
-                >
-                  {project.icon}
-                </div>
+            {/* 图标 */}
+            <div
+              className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl mb-3"
+              style={{ backgroundColor: `${project.color}18` }}
+            >
+              {project.icon}
+            </div>
 
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                    <h3 className="text-base font-bold text-gray-800">{project.name}</h3>
-                    <span className="text-sm text-gray-400">{project.subtitle}</span>
-                  </div>
-                  <p className="text-sm text-gray-500 leading-relaxed mb-2.5 line-clamp-2">
-                    {project.description}
-                  </p>
-                  <div className="flex flex-wrap gap-1.5">
-                    <span
-                      className="px-2.5 py-0.5 rounded-full text-xs font-medium"
-                      style={{ backgroundColor: `${project.color}15`, color: project.color }}
-                    >
-                      {getDifficultyLabel(project.difficulty)}
-                    </span>
-                    <span
-                      className="px-2.5 py-0.5 rounded-full text-xs font-medium"
-                      style={{ backgroundColor: `${project.color}15`, color: project.color }}
-                    >
-                      {project.duration_minutes} 分钟
-                    </span>
-                    <span
-                      className="px-2.5 py-0.5 rounded-full text-xs font-medium"
-                      style={{ backgroundColor: `${project.color}15`, color: project.color }}
-                    >
-                      {project.target_area}
-                    </span>
-                  </div>
-                </div>
+            {/* 标题 */}
+            <h3 className="text-sm font-bold text-gray-800 mb-1">{project.name}</h3>
+            <span className="text-xs text-gray-400 mb-2">{project.subtitle}</span>
 
-                {/* 箭头 */}
-                <svg
-                  className="w-5 h-5 flex-shrink-0"
-                  style={{ color: project.color }}
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </div>
+            {/* 标签 */}
+            <div className="flex flex-col gap-1 w-full">
+              <span
+                className="px-2 py-0.5 rounded-full text-xs font-medium"
+                style={{ backgroundColor: `${project.color}15`, color: project.color }}
+              >
+                {getDifficultyLabel(project.difficulty)}
+              </span>
+              <span
+                className="px-2 py-0.5 rounded-full text-xs font-medium"
+                style={{ backgroundColor: `${project.color}15`, color: project.color }}
+              >
+                {project.duration_minutes}分钟
+              </span>
             </div>
           </button>
         ))}
