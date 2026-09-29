@@ -167,114 +167,114 @@ export const CalendarPage: React.FC = () => {
       : `/workout/${date}/${dayIndex}`;
 
   return (
-    <div className="min-h-screen bg-white pb-24">
+    <div className="min-h-screen bg-subtle pb-24">
       {/* Header */}
-      <div className="px-5 pt-10 pb-4">
-        <div className="flex items-center gap-3">
-          {instanceId && (
-            <button
-              onClick={() => navigate('/')}
-              className="p-2 rounded-lg hover:bg-gray-100 transition-colors flex-shrink-0"
-              aria-label="返回"
-            >
-              <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-          )}
-          <div className="flex-1 min-w-0">
-            <p className="text-sm text-muted mb-0.5">
-              {today.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' })}
-            </p>
-            <h1 className="text-2xl font-bold text-text truncate">
-              {projectName
-                ? projectName
-                : profile.display_name ? `你好，${profile.display_name} 👋` : '训练日历'}
-            </h1>
-            {instance && (
-              <p className="text-sm mt-0.5" style={{ color: projectColor }}>
-                第 {instance.currentWeek} 周 / 共 {instance.targetWeeks} 周
+      <div className="bg-brand px-8 pt-8 pb-6">
+        <div className="max-w-4xl mx-auto">
+          <div className="flex items-center gap-3">
+            {instanceId && (
+              <button
+                onClick={() => navigate('/')}
+                className="p-2 rounded-lg hover:bg-white/20 transition-colors flex-shrink-0"
+                aria-label="返回"
+              >
+                <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+            )}
+            <div className="flex-1 min-w-0">
+              <p className="text-sm text-white/70 mb-0.5">
+                {today.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' })}
               </p>
+              <h1 className="text-2xl font-bold text-white truncate">
+                {projectName
+                  ? projectName
+                  : profile.display_name ? `你好，${profile.display_name} 👋` : '训练日历'}
+              </h1>
+              {instance && (
+                <p className="text-sm text-white/80 mt-0.5">
+                  第 {instance.currentWeek} 周 / 共 {instance.targetWeeks} 周
+                </p>
+              )}
+            </div>
+            {!instanceId && (
+              <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
+                {(profile.display_name || '我')[0]}
+              </div>
             )}
           </div>
-          {!instanceId && (
-            <div
-              className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-lg flex-shrink-0"
-              style={{ backgroundColor: projectColor }}
-            >
-              {(profile.display_name || '我')[0]}
+
+          {/* Stats 卡片行 */}
+          <div className="grid grid-cols-3 gap-3 mt-5">
+            <div className="rounded-2xl p-4 bg-white/90 text-center">
+              <div className="text-2xl font-bold text-brand">{stats.totalWorkouts}</div>
+              <div className="text-xs text-gray-500 mt-0.5">累计完成</div>
             </div>
+            <div className="rounded-2xl p-4 bg-white/90 text-center">
+              <div className="text-2xl font-bold text-brand">{stats.currentStreak}</div>
+              <div className="text-xs text-gray-500 mt-0.5">连续天数</div>
+            </div>
+            <div className="rounded-2xl p-4 bg-white/90 text-center">
+              <div className="text-2xl font-bold text-text">{profile.bmi ? Number(profile.bmi).toFixed(1) : '--'}</div>
+              <div className="text-xs text-gray-500 mt-0.5">BMI</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 主内容区 */}
+      <div className="max-w-4xl mx-auto px-8 pt-6">
+        {unavailable && (
+          <div className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-center">
+            <p className="font-semibold text-amber-800">{unavailable.display_message}</p>
+            <p className="mt-1 text-xs text-amber-700">当前条件下没有安全、合格的动作，请调整训练偏好后重试。</p>
+          </div>
+        )}
+
+        {/* Tab 切换 */}
+        <div className="mb-5">
+          <div className="bg-white rounded-2xl p-1 flex gap-1 shadow-sm">
+            {(['week', 'month', 'year'] as ViewType[]).map(v => (
+              <button
+                key={v}
+                onClick={() => setView(v)}
+                className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-all
+                  ${view === v ? 'bg-brand text-white shadow-sm' : 'text-muted hover:text-text'}`}
+              >
+                {v === 'week' ? '周' : v === 'month' ? '月' : '年'}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* 视图内容 */}
+        <div>
+          {view === 'week' && (
+            currentPlan
+              ? <WeekView
+                  plan={currentPlan}
+                  records={records}
+                  onDayClick={(date, dayIndex) => navigate(workoutPath(date, dayIndex))}
+                />
+              : <div className="text-center text-muted py-10 text-sm bg-white rounded-2xl">
+                  {planLoading ? '正在生成训练计划…' : '暂无本周计划'}
+                </div>
+          )}
+          {view === 'month' && (
+            <MonthView
+              year={viewYear}
+              month={viewMonth}
+              records={records}
+              plans={monthPlans}
+              onMonthChange={handleMonthChange}
+              onDayClick={(date, dayIndex) => navigate(workoutPath(date, dayIndex))}
+            />
+          )}
+          {view === 'year' && (
+            <YearView year={viewYear} records={records} />
           )}
         </div>
-      </div>
-
-      {/* 统计卡片 */}
-      <div className="px-5 mb-5">
-        <div className="grid grid-cols-3 gap-3">
-          <div className="rounded-2xl p-4 bg-ice-light text-center">
-            <div className="text-2xl font-bold text-brand">{stats.totalWorkouts}</div>
-            <div className="text-xs text-muted mt-0.5">累计完成</div>
-          </div>
-          <div className="rounded-2xl p-4 bg-ice-light text-center">
-            <div className="text-2xl font-bold text-brand">{stats.currentStreak}</div>
-            <div className="text-xs text-muted mt-0.5">连续天数</div>
-          </div>
-          <div className="rounded-2xl p-4 bg-ice-light text-center">
-            <div className="text-2xl font-bold text-text">{profile.bmi ? Number(profile.bmi).toFixed(1) : '--'}</div>
-            <div className="text-xs text-muted mt-0.5">BMI</div>
-          </div>
-        </div>
-      </div>
-
-      {unavailable && (
-        <div className="mx-5 mb-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-center">
-          <p className="font-semibold text-amber-800">{unavailable.display_message}</p>
-          <p className="mt-1 text-xs text-amber-700">当前条件下没有安全、合格的动作，请调整训练偏好后重试。</p>
-        </div>
-      )}
-
-      {/* Tab 切换 */}
-      <div className="px-5 mb-5">
-        <div className="bg-subtle rounded-2xl p-1 flex gap-1">
-          {(['week', 'month', 'year'] as ViewType[]).map(v => (
-            <button
-              key={v}
-              onClick={() => setView(v)}
-              className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-all
-                ${view === v ? 'bg-white text-brand shadow-sm' : 'text-muted hover:text-text'}`}
-            >
-              {v === 'week' ? '周' : v === 'month' ? '月' : '年'}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* 视图内容 */}
-      <div className="px-5">
-        {view === 'week' && (
-          currentPlan
-            ? <WeekView
-                plan={currentPlan}
-                records={records}
-                onDayClick={(date, dayIndex) => navigate(workoutPath(date, dayIndex))}
-              />
-            : <div className="text-center text-muted py-10 text-sm">
-                {planLoading ? '正在生成训练计划…' : '暂无本周计划'}
-              </div>
-        )}
-        {view === 'month' && (
-          <MonthView
-            year={viewYear}
-            month={viewMonth}
-            records={records}
-            plans={monthPlans}
-            onMonthChange={handleMonthChange}
-            onDayClick={(date, dayIndex) => navigate(workoutPath(date, dayIndex))}
-          />
-        )}
-        {view === 'year' && (
-          <YearView year={viewYear} records={records} />
-        )}
       </div>
 
       <BottomNav />
