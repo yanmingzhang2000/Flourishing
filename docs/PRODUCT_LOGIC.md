@@ -564,21 +564,23 @@ GET    /api/projects/:id/exercises - 获取项目动作
 
 ### 10.4 计划相关
 ```
-POST   /api/plans/generate       - 生成周计划
+POST   /api/plans/generate       - 生成周计划（内部走三层规则+RAG+LLM）
 GET    /api/plans/current        - 获取当前周计划
 PUT    /api/plans/:id            - 更新计划
 ```
 
-### 10.5 AI相关
+### 10.5 AI 相关
 ```
-POST   /api/ai/analyze-exercise  - AI分析动作
-POST   /api/ai/generate-plan     - AI生成训练文案
-POST   /api/ai/adjust-plan       - AI调整计划
+POST   /api/ai/analyze-exercise  - LLM 动作讲解/文案（不改安全结构）
+POST   /api/co-pilot/validate    - 录入期安全校验（伤病→受影响动作列表）
+POST   /api/co-pilot/recommend-projects  - 录入期项目推荐（自由文本→推荐项目+理由）
 ```
+
+> 注：`/api/ai/generate-plan` 已删除（决议 17）；计划生成统一走 `/api/plans/generate` 内部三层架构。
 
 ### 10.6 记录相关
 ```
-POST   /api/records              - 提交训练记录
+POST   /api/records              - 提交训练记录（反馈触发规则层调整）
 GET    /api/records              - 获取训练记录
 GET    /api/records/stats        - 获取统计数据
 ```
@@ -590,16 +592,17 @@ GET    /api/records/stats        - 获取统计数据
 | 页面 | 功能 | 优先级 | 说明 |
 |------|------|--------|------|
 | 登录页 | 邮箱密码登录 | P0 | |
-| 注册页 | 邮箱密码注册 | P0 | |
-| 用户信息页 | 3个Tab：基础/器械/目标 | P0 | |
-| **日程设置页** | 选择具体哪几天训练 | P0 | 新增 |
-| 项目选择页 | 6个项目卡片 | P0 | |
-| 打卡日历页 | 周视图 | P0 | |
-| 当日训练页 | 三栏布局 | P0 | |
-| 动作详情页 | 视频/图片 | P0 | |
-| 训练反馈 | 太轻松/刚好/太难 | P0 | |
-| 我的计划页 | 当前计划 | P1 | |
-| 个人中心 | 账号设置 | P2 | |
+| 注册页 | 邮箱密码注册 + 免责声明（决议 19） | P0 | |
+| 用户信息页（onboarding） | 训练背景/器械/偏好 | P0 | co-pilot 校验层覆盖（伤病→受影响动作提示） |
+| **co-pilot 项目推荐** | 自由文本输入 → AI 推荐项目 → 用户 L2 确认 | P0 | onboarding 最后一步；决议 20 |
+| 项目浏览页 | 6 个项目卡片，可手动选择 | P0 | 推荐结果预填，用户可修改 |
+| 项目启动配置页 | 选择 4/6/8 周目标 | P0 | |
+| 打卡日历页 | 周视图，训练类型标记 | P0 | |
+| 当日训练页 | 三栏：热身/训练/拉伸 | P0 | |
+| 动作详情页 | 视频/图片，计时器 | P0 | |
+| 训练反馈 | 太轻松/刚好/太难 | P0 | 关节不适 → co-pilot 硬阻断 |
+| 我的项目页 | 项目列表，进度概览 | P1 | |
+| 个人中心 | 账号设置，数据导出 | P2 | |
 
 ---
 
@@ -635,6 +638,13 @@ GET    /api/records/stats        - 获取统计数据
 **禁忌拦截：**
 - Case T-01：肩伤排除肩相关动作（dumbbell_lateral_raise 不得出现）
 - Case T-03：多伤病叠加（shoulder ∪ knee 标签命中动作全排除）
+
+**co-pilot 项目推荐（决议 20）：**
+- Case P-01：输入"手臂拜拜肉" + 无伤病 → 推荐 tricep_tone，不阻断
+- Case P-02：输入"圆肩驼背" + 勾选肩伤 → round_shoulder_fix 被硬阻断，推荐 trap_relax
+- Case P-03：输入"小肚子" + 无伤病 → 推荐 lower_abs_tone
+- Case P-04：输入"零基础" + 无伤病 → 推荐 full_body_basic
+- Case P-05：推荐结果的每个项目必须通过 eligibility 过滤（安全拦截率 100%）
 
 **时长计算：**
 - Case D-01：拜拜肉(15) → 15+5=20min
