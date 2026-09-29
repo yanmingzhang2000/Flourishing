@@ -92,20 +92,20 @@ export const MyProjectsPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-surface pb-28">
       {/* Header */}
-      <div className="bg-white px-5 pt-12 pb-5 border-b border-gray-100">
+      <div className="bg-brand px-5 pt-12 pb-5">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-text">我的训练</h1>
-            <p className="text-sm text-muted mt-0.5">
+            <h1 className="text-2xl font-bold text-white">我的训练</h1>
+            <p className="text-sm text-white/70 mt-0.5">
               {profile?.display_name ? `${profile.display_name}，` : ''}加油 💪
             </p>
           </div>
           <button
             onClick={() => navigate('/settings')}
-            className="w-10 h-10 rounded-full bg-subtle flex items-center justify-center hover:bg-gray-200 transition-colors"
+            className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition-colors"
             aria-label="设置"
           >
-            <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5 text-text" stroke="currentColor" strokeWidth={1.8}>
+            <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5 text-white" stroke="currentColor" strokeWidth={1.8}>
               <path strokeLinecap="round" strokeLinejoin="round"
                 d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
               <circle cx="12" cy="12" r="3" />
@@ -118,7 +118,9 @@ export const MyProjectsPage: React.FC = () => {
         {/* 空状态 */}
         {activeInstances.length === 0 && completedInstances.length === 0 && (
           <div className="flex flex-col items-center justify-center py-20 text-center">
-            <div className="text-5xl mb-4">🌱</div>
+            <div className="w-24 h-24 rounded-full bg-brand/10 flex items-center justify-center text-5xl mb-4">
+              🌱
+            </div>
             <h2 className="text-lg font-bold text-text mb-2">还没有训练项目</h2>
             <p className="text-sm text-muted mb-6">选择一个项目，开始你的塑形之旅</p>
             <button
