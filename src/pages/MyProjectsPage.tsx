@@ -114,7 +114,7 @@ export const MyProjectsPage: React.FC = () => {
         </div>
       </div>
 
-      <div className="px-5 pt-5 space-y-3">
+      <div className="px-5 pt-5 space-y-3 max-w-4xl mx-auto">
         {/* 空状态 */}
         {activeInstances.length === 0 && completedInstances.length === 0 && (
           <div className="flex flex-col items-center justify-center py-20 text-center">
@@ -141,8 +141,7 @@ export const MyProjectsPage: React.FC = () => {
           return (
             <div
               key={inst.id}
-              className="bg-white rounded-2xl overflow-hidden shadow-sm"
-              style={{ borderLeft: `4px solid ${project.color}` }}
+              className="bg-white rounded-2xl overflow-hidden shadow-sm border-l-4 border-brand"
             >
               <div className="px-5 py-4">
                 <div className="flex items-start gap-3 mb-3">
@@ -165,11 +164,11 @@ export const MyProjectsPage: React.FC = () => {
                 <div className="mb-3">
                   <div className="flex justify-between items-center mb-1.5">
                     <span className="text-xs text-muted">第 {inst.currentWeek} 周 / 共 {inst.targetWeeks} 周</span>
-                    <span className="text-xs font-semibold" style={{ color: project.color }}>
+                    <span className="text-xs font-semibold text-brand">
                       {Math.round((inst.currentWeek / inst.targetWeeks) * 100)}%
                     </span>
                   </div>
-                  <ProgressBar current={inst.currentWeek} total={inst.targetWeeks} color={project.color} />
+                  <ProgressBar current={inst.currentWeek} total={inst.targetWeeks} color="#7DC47A" />
                 </div>
 
                 {/* 操作按钮 */}
@@ -177,8 +176,7 @@ export const MyProjectsPage: React.FC = () => {
                   {inst.status === 'active' && (
                     <button
                       onClick={() => navigate(`/projects/${inst.id}/calendar`)}
-                      className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white transition-colors"
-                      style={{ backgroundColor: project.color }}
+                      className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white bg-brand hover:bg-brand-dark transition-colors"
                     >
                       继续训练
                     </button>
