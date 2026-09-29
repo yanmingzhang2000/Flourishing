@@ -120,10 +120,10 @@ describe('assembleTrainingDay – C-02 (daily combination default)', () => {
 });
 
 // ---------------------------------------------------------------------------
-// assembleTrainingDay – C-01: full_body + local deduplication
+// assembleTrainingDay – C-01: full_body + local volume reduction
 // ---------------------------------------------------------------------------
-describe('assembleTrainingDay – C-01 (full_body deduplication)', () => {
-  it('suppresses tricep_tone strength exercise when combined with full_body_basic', () => {
+describe('assembleTrainingDay – C-01 (full_body volume reduction)', () => {
+  it('reduces tricep_tone strength exercise to 1 set when combined with full_body_basic', () => {
     const library = makeLibrary([
       // full_body strength exercise (trains 肱三头肌 among others)
       baseExercise({
@@ -132,7 +132,7 @@ describe('assembleTrainingDay – C-01 (full_body deduplication)', () => {
         category: 'strength',
         muscle_group: { primary: ['肱三头肌', '股四头肌'], secondary: [] },
       }),
-      // tricep_tone strength exercise (trains same 肱三头肌 → should be suppressed)
+      // tricep_tone strength exercise (trains same 肱三头肌 → volume should be reduced)
       baseExercise({
         exercise_id: 'tricep_strength',
         target_projects: ['tricep_tone'],
@@ -145,13 +145,25 @@ describe('assembleTrainingDay – C-01 (full_body deduplication)', () => {
       selected_projects: ['full_body_basic', 'tricep_tone'],
     };
     const result = assembleTrainingDay(['full_body_basic', 'tricep_tone'], profile, library);
-    expect(result.meta.deduplicated).toContain('tricep_tone');
-    expect(result.meta.included).not.toContain('tricep_tone');
-    // The full_body exercise itself should still be present
+    
+    // Both projects should be included
+    expect(result.meta.included).toContain('full_body_basic');
+    expect(result.meta.included).toContain('tricep_tone');
+    
+    // tricep_tone should be in volumeReduced, not deduplicated
+    expect(result.meta.volumeReduced).toContain('tricep_tone');
+    expect(result.meta.deduplicated).not.toContain('tricep_tone');
+    
+    // Both exercises should be present
     expect(result.exercises.some(e => e.exerciseId === 'fb_strength')).toBe(true);
+    expect(result.exercises.some(e => e.exerciseId === 'tricep_strength')).toBe(true);
+    
+    // tricep_strength should have only 1 set
+    const tricepExercise = result.exercises.find(e => e.exerciseId === 'tricep_strength');
+    expect(tricepExercise?.sets).toBe(1);
   });
 
-  it('still includes warmup and cooldown for deduplicated projects (C-01)', () => {
+  it('still includes warmup and cooldown for volume-reduced projects (C-01)', () => {
     const library = makeLibrary([
       baseExercise({ exercise_id: 'fb_strength', target_projects: ['full_body_basic'], category: 'strength', muscle_group: { primary: ['肱三头肌'], secondary: [] } }),
       baseExercise({ exercise_id: 'tricep_strength', target_projects: ['tricep_tone'], category: 'strength', muscle_group: { primary: ['肱三头肌'], secondary: [] } }),
@@ -165,13 +177,14 @@ describe('assembleTrainingDay – C-01 (full_body deduplication)', () => {
     expect(result.cooldown.some(e => e.id === 'tricep_stretch')).toBe(true);
   });
 
-  it('does not deduplicate non-overlapping local project (trap_relax)', () => {
+  it('does not reduce non-overlapping local project (trap_relax)', () => {
     const library = makeLibrary([
       baseExercise({ exercise_id: 'fb_ex', target_projects: ['full_body_basic'], category: 'strength', muscle_group: { primary: ['股四头肌'], secondary: [] } }),
       baseExercise({ exercise_id: 'trap_ex', target_projects: ['trap_relax'], category: 'strength', muscle_group: { primary: ['斜方肌上束'], secondary: [] } }),
     ]);
     const profile: NormalizedProfile = { ...baseProfile, selected_projects: ['full_body_basic', 'trap_relax'] };
     const result = assembleTrainingDay(['full_body_basic', 'trap_relax'], profile, library);
+    expect(result.meta.volumeReduced).not.toContain('trap_relax');
     expect(result.meta.deduplicated).not.toContain('trap_relax');
     expect(result.meta.included).toContain('trap_relax');
   });
@@ -179,6 +192,7 @@ describe('assembleTrainingDay – C-01 (full_body deduplication)', () => {
   it('records overlap warnings in meta', () => {
     const library = makeLibrary([
       baseExercise({ exercise_id: 'fb_ex', target_projects: ['full_body_basic'], category: 'strength', muscle_group: { primary: ['肱三头肌'], secondary: [] } }),
+      baseExercise({ exercise_id: 'tricep_ex', target_projects: ['tricep_tone'], category: 'strength', muscle_group: { primary: ['肱三头肌'], secondary: [] } }),
     ]);
     const profile: NormalizedProfile = { ...baseProfile, selected_projects: ['full_body_basic', 'tricep_tone'] };
     const result = assembleTrainingDay(['full_body_basic', 'tricep_tone'], profile, library);

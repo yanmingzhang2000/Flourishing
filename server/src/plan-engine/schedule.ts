@@ -112,10 +112,14 @@ export function defaultTrainingDays(desiredCount: number): readonly WeekDayIndex
  * The algorithm is greedy: it accepts each day in order, rejecting it only
  * when it is within 48 h (<= 1 calendar day gap) of a previously accepted
  * day that trains overlapping muscles.
+ *
+ * @param prevWeekLastTrainingDay - Optional: last training day from previous week (0-6).
+ *   Used to enforce 48h recovery across week boundaries (e.g., Sunday → Monday).
  */
 export function enforceRecovery(
   requestedDays: readonly WeekDayIndex[],
   projects: readonly ProjectId[],
+  prevWeekLastTrainingDay?: WeekDayIndex,
 ): WeekDayIndex[] {
   // All training days here use the same project set, so the muscle groups
   // involved in every session are identical. We only need to compute once.
@@ -123,17 +127,25 @@ export function enforceRecovery(
   const accepted: WeekDayIndex[] = [];
 
   for (const day of [...requestedDays].sort((a, b) => a - b) as WeekDayIndex[]) {
-    // A day conflicts with a previously accepted day when:
-    //   1. the gap is exactly 1 calendar day (< 48 h), AND
-    //   2. the two sessions share at least one primary muscle group.
-    // Because the project set is the same for all days, condition 2 is
-    // equivalent to "projects is non-empty" — i.e. there is always an overlap
-    // between identical sessions. This means consecutive days (gap === 1) are
-    // always removed when the session trains any muscles at all.
-    const hasConflict = accepted.some(prev => {
-      const gap = day - prev;
-      return gap <= 1 && musclesOverlap(muscles, muscles);
-    });
+    let hasConflict = false;
+
+    // Check cross-week conflict: previous week's last training day
+    if (prevWeekLastTrainingDay !== undefined && muscles.length > 0) {
+      // Sunday (6) → Monday (0) has a real gap of 1 day (< 48h)
+      if (prevWeekLastTrainingDay === 6 && day === 0) {
+        hasConflict = true;
+      }
+    }
+
+    // Check within-week conflicts
+    if (!hasConflict) {
+      hasConflict = accepted.some(prev => {
+        const gap = day - prev;
+        // Gap <= 1 means consecutive or 1 day apart (< 48h)
+        return gap <= 1 && muscles.length > 0;
+      });
+    }
+
     if (!hasConflict) accepted.push(day);
   }
   return accepted;
@@ -185,6 +197,11 @@ export interface WeekScheduleOptions {
   /** Used only when `requestedDays` is not provided. */
   maxDaysPerWeek?: number;
   projects: readonly ProjectId[];
+  /**
+   * Optional: last training day from previous week (0-6).
+   * Used to enforce 48h recovery across week boundaries (e.g., Sunday → Monday).
+   */
+  prevWeekLastTrainingDay?: WeekDayIndex;
 }
 
 /**
@@ -198,7 +215,7 @@ export interface WeekScheduleOptions {
  * Returns exactly 7 `ScheduledDay` entries in ISO-week order.
  */
 export function buildWeekSchedule(options: WeekScheduleOptions): readonly ScheduledDay[] {
-  const { projects } = options;
+  const { projects, prevWeekLastTrainingDay } = options;
 
   // 1. Resolve requested training days
   let requestedDays: readonly WeekDayIndex[];
@@ -220,8 +237,8 @@ export function buildWeekSchedule(options: WeekScheduleOptions): readonly Schedu
     }));
   }
 
-  // 3. Enforce 48-h recovery on the requested days
-  const validDays = enforceRecovery(requestedDays, projects);
+  // 3. Enforce 48-h recovery on the requested days (including cross-week check)
+  const validDays = enforceRecovery(requestedDays, projects, prevWeekLastTrainingDay);
 
   // 4. Build the full 7-slot week
   const validSet = new Set(validDays);
@@ -243,11 +260,22 @@ export function buildWeekSchedule(options: WeekScheduleOptions): readonly Schedu
 export function validateRecoveryGaps(
   trainingDays: readonly WeekDayIndex[],
   projects: readonly ProjectId[],
-): { valid: boolean; violations: Array<{ day: WeekDayIndex; conflictsWith: WeekDayIndex }> } {
+  prevWeekLastTrainingDay?: WeekDayIndex,
+): { valid: boolean; violations: Array<{ day: WeekDayIndex; conflictsWith: WeekDayIndex | 'prev_week' }> } {
   const sorted = [...trainingDays].sort((a, b) => a - b) as WeekDayIndex[];
   const muscles = musclesForProjects(projects);
-  const violations: Array<{ day: WeekDayIndex; conflictsWith: WeekDayIndex }> = [];
+  const violations: Array<{ day: WeekDayIndex; conflictsWith: WeekDayIndex | 'prev_week' }> = [];
 
+  // Check cross-week conflict first
+  if (prevWeekLastTrainingDay !== undefined && sorted.length > 0 && muscles.length > 0) {
+    const firstDay = sorted[0];
+    // Sunday (6) → Monday (0) has a real gap of 1 day (< 48h)
+    if (prevWeekLastTrainingDay === 6 && firstDay === 0) {
+      violations.push({ day: firstDay, conflictsWith: 'prev_week' });
+    }
+  }
+
+  // Check within-week conflicts
   for (let i = 1; i < sorted.length; i++) {
     const prev = sorted[i - 1];
     const curr = sorted[i];

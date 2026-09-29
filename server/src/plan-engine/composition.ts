@@ -121,13 +121,15 @@ function applyDifficulty(
 
 /**
  * Describes which projects contributed strength exercises to a training day,
- * and which were deduplicated away due to muscle-group overlap.
+ * and which had their volume reduced due to muscle-group overlap.
  */
 export interface DayCompositionMeta {
   /** Projects that contributed at least one strength exercise. */
   included: ProjectId[];
-  /** Projects whose strength exercise was skipped due to overlap with a
-   *  full-body project (C-01 deduplication). */
+  /** Projects whose strength exercise volume was reduced (1 set) due to overlap
+   *  with a full-body project (C-01 volume reduction). */
+  volumeReduced: ProjectId[];
+  /** Projects whose strength exercise was completely skipped (rare edge case). */
   deduplicated: ProjectId[];
   overlapWarnings: OverlapWarning[];
 }
@@ -143,11 +145,12 @@ export interface AssembledDay {
  * Assemble the exercises for a single training day across all requested
  * projects (EVAL_SET C-02: default is daily combination).
  *
- * Deduplication rule (C-01):
+ * Volume reduction rule (C-01):
  *   When `full_body_basic` is combined with a local project whose primary
- *   muscles overlap, the local project's strength exercise is skipped and a
- *   `deduplicated` entry is recorded in meta.  Warmup / cooldown are still
- *   included for every project regardless of deduplication.
+ *   muscles overlap, the local project's strength exercise is reduced to 1 set
+ *   instead of being removed entirely. This keeps the user's selected project
+ *   visible while avoiding overtraining. Warmup / cooldown are still fully
+ *   included for every project regardless of volume reduction.
  */
 export function assembleTrainingDay(
   projects: readonly ProjectId[],
@@ -157,45 +160,60 @@ export function assembleTrainingDay(
 ): AssembledDay {
   const overlapWarnings = detectOverlaps(projects);
   const deduplicated: ProjectId[] = [];
+  const volumeReduced: ProjectId[] = [];
   const included: ProjectId[] = [];
   const exercises: WorkoutDaySnapshot['exercises'] = [];
   const warmup: ClientExerciseSnapshot[] = [];
   const cooldown: ClientExerciseSnapshot[] = [];
 
-  // Identify which local projects should have their strength exercise removed.
-  const suppressedStrength = new Set<ProjectId>();
+  // Identify which local projects should have their strength exercise volume reduced.
+  const reducedStrength = new Set<ProjectId>();
   for (const warning of overlapWarnings) {
-    suppressedStrength.add(warning.localProject);
+    reducedStrength.add(warning.localProject);
   }
 
   for (const projectId of projects) {
     // ── Strength ───────────────────────────────────────────────────────────
-    if (!suppressedStrength.has(projectId)) {
-      const ex = pickExercise(projectId, 'strength', profile, library);
-      if (ex) {
-        const prescription = applyDifficulty(2, 12, difficultyLevel);
-        const snapshot = canonicalToClientExercise(ex, library.library_version, prescription);
-        exercises.push({
-          exerciseId: snapshot.id,
-          exercise: snapshot,
-          sets: prescription.sets,
-          reps: prescription.reps,
-          restBetweenSet: snapshot.rest_between_set,
-          completed: false,
-        });
-        included.push(projectId);
+    const ex = pickExercise(projectId, 'strength', profile, library);
+    if (ex) {
+      const isReduced = reducedStrength.has(projectId);
+      const prescription = applyDifficulty(2, 12, difficultyLevel);
+      
+      // Reduce to 1 set if overlapping with full_body, otherwise use normal prescription
+      const finalSets = isReduced ? 1 : prescription.sets;
+      
+      const snapshot = canonicalToClientExercise(ex, library.library_version, {
+        ...prescription,
+        sets: finalSets,
+      });
+      
+      exercises.push({
+        exerciseId: snapshot.id,
+        exercise: snapshot,
+        sets: finalSets,
+        reps: prescription.reps,
+        restBetweenSet: snapshot.rest_between_set,
+        completed: false,
+      });
+      
+      included.push(projectId);
+      if (isReduced) {
+        volumeReduced.push(projectId);
       }
     } else {
-      deduplicated.push(projectId);
+      // No eligible exercise found - this is the rare edge case of full deduplication
+      if (reducedStrength.has(projectId)) {
+        deduplicated.push(projectId);
+      }
     }
 
-    // ── Warmup (always included, not deduplicated) ─────────────────────────
+    // ── Warmup (always included, not reduced) ─────────────────────────
     const warmupEx = pickExercise(projectId, 'warmup', profile, library);
     if (warmupEx) {
       warmup.push(canonicalToClientExercise(warmupEx, library.library_version, { sets: 1, reps: 10 }));
     }
 
-    // ── Cooldown / stretch ─────────────────────────────────────────────────
+    // ── Cooldown / stretch ─────────────────────────────────────────────
     const stretchEx = pickExercise(projectId, 'stretch', profile, library);
     if (stretchEx) {
       cooldown.push(canonicalToClientExercise(stretchEx, library.library_version, { sets: 1, reps: 10 }));
@@ -206,7 +224,7 @@ export function assembleTrainingDay(
     exercises,
     warmup,
     cooldown,
-    meta: { included, deduplicated, overlapWarnings },
+    meta: { included, volumeReduced, deduplicated, overlapWarnings },
   };
 }
 

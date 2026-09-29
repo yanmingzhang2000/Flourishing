@@ -72,6 +72,30 @@ describe('enforceRecovery (R-01)', () => {
       expect(sorted[i] - sorted[i - 1]).toBeGreaterThan(1);
     }
   });
+
+  it('CROSS-WEEK: rejects Monday when previous week ended on Sunday', () => {
+    // Previous week: Sunday (6) → This week: Monday (0) = only 1 day gap (< 48h)
+    const result = enforceRecovery([0, 2, 4], ['tricep_tone'], 6);
+    // Monday (0) should be rejected due to cross-week conflict
+    expect(result).not.toContain(0);
+    expect(result).toEqual([2, 4]);
+  });
+
+  it('CROSS-WEEK: accepts Monday when previous week ended on Friday', () => {
+    // Previous week: Friday (4) → This week: Monday (0) = 3 days gap (> 48h)
+    const result = enforceRecovery([0, 2, 4], ['tricep_tone'], 4);
+    // Monday (0) should be accepted
+    expect(result).toContain(0);
+    expect(result).toEqual([0, 2, 4]);
+  });
+
+  it('CROSS-WEEK: accepts Monday when previous week ended on Saturday', () => {
+    // Previous week: Saturday (5) → This week: Monday (0) = 2 days gap (= 48h)
+    const result = enforceRecovery([0, 2, 4], ['tricep_tone'], 5);
+    // Monday (0) should be accepted
+    expect(result).toContain(0);
+    expect(result).toEqual([0, 2, 4]);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -201,6 +225,19 @@ describe('validateRecoveryGaps', () => {
   it('reports multiple violations for many consecutive days', () => {
     const result = validateRecoveryGaps([0, 1, 2, 3], ['hip_thigh_tone']);
     expect(result.violations.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('CROSS-WEEK: reports violation when previous week ended on Sunday and current starts Monday', () => {
+    const result = validateRecoveryGaps([0, 2, 4], ['tricep_tone'], 6);
+    expect(result.valid).toBe(false);
+    expect(result.violations).toHaveLength(1);
+    expect(result.violations[0]).toMatchObject({ day: 0, conflictsWith: 'prev_week' });
+  });
+
+  it('CROSS-WEEK: no violation when previous week ended on Friday', () => {
+    const result = validateRecoveryGaps([0, 2, 4], ['tricep_tone'], 4);
+    expect(result.valid).toBe(true);
+    expect(result.violations).toHaveLength(0);
   });
 });
 
