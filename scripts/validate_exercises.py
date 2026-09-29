@@ -1,13 +1,20 @@
 import json
+import os
+from pathlib import Path
 from collections import defaultdict
-PATH="/workspace/flourish_rag_exercise_library_v2.json"
+
+ROOT = Path(__file__).resolve().parents[1]
+PATH = Path(os.environ.get("FLOURISH_EXERCISE_LIBRARY", ROOT / "data" / "canonical-exercise-library.json"))
 ALLOWED_CONTRA={"shoulder_impingement","rotator_cuff","neck_pain","elbow_pain","wrist_pain","lower_back","sciatica","knee_pain","meniscus"}
 ALLOWED_MUSCLE={"三角肌前束","三角肌中束","三角肌后束","斜方肌上束","冈上肌","肱二头肌","肱三头肌","前臂","胸大肌","背阔肌","斜方肌中下束","菱形肌","竖脊肌","腹直肌","腹横肌","腹斜肌","下背","臀大肌","臀中肌","股四头肌","腘绳肌","内收肌","小腿三头肌","多肌群协同"}
 ALLOWED_EQUIP={"bodyweight","dumbbell_0.5kg","dumbbell_1kg","dumbbell_1.5kg","dumbbell_2kg","dumbbell_3kg","dumbbell_5kg","band_light","band_mid","band_heavy","rope_light","rope_mid","rope_heavy","mat_6mm","mat_8mm","mat_10mm","foam_roller_spike","foam_roller_plain","rope_skip_weighted","rope_skip_normal","kettlebell_2kg","kettlebell_4kg","kettlebell_6kg","kettlebell_8kg","door_pull","yoga_block","yoga_ball_55","yoga_ball_65","yoga_ball_75","trx"}
 ALLOWED_PROJECT={"tricep_tone","hip_thigh_tone","lower_abs_tone","trap_relax","round_shoulder_fix","full_body_basic"}
-REQUIRED={"exercise_id","name","name_en","muscle_group","difficulty","equipment","function","category","target_projects","contraindications","rest_seconds","steps","tips","warning","needs_review"}
-data=json.load(open(PATH,encoding="utf-8"))
-print(f"总动作数: {len(data)}\n")
+REQUIRED={"exercise_id","name","name_en","muscle_group","difficulty","equipment","function","category","target_projects","contraindications","rest_seconds","steps","tips","warning"}
+raw=json.load(open(PATH,encoding="utf-8"))
+data=raw.get("exercises", []) if isinstance(raw, dict) else raw
+if not isinstance(data, list):
+    raise SystemExit(f"动作库格式错误，缺少 exercises 数组: {PATH}")
+print(f"动作库: {PATH}\n总动作数: {len(data)}\n")
 viol={"missing_field":[],"dup_id":[],"bad_contra":[],"bad_muscle":[],"bad_equip":[],"bad_project":[],"bad_diff":[],"empty_contra":[]}
 seen={}
 for ex in data:
@@ -46,3 +53,6 @@ print("\n=== full_body_basic 的 stretch 类 ===")
 print("  ", [ex["exercise_id"] for ex in data if "full_body_basic" in ex["target_projects"] and ex["category"]=="stretch"])
 print("\n=== needs_review 标记 ===")
 print("  ", [ex["exercise_id"] for ex in data if ex.get("needs_review")])
+
+if any(viol.values()):
+    raise SystemExit(1)

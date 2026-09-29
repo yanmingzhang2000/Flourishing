@@ -36,14 +36,15 @@ const INJURY_OPTIONS = [
   { value: 'neck',     label: '颈部' },
 ];
 
+// ISO 星期约定：0=周一 … 6=周日（与服务端 plan-engine / user.ts 一致）
 const WEEK_DAYS = [
-  { value: 1, label: '一' },
-  { value: 2, label: '二' },
-  { value: 3, label: '三' },
-  { value: 4, label: '四' },
-  { value: 5, label: '五' },
-  { value: 6, label: '六' },
-  { value: 0, label: '日' },
+  { value: 0, label: '一' },
+  { value: 1, label: '二' },
+  { value: 2, label: '三' },
+  { value: 3, label: '四' },
+  { value: 4, label: '五' },
+  { value: 5, label: '六' },
+  { value: 6, label: '日' },
 ];
 
 type TabKey = 'body' | 'background' | 'equipment' | 'schedule';

@@ -1,300 +1,275 @@
 import { Router, Response } from 'express';
 import db from '../config/database';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
-import path from 'path';
-import fs from 'fs';
+import { normalizeProfile } from '../exercise-library/compatibility';
+import { ExerciseLibraryService, PublishedLibraryUnavailableError } from '../exercise-library/service';
+import { generateSelection, RequestSelection } from '../exercise-library/eligibility';
+import { NormalizedProfile, PlanGenerationResponse, ProjectId, WorkoutDaySnapshot } from '../exercise-library/types';
+import { buildWeekSchedule, DAY_NAMES_ISO, WeekDayIndex } from '../plan-engine/schedule';
+import { assembleTrainingDay } from '../plan-engine/composition';
 
 const router = Router();
 router.use(authMiddleware);
+const libraryService = new ExerciseLibraryService();
 
-const DAY_NAMES = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
-
-// 伤病 tag → warning 关键字映射（前端存英文 tag，warning 是中文）
-const INJURY_KEYWORDS: Record<string, string[]> = {
-  shoulder: ['肩'],
-  elbow:    ['肘'],
-  wrist:    ['腕', '手腕'],
-  knee:     ['膝', '膝盖'],
-  back:     ['腰', '背'],
-};
-
-function exerciseMatchesInjury(warning: string, injuries: string[]): boolean {
-  return injuries.some(inj => {
-    const keywords = INJURY_KEYWORDS[inj] || [inj];
-    return keywords.some(kw => warning.includes(kw));
-  });
-}
-
-// difficulty level: 1=降级 2=保持 3=升级
-function applyDifficultyLevel(sets: number, reps: number, level: number): { sets: number; reps: number } {
-  if (level === 1) return { sets: Math.max(sets - 1, 1), reps: Math.max(Math.round(reps * 0.8), 6) };
-  if (level === 3) return { sets: sets + 1, reps: Math.round(reps * 1.25) };
-  return { sets, reps };
-}
-
-// 根据最近反馈决定难度等级
-function getDifficultyLevel(userId: number | undefined): number {
+// ---------------------------------------------------------------------------
+// Difficulty level derived from recent feedback records
+// ---------------------------------------------------------------------------
+function getDifficultyLevel(userId: number | undefined): 1 | 2 | 3 {
   if (!userId) return 2;
   const recent = db.prepare(
-    `SELECT feedback FROM training_records WHERE user_id = ? AND completed = 1 ORDER BY created_at DESC LIMIT 4`
+    'SELECT feedback FROM training_records WHERE user_id = ? AND completed = 1 ORDER BY created_at DESC LIMIT 4',
   ).all(userId) as { feedback: string }[];
-  if (recent.length === 0) return 2;
-  const tooEasy = recent.filter(r => r.feedback === 'too_easy').length;
-  const tooHard = recent.filter(r => r.feedback === 'too_hard').length;
-  if (tooHard >= 1) return 1;
-  if (tooEasy >= 2) return 3;
+  if (!recent.length) return 2;
+  if (recent.some(row => row.feedback === 'too_hard')) return 1;
+  if (recent.filter(row => row.feedback === 'too_easy').length >= 2) return 3;
   return 2;
 }
 
-function loadExercises() {
-  const p = path.join(__dirname, '../../../src/data/exercises.json');
-  return JSON.parse(fs.readFileSync(p, 'utf-8')) as Record<string, any>;
+// ---------------------------------------------------------------------------
+// Profile loading helpers
+// ---------------------------------------------------------------------------
+function readProfile(row: Record<string, unknown>): ReturnType<typeof normalizeProfile> {
+  return normalizeProfile({
+    experience: row.experience,
+    injuries: row.injuries,
+    equipment: row.equipment,
+    selected_projects: row.selected_projects,
+  });
 }
 
 /**
- * 生成 7 天的排期数组（index 0=周日 … 6=周六）
- * - 优先使用用户自定义的 trainingDays（如 [1,3,5]）
- * - 否则按 count 自动排期
+ * Parse user-stored training days. The DB column stores either a JSON array of
+ * 0-based ISO-week indices (0=Mon…6=Sun) or null/undefined (fall back to
+ * max_days_per_week count).
  */
-function generateSchedule(trainingDays: number[] | null, count: number): ('strength' | 'rest')[] {
-  const s: ('strength' | 'rest')[] = Array(7).fill('rest');
-  if (trainingDays && trainingDays.length > 0) {
-    trainingDays.forEach(d => { if (d >= 0 && d <= 6) s[d] = 'strength'; });
-  } else {
-    const days = Math.min(count || 3, 4);
-    if (days >= 4) { s[1] = 'strength'; s[3] = 'strength'; s[5] = 'strength'; s[6] = 'strength'; }
-    else if (days === 3) { s[1] = 'strength'; s[3] = 'strength'; s[5] = 'strength'; }
-    else if (days === 2) { s[2] = 'strength'; s[5] = 'strength'; }
-    else { s[1] = 'strength'; s[4] = 'strength'; }
+function parseTrainingDays(raw: unknown): WeekDayIndex[] | undefined {
+  if (!raw) return undefined;
+  try {
+    const parsed: unknown = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (
+      Array.isArray(parsed) &&
+      parsed.every(v => Number.isInteger(v) && v >= 0 && v <= 6)
+    ) {
+      return parsed as WeekDayIndex[];
+    }
+  } catch {
+    // ignore – fall back to count-based schedule
   }
-  return s;
+  return undefined;
 }
 
-/**
- * 将 selectedProjects 轮换分配到当周的各训练日。
- * weekOffset = 基于周一日期计算的周序号 mod 项目数，保证每周顺移一位。
- */
-function buildWeekDays(
-  schedule: ('strength' | 'rest')[],
+// ---------------------------------------------------------------------------
+// Core plan builder – replaces the old generateSchedule + buildDays pair
+// ---------------------------------------------------------------------------
+function buildDays(
   startOfWeek: Date,
-  selectedProjects: string[],
-  allExercises: Record<string, any>,
-  injuries: string[],
-  diffLevel: number,
-): any[] {
-  // 本周是第几个自然周（从 epoch 算），用于项目轮换偏移
-  const WEEK_MS = 7 * 24 * 3600 * 1000;
-  const weekIndex = Math.floor(startOfWeek.getTime() / WEEK_MS);
-  const projectCount = selectedProjects.length || 1;
+  profile: NormalizedProfile,
+  library: ReturnType<ExerciseLibraryService['load']>,
+  selection: RequestSelection,
+  userId: number | undefined,
+  requestedDays?: WeekDayIndex[],
+): WorkoutDaySnapshot[] {
+  // Generation has already preflighted every requested project. A partial
+  // selection must never be written to the database.
+  if (selection.unavailable) return [];
 
-  // 收集训练日的 slot 序号（第 0、1、2… 个训练日）
-  let slotCounter = 0;
+  const difficultyLevel = getDifficultyLevel(userId);
 
-  return schedule.map((type, i) => {
-    const date = new Date(startOfWeek);
-    date.setDate(startOfWeek.getDate() + i);
-    const dayLabel = DAY_NAMES[date.getDay()];
+  // Build the 7-slot schedule using the new rule engine.
+  const schedule = buildWeekSchedule({
+    projects: profile.selected_projects,
+    requestedDays,
+    maxDaysPerWeek: profile.max_days_per_week || 3,
+  });
 
-    if (type === 'rest') {
-      return { day: dayLabel, dayIndex: i, type: 'rest', projectId: null, exercises: [], warmup: [], cooldown: [] };
+  return schedule.map(slot => {
+    // ISO day name: slot.dayIndex 0=Mon…6=Sun
+    const dayName = DAY_NAMES_ISO[slot.dayIndex];
+
+    if (slot.type !== 'strength') {
+      return {
+        day: dayName,
+        dayIndex: slot.dayIndex,
+        type: slot.type === 'active_recovery' ? ('rest' as const) : ('rest' as const),
+        exercises: [],
+        warmup: [],
+        cooldown: [],
+      };
     }
 
-    // 本训练日对应的项目：(slotIndex + weekOffset) % projectCount
-    const projectId = selectedProjects[(slotCounter + weekIndex) % projectCount];
-    slotCounter++;
+    // Assemble this day's exercises using the composition engine.
+    const assembled = assembleTrainingDay(
+      slot.projects,
+      profile,
+      library,
+      difficultyLevel,
+    );
 
-    const projectExercises = allExercises[projectId];
-    if (!projectExercises) {
-      return { day: dayLabel, dayIndex: i, type: 'strength', projectId, exercises: [], warmup: [], cooldown: [] };
+    // If the composition layer couldn't find any exercises, treat as rest
+    // rather than emitting an empty strength day.
+    if (assembled.exercises.length === 0) {
+      return { day: dayName, dayIndex: slot.dayIndex, type: 'rest' as const, exercises: [], warmup: [], cooldown: [] };
     }
-
-    const filtered = projectExercises.exercises.filter((ex: any) =>
-      !exerciseMatchesInjury(ex.warning || '', injuries)
-    ).slice(0, 5);
 
     return {
-      day: dayLabel,
-      dayIndex: i,
-      type: 'strength',
-      projectId,
-      exercises: filtered.map((ex: any) => {
-        const { sets, reps } = applyDifficultyLevel(ex.sets, ex.reps, diffLevel);
-        return {
-          exerciseId: ex.id,
-          exercise: ex,
-          sets,
-          reps,
-          restBetweenSet: ex.rest_between_set,
-          completed: false,
-        };
-      }),
-      warmup: projectExercises.warmup.slice(0, 2),
-      cooldown: projectExercises.cooldown.slice(0, 2),
+      day: dayName,
+      dayIndex: slot.dayIndex,
+      type: 'strength' as const,
+      exercises: assembled.exercises,
+      warmup: assembled.warmup,
+      cooldown: assembled.cooldown,
     };
   });
 }
+// ---------------------------------------------------------------------------
+// Date helpers
+// ---------------------------------------------------------------------------
+function getStartOfWeek(date = new Date()): Date {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  const dayOfWeek = d.getDay();
+  const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+  d.setDate(d.getDate() - daysFromMonday);
+  return d;
+}
 
-// ── 生成当周计划 ───────────────────────────────────────────────────────────────
-router.post('/generate', (req: AuthRequest, res: Response) => {
-  const profile = db.prepare('SELECT * FROM user_profiles WHERE user_id = ?').get(req.userId) as any;
-  if (!profile) return res.status(400).json({ error: '请先完善个人信息' });
+// ---------------------------------------------------------------------------
+// Profile loading
+// ---------------------------------------------------------------------------
+type LoadedContext = 
+  | { profile: NormalizedProfile; library: ReturnType<ExerciseLibraryService['load']>; requestedDays: WeekDayIndex[] | undefined }
+  | { response: PlanGenerationResponse }
+  | { serviceError: PublishedLibraryUnavailableError }
+  | { missingProfile: true };
 
-  // projectIds 参数优先（V2 按实例生成，不写入 profile.selected_projects）
-  const selectedProjects: string[] = req.body.projectIds && Array.isArray(req.body.projectIds) && req.body.projectIds.length > 0
-    ? req.body.projectIds
-    : JSON.parse(profile.selected_projects || '["tricep_tone"]');
+function loadNormalized(userId: number | undefined): LoadedContext {
+  const profileRow = db.prepare('SELECT * FROM user_profiles WHERE user_id = ?').get(userId) as Record<string, unknown> | undefined;
+  if (!profileRow) return { missingProfile: true };
 
-  const allExercises = loadExercises();
-  const injuries: string[] = JSON.parse(profile.injuries || '[]');
-  const trainingDays: number[] | null = profile.training_days ? JSON.parse(profile.training_days) : null;
-  const schedule = generateSchedule(trainingDays, profile.max_days_per_week || 3);
-
-  const today = new Date();
-  const startOfWeek = new Date(today);
-  startOfWeek.setDate(today.getDate() - today.getDay() + 1);
-  startOfWeek.setHours(0, 0, 0, 0);
-
-  const diffLevel = getDifficultyLevel(req.userId);
-  const days = buildWeekDays(schedule, startOfWeek, selectedProjects, allExercises, injuries, diffLevel);
-
-  const weekNumber = req.body.weekNumber || 1;
-  const startDate = startOfWeek.toISOString().split('T')[0];
-
-  const existing = db.prepare(
-    'SELECT id FROM weekly_plans WHERE user_id = ? AND start_date = ?'
-  ).get(req.userId, startDate) as any;
-
-  let planId: number;
-  if (existing) {
-    db.prepare('UPDATE weekly_plans SET days = ? WHERE id = ?').run(JSON.stringify(days), existing.id);
-    planId = existing.id;
-  } else {
-    const result = db.prepare(
-      'INSERT INTO weekly_plans (user_id, week_number, start_date, days) VALUES (?, ?, ?, ?)'
-    ).run(req.userId, weekNumber, startDate, JSON.stringify(days));
-    planId = result.lastInsertRowid as number;
+  // Normalize the persisted profile exactly once at the compatibility boundary.
+  const normalized = readProfile(profileRow);
+  if (normalized.unavailable || !normalized.profile) {
+    return {
+      response: normalized.unavailable || {
+        outcome: 'temporarily_unavailable',
+        display_message: '暂不可生成',
+        requested_project_ids: [],
+        failed_eligibility_categories_by_project: {},
+        unknown_input_values: [],
+        experience: null,
+      },
+    };
   }
 
-  return res.json({ id: planId, weekNumber, startDate, days });
+  try {
+    return {
+      profile: {
+        ...normalized.profile,
+        max_days_per_week: Number(profileRow.max_days_per_week) || 3,
+        session_max_min: Number(profileRow.session_max_min) || 30,
+      },
+      library: libraryService.load(),
+      requestedDays: parseTrainingDays(profileRow.training_days),
+    };
+  } catch (error) {
+    if (error instanceof PublishedLibraryUnavailableError) return { serviceError: error };
+    throw error;
+  }
+}
+
+router.post('/generate', (req: AuthRequest, res: Response) => {
+  const loaded = loadNormalized(req.userId);
+  if ('response' in loaded) return res.json(loaded.response);
+  if ('missingProfile' in loaded) return res.status(400).json({ error: '请先完善个人信息' });
+  if ('serviceError' in loaded) return res.status(503).json({ error: '动作库暂不可用', code: loaded.serviceError.code });
+  // V2：请求体可指定项目列表（按实例生成），不改写 profile.selected_projects
+  const requestedProjects: ProjectId[] =
+    Array.isArray(req.body.projectIds) && req.body.projectIds.length > 0
+      ? (req.body.projectIds as unknown[]).filter((v): v is ProjectId => typeof v === 'string')
+      : loaded.profile.selected_projects;
+  const profile: NormalizedProfile = { ...loaded.profile, selected_projects: requestedProjects };
+  const selection = generateSelection(profile.selected_projects, profile, loaded.library);
+  if (selection.unavailable) return res.json(selection.unavailable);
+  const startOfWeek = getStartOfWeek();
+  const days = buildDays(startOfWeek, profile, loaded.library, selection, req.userId, loaded.requestedDays);
+  if (!days.length) return res.json({ outcome: 'temporarily_unavailable', display_message: '暂不可生成', requested_project_ids: profile.selected_projects, failed_eligibility_categories_by_project: {}, unknown_input_values: [], experience: profile.experience });
+  const startDate = startOfWeek.toISOString().split('T')[0];
+  const weekNumber = Number(req.body.weekNumber) || 1;
+  const existing = db.prepare('SELECT id FROM weekly_plans WHERE user_id = ? AND start_date = ?').get(req.userId, startDate) as { id: number } | undefined;
+  let planId: number;
+  if (existing) { db.prepare('UPDATE weekly_plans SET days = ?, week_number = ? WHERE id = ?').run(JSON.stringify(days), weekNumber, existing.id); planId = existing.id; }
+  else { const result = db.prepare('INSERT INTO weekly_plans (user_id, week_number, start_date, days) VALUES (?, ?, ?, ?)').run(req.userId, weekNumber, startDate, JSON.stringify(days)); planId = Number(result.lastInsertRowid); }
+  return res.json({ outcome: 'generated', id: planId, weekNumber, startDate, libraryVersion: loaded.library.library_version, days });
 });
 
-// ── 获取当前周计划 ─────────────────────────────────────────────────────────────
 router.get('/current', (req: AuthRequest, res: Response) => {
-  const today = new Date();
-  const startOfWeek = new Date(today);
-  startOfWeek.setDate(today.getDate() - today.getDay() + 1);
-  const startDate = startOfWeek.toISOString().split('T')[0];
-
-  const plan = db.prepare(
-    'SELECT * FROM weekly_plans WHERE user_id = ? AND start_date = ? ORDER BY id DESC LIMIT 1'
-  ).get(req.userId, startDate) as any;
-
+  const startDate = getStartOfWeek().toISOString().split('T')[0];
+  const plan = db.prepare('SELECT * FROM weekly_plans WHERE user_id = ? AND start_date = ? ORDER BY id DESC LIMIT 1').get(req.userId, startDate) as Record<string, unknown> | undefined;
   if (!plan) return res.json(null);
-
-  return res.json({
-    id: plan.id,
-    weekNumber: plan.week_number,
-    startDate: plan.start_date,
-    days: JSON.parse(plan.days),
-  });
+  try { return res.json({ id: plan.id, weekNumber: plan.week_number, startDate: plan.start_date, days: JSON.parse(String(plan.days)) }); }
+  catch { return res.status(500).json({ error: '计划快照无效', code: 'plan_snapshot_invalid' }); }
 });
 
 // ── 按日期获取所属周计划（用于历史跳练页）─────────────────────────────────────
 router.get('/by-date/:date', (req: AuthRequest, res: Response) => {
-  const date = String(req.params.date); // YYYY-MM-DD
-  const d = new Date(date);
+  const d = new Date(String(req.params.date));
   if (isNaN(d.getTime())) return res.status(400).json({ error: '日期格式无效' });
-
-  // 找该日期所在周的周一
-  const dow = d.getDay(); // 0=Sun
-  const diff = dow === 0 ? -6 : 1 - dow;
-  const monday = new Date(d);
-  monday.setDate(d.getDate() + diff);
-  const startDate = monday.toISOString().split('T')[0];
-
-  const plan = db.prepare(
-    'SELECT * FROM weekly_plans WHERE user_id = ? AND start_date = ? ORDER BY id DESC LIMIT 1'
-  ).get(req.userId, startDate) as any;
-
+  const startDate = getStartOfWeek(d).toISOString().split('T')[0];
+  const plan = db.prepare('SELECT * FROM weekly_plans WHERE user_id = ? AND start_date = ? ORDER BY id DESC LIMIT 1').get(req.userId, startDate) as Record<string, unknown> | undefined;
   if (!plan) return res.json(null);
-
-  return res.json({
-    id: plan.id,
-    weekNumber: plan.week_number,
-    startDate: plan.start_date,
-    days: JSON.parse(plan.days),
-  });
+  try { return res.json({ id: plan.id, weekNumber: plan.week_number, startDate: plan.start_date, days: JSON.parse(String(plan.days)) }); }
+  catch { return res.status(500).json({ error: '计划快照无效', code: 'plan_snapshot_invalid' }); }
 });
 
-// ── 获取指定月份的所有周计划 ───────────────────────────────────────────────────
 router.get('/month/:year/:month', (req: AuthRequest, res: Response) => {
-  const year = parseInt(req.params.year as string);
-  const month = parseInt(req.params.month as string);
-  const startOfMonth = new Date(year, month - 1, 1);
-  const endOfMonth = new Date(year, month, 0);
-
-  const plans = db.prepare(
-    'SELECT * FROM weekly_plans WHERE user_id = ? AND start_date >= ? AND start_date <= ? ORDER BY start_date'
-  ).all(
-    req.userId,
-    startOfMonth.toISOString().split('T')[0],
-    endOfMonth.toISOString().split('T')[0],
-  ) as any[];
-
-  return res.json(plans.map(p => ({
-    id: p.id,
-    weekNumber: p.week_number,
-    startDate: p.start_date,
-    days: JSON.parse(p.days),
-  })));
+  const year = Number(req.params.year); const month = Number(req.params.month);
+  const start = new Date(year, month - 1, 1).toISOString().split('T')[0]; const end = new Date(year, month, 0).toISOString().split('T')[0];
+  const plans = db.prepare('SELECT * FROM weekly_plans WHERE user_id = ? AND start_date >= ? AND start_date <= ? ORDER BY start_date').all(req.userId, start, end) as Record<string, unknown>[];
+  try { return res.json(plans.map(plan => ({ id: plan.id, weekNumber: plan.week_number, startDate: plan.start_date, days: JSON.parse(String(plan.days)) }))); }
+  catch { return res.status(500).json({ error: '计划快照无效', code: 'plan_snapshot_invalid' }); }
 });
 
-// ── 批量生成指定月份的所有周计划 ──────────────────────────────────────────────
+router.get('/:id', (req: AuthRequest, res: Response) => {
+  const plan = db.prepare('SELECT * FROM weekly_plans WHERE user_id = ? AND id = ?').get(req.userId, Number(req.params.id)) as Record<string, unknown> | undefined;
+  if (!plan) return res.status(404).json({ error: '计划不存在' });
+  try { return res.json({ id: plan.id, weekNumber: plan.week_number, startDate: plan.start_date, days: JSON.parse(String(plan.days)) }); }
+  catch { return res.status(500).json({ error: '计划快照无效', code: 'plan_snapshot_invalid' }); }
+});
+
 router.post('/month/:year/:month/generate', (req: AuthRequest, res: Response) => {
-  const year = parseInt(req.params.year as string);
-  const month = parseInt(req.params.month as string);
-  const profile = db.prepare('SELECT * FROM user_profiles WHERE user_id = ?').get(req.userId) as any;
-  if (!profile) return res.status(400).json({ error: '请先完善个人信息' });
-
-  const selectedProjects: string[] = JSON.parse(profile.selected_projects || '["tricep_tone"]');
-  const allExercises = loadExercises();
-  const injuries: string[] = JSON.parse(profile.injuries || '[]');
-  const trainingDays: number[] | null = profile.training_days ? JSON.parse(profile.training_days) : null;
-  const schedule = generateSchedule(trainingDays, profile.max_days_per_week || 3);
-  const diffLevel = getDifficultyLevel(req.userId);
-
-  const startOfMonth = new Date(year, month - 1, 1);
-  const endOfMonth = new Date(year, month, 0);
-
-  // 找到月初所在周的周一
-  const firstMonday = new Date(startOfMonth);
-  firstMonday.setDate(startOfMonth.getDate() - startOfMonth.getDay() + 1);
-  firstMonday.setHours(0, 0, 0, 0);
-
-  const generatedPlans: any[] = [];
-  let currentMonday = new Date(firstMonday);
-
-  while (currentMonday <= endOfMonth) {
-    const startDate = currentMonday.toISOString().split('T')[0];
-
-    const existing = db.prepare(
-      'SELECT id FROM weekly_plans WHERE user_id = ? AND start_date = ?'
-    ).get(req.userId, startDate) as any;
-
-    if (!existing) {
-      const days = buildWeekDays(schedule, new Date(currentMonday), selectedProjects, allExercises, injuries, diffLevel);
-
-      const result = db.prepare(
-        'INSERT INTO weekly_plans (user_id, week_number, start_date, days) VALUES (?, ?, ?, ?)'
-      ).run(req.userId, 1, startDate, JSON.stringify(days));
-
-      generatedPlans.push({ id: result.lastInsertRowid, startDate, days });
-    }
-
-    currentMonday.setDate(currentMonday.getDate() + 7);
+  const loaded = loadNormalized(req.userId);
+  if ('response' in loaded) return res.json(loaded.response);
+  if ('missingProfile' in loaded) return res.status(400).json({ error: '请先完善个人信息' });
+  if ('serviceError' in loaded) return res.status(503).json({ error: '动作库暂不可用', code: loaded.serviceError.code });
+  // V2：请求体可指定项目列表（按实例生成），不改写 profile.selected_projects
+  const requestedProjects: ProjectId[] =
+    Array.isArray(req.body.projectIds) && req.body.projectIds.length > 0
+      ? (req.body.projectIds as unknown[]).filter((v): v is ProjectId => typeof v === 'string')
+      : loaded.profile.selected_projects;
+  const profile: NormalizedProfile = { ...loaded.profile, selected_projects: requestedProjects };
+  const selection = generateSelection(profile.selected_projects, profile, loaded.library);
+  if (selection.unavailable) return res.json(selection.unavailable);
+  const year = Number(req.params.year); const month = Number(req.params.month);
+  const startOfMonth = new Date(year, month - 1, 1); const endOfMonth = new Date(year, month, 0);
+  const firstMonday = getStartOfWeek(startOfMonth);
+  const pending: Array<{ startDate: string; days: WorkoutDaySnapshot[] }> = [];
+  for (let monday = new Date(firstMonday); monday <= endOfMonth; monday.setDate(monday.getDate() + 7)) {
+    const days = buildDays(new Date(monday), profile, loaded.library, selection, req.userId, loaded.requestedDays);
+    if (!days.length) return res.json({ outcome: 'temporarily_unavailable', display_message: '暂不可生成', requested_project_ids: profile.selected_projects, failed_eligibility_categories_by_project: {}, unknown_input_values: [], experience: profile.experience });
+    pending.push({ startDate: new Date(monday).toISOString().split('T')[0], days });
   }
-
-  return res.json({ generated: generatedPlans.length, plans: generatedPlans });
+  const generatedPlans: Array<{ id: number; startDate: string; days: WorkoutDaySnapshot[] }> = [];
+  const transaction = db.transaction(() => {
+    for (const item of pending) {
+      const existing = db.prepare('SELECT id FROM weekly_plans WHERE user_id = ? AND start_date = ?').get(req.userId, item.startDate) as { id: number } | undefined;
+      if (existing) continue;
+      const result = db.prepare('INSERT INTO weekly_plans (user_id, week_number, start_date, days) VALUES (?, ?, ?, ?)').run(req.userId, 1, item.startDate, JSON.stringify(item.days));
+      generatedPlans.push({ id: Number(result.lastInsertRowid), startDate: item.startDate, days: item.days });
+    }
+  });
+  transaction();
+  return res.json({ outcome: 'generated', generated: generatedPlans.length, plans: generatedPlans, libraryVersion: loaded.library.library_version });
 });
 
 export default router;

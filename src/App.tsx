@@ -9,6 +9,7 @@ import { DayWorkoutPage } from '@/pages/DayWorkoutPage';
 import { ExerciseDetailPage } from '@/pages/ExerciseDetailPage';
 import { ProfilePage } from '@/pages/ProfilePage';
 import { isLoggedIn } from '@/lib/api';
+import { storage } from '@/lib/storage';
 
 // ── 路由守卫 ─────────────────────────────────────────────────────────────────
 
@@ -17,7 +18,13 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-// ── App ──────────────────────────────────────────────────────────────────────
+function RequireOnboarding({ children }: { children: React.ReactNode }) {
+  const profile = storage.getUserProfile();
+  if (profile && !profile.onboardingCompleted && !profile.experience) {
+    return <Navigate to="/onboarding" replace />;
+  }
+  return <>{children}</>;
+}
 
 function App() {
   return (
@@ -38,7 +45,7 @@ function App() {
 
         {/* 首页：我的训练列表 */}
         <Route path="/" element={
-          <RequireAuth><MyProjectsPage /></RequireAuth>
+          <RequireAuth><RequireOnboarding><MyProjectsPage /></RequireOnboarding></RequireAuth>
         } />
 
         {/* 项目浏览 */}
@@ -70,6 +77,9 @@ function App() {
         <Route path="/workout/:date/:dayIndex" element={
           <RequireAuth><DayWorkoutPage /></RequireAuth>
         } />
+
+        {/* 旧版引导链接 */}
+        <Route path="/intake" element={<Navigate to="/onboarding" replace />} />
 
         {/* 动作详情 */}
         <Route path="/exercise/:exerciseId" element={

@@ -29,11 +29,22 @@ export interface Exercise {
   alternative?: string[];
 }
 
-export interface ExerciseData {
-  warmup: Exercise[];
-  exercises: Exercise[];
-  cooldown: Exercise[];
+/**
+ * A rendered exercise snapshot. New plans include canonical identity/version,
+ * while older persisted plans may contain only the legacy display fields.
+ */
+export interface ExerciseSnapshot extends Exercise {
+  canonical_exercise_id?: string;
+  library_version?: string;
 }
+
+export interface ExerciseData {
+  warmup: ExerciseSnapshot[];
+  exercises: ExerciseSnapshot[];
+  cooldown: ExerciseSnapshot[];
+}
+
+export type ProjectExerciseContent = ExerciseData;
 
 export interface ProjectExercises {
   [projectId: string]: ExerciseData;
@@ -47,33 +58,39 @@ export interface ProjectInstance {
   startDate: string;           // ISO 日期字符串 YYYY-MM-DD
   targetWeeks: 4 | 6 | 8;
   currentWeek: number;
+  trainingDaysPerWeek?: number;
+  sessionMinutes?: number;
   createdAt: string;
 }
 
 export interface UserProfile {
-  // 训练偏好（引导必填）
-  experience: 'zero' | 'occasional' | 'regular';
-  injuries: string[];
-  equipment: string[];
-  maxTrainingDaysPerWeek: number;
-  /** 自定义训练日：0=周日 … 6=周六；未设置时按天数自动排期 */
-  trainingDays?: number[];
   /** @deprecated V2 改为 projectInstances，保留向后兼容 */
-  selectedProjects: string[];
-  singleSessionMaxMin: number;
-  /** V2 onboarding 完成标志 */
-  onboardingCompleted?: boolean;
-  // 身体信息（个人页可选填）
+  selectedProjects?: string[];
+  // 身体信息
   height?: number;
   weight?: number;
   bmi?: number;
   age?: number;
   displayName?: string;
+  // 训练背景
+  experience: 'zero' | 'occasional' | 'regular';
+  injuries: string[];
+  // 可用器械
+  equipment: string[];
+  // 训练偏好（全局默认值）
+  maxTrainingDaysPerWeek: number;
+  /** ISO-week day indices the user wants to train: 0=Mon … 6=Sun */
+  trainingDays?: number[];
+  singleSessionMaxMin: number;
+  // 状态
+  onboardingCompleted: boolean;
+  // 项目实例列表
+  projectInstances: ProjectInstance[];
 }
 
 export interface WorkoutExercise {
   exerciseId: string;
-  exercise: Exercise;
+  exercise: ExerciseSnapshot;
   sets: number;
   reps: number;
   restBetweenSet: number;
@@ -87,20 +104,24 @@ export interface WorkoutDay {
   /** 当天对应的训练项目 ID（多项目轮换时使用） */
   projectId?: string;
   exercises: WorkoutExercise[];
-  warmup: Exercise[];
-  cooldown: Exercise[];
+  warmup: ExerciseSnapshot[];
+  cooldown: ExerciseSnapshot[];
 }
 
 export interface WeeklyPlan {
-  id: string;
+  id: string | number;
   weekNumber: number;
   startDate: string;
   days: WorkoutDay[];
 }
 
+/** The immutable plan payload returned by current, month, and :id endpoints. */
+export type PlanSnapshot = WeeklyPlan;
+export type HistoricalPlanSnapshot = WeeklyPlan;
+
 export interface TrainingRecord {
   date: string;
-  weekPlanId: string;
+  weekPlanId: string | number;
   dayIndex: number;
   completed: boolean;
   feedback?: 'too_easy' | 'just_right' | 'too_hard';
@@ -114,3 +135,41 @@ export interface UserStats {
   longestStreak: number;
   completedDays: string[];
 }
+
+export interface StructuredUnavailableResult {
+  outcome: 'temporarily_unavailable';
+  display_message: '暂不可生成';
+  requested_project_ids: string[];
+  failed_eligibility_categories_by_project: Record<string, string[]>;
+  unknown_input_values: Array<{
+    field: 'injuries' | 'equipment' | 'experience' | 'selected_projects' | string;
+    value: string;
+  }>;
+  experience: string | null;
+}
+
+export interface PlanGenerationSuccess extends WeeklyPlan {
+  outcome: 'generated';
+  libraryVersion: string;
+}
+
+/** Discriminated response shared by week and month generation callers. */
+export type PlanGenerationResponse = PlanGenerationSuccess | StructuredUnavailableResult;
+
+export interface MonthPlanGenerationSuccess {
+  outcome: 'generated';
+  generated: number;
+  plans: PlanSnapshot[];
+  libraryVersion: string;
+}
+
+export type MonthPlanGenerationResponse = MonthPlanGenerationSuccess | StructuredUnavailableResult;
+
+export interface CurrentExercise extends ExerciseSnapshot {
+  canonical_exercise_id: string;
+  library_version: string;
+}
+
+export type CurrentExerciseResponse = CurrentExercise;
+export type HistoricalExerciseSnapshot = ExerciseSnapshot;
+export type ProjectExercisesResponse = ProjectExerciseContent;

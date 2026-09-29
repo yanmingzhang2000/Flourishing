@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { storage } from '@/lib/storage';
 import { plansApi, recordsApi, userApi, projectInstancesApi, isLoggedIn } from '@/lib/api';
-import { WeeklyPlan, TrainingRecord } from '@/lib/types';
+import { WeeklyPlan, PlanSnapshot, TrainingRecord, StructuredUnavailableResult } from '@/lib/types';
 import { BottomNav } from '@/components/BottomNav';
 import { WeekView } from '@/components/WeekView';
 import { MonthView } from '@/components/MonthView';
@@ -20,13 +20,14 @@ export const CalendarPage: React.FC = () => {
 
   const [view, setView] = useState<ViewType>('week');
   const [currentPlan, setCurrentPlan] = useState<WeeklyPlan | null>(null);
-  const [monthPlans, setMonthPlans] = useState<any[]>([]);
+  const [monthPlans, setMonthPlans] = useState<PlanSnapshot[]>([]);
   const [records, setRecords] = useState<TrainingRecord[]>([]);
   const [profile, setProfile] = useState<any | null>(null);
   const [instance, setInstance] = useState<any | null>(null);
   const [stats, setStats] = useState<{ totalWorkouts: number; currentStreak: number }>({ totalWorkouts: 0, currentStreak: 0 });
   const [loading, setLoading] = useState(true);
   const [planLoading, setPlanLoading] = useState(false);
+  const [unavailable, setUnavailable] = useState<StructuredUnavailableResult | null>(null);
 
   const today = new Date();
   const [viewYear, setViewYear] = useState(today.getFullYear());
@@ -79,7 +80,11 @@ export const CalendarPage: React.FC = () => {
             if (!planRes) {
               setPlanLoading(true);
               try {
-                await plansApi.generateForProject([inst.projectId]);
+                const genResult = await plansApi.generateForProject([inst.projectId]);
+                if (genResult.outcome === 'temporarily_unavailable') {
+                  setUnavailable(genResult);
+                  return;
+                }
                 const fresh = await plansApi.getCurrent();
                 setCurrentPlan(fresh);
               } finally {
@@ -96,7 +101,11 @@ export const CalendarPage: React.FC = () => {
           if (!planRes) {
             setPlanLoading(true);
             try {
-              await plansApi.generate();
+              const genResult = await plansApi.generate();
+              if (genResult.outcome === 'temporarily_unavailable') {
+                setUnavailable(genResult);
+                return;
+              }
               const fresh = await plansApi.getCurrent();
               setCurrentPlan(fresh);
             } finally {
@@ -123,18 +132,23 @@ export const CalendarPage: React.FC = () => {
     }
   }, [navigate, instanceId]);
 
+  // 月视图：加载该月所有计划，缺失时批量生成（实例日历按项目生成）
   useEffect(() => {
     if (view === 'month' && isLoggedIn()) {
       plansApi.getMonth(viewYear, viewMonth).then(plans => {
         setMonthPlans(plans);
         if (plans.length === 0) {
-          plansApi.generateMonth(viewYear, viewMonth).then(() => {
+          plansApi.generateMonth(viewYear, viewMonth, instance ? [instance.projectId] : undefined).then(result => {
+            if (result.outcome === 'temporarily_unavailable') {
+              setUnavailable(result);
+              return;
+            }
             plansApi.getMonth(viewYear, viewMonth).then(setMonthPlans);
           });
         }
       });
     }
-  }, [view, viewYear, viewMonth]);
+  }, [view, viewYear, viewMonth, instance?.projectId]);
 
   if (loading || !profile) {
     return (
@@ -211,6 +225,13 @@ export const CalendarPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {unavailable && (
+        <div className="mx-5 mb-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-center">
+          <p className="font-semibold text-amber-800">{unavailable.display_message}</p>
+          <p className="mt-1 text-xs text-amber-700">当前条件下没有安全、合格的动作，请调整训练偏好后重试。</p>
+        </div>
+      )}
 
       {/* Tab 切换 */}
       <div className="px-5 mb-5">

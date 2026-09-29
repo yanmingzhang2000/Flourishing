@@ -1,9 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { projectsApi, isLoggedIn } from '@/lib/api';
-import { Exercise, ProjectExercises } from '@/lib/types';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { projectsApi, exercisesApi, plansApi, isLoggedIn } from '@/lib/api';
+import { Exercise, ProjectExercises, ExerciseSnapshot } from '@/lib/types';
 import exercisesData from '@/data/exercises.json';
 import { storage } from '@/lib/storage';
+
+interface ExerciseNavigationState {
+  /** Current workout navigation uses this field; it may also be an old snapshot. */
+  exercise?: ExerciseSnapshot;
+  /** Explicit snapshot name for historical-plan navigation. */
+  snapshot?: ExerciseSnapshot;
+  /** Optional persisted-plan lookup when navigation carries only an ID. */
+  planId?: number | string;
+}
 
 // 在所有项目的动作数据里搜索 exerciseId
 function findExerciseInData(exerciseId: string, data: ProjectExercises): Exercise | null {
@@ -18,8 +27,9 @@ function findExerciseInData(exerciseId: string, data: ProjectExercises): Exercis
 
 export const ExerciseDetailPage: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { exerciseId } = useParams<{ exerciseId: string }>();
-  const [exercise, setExercise] = useState<Exercise | null>(null);
+  const [exercise, setExercise] = useState<ExerciseSnapshot | null>(null);
   const [timerActive, setTimerActive] = useState(false);
   const [timerSeconds, setTimerSeconds] = useState(0);
   const [mediaMode, setMediaMode] = useState<'video' | 'image'>('video');
@@ -27,16 +37,52 @@ export const ExerciseDetailPage: React.FC = () => {
   useEffect(() => {
     if (!exerciseId) { navigate(-1); return; }
 
+    const navigationState = (location.state as ExerciseNavigationState | null) || null;
+    const snapshot = navigationState?.snapshot || navigationState?.exercise;
+
+    // 1. 训练页携带的动作快照优先渲染，历史快照不可被当前库内容覆盖
+    if (
+      snapshot
+      && (snapshot.id === exerciseId || snapshot.canonical_exercise_id === exerciseId)
+    ) {
+      setExercise(snapshot);
+      return;
+    }
+
     const loadExercise = async () => {
-      // 1. 先尝试本地全量 JSON 搜索（涵盖所有项目）
+      // 2. 本地全量 JSON 搜索（涵盖所有项目，游客可用）
       const localData = exercisesData as ProjectExercises;
       const localFound = findExerciseInData(exerciseId, localData);
       if (localFound) { setExercise(localFound); return; }
 
-      // 2. 本地没找到 → 如果已登录，从 API 拉取各项目动作再搜索
+      // 3. 导航携带 planId → 从历史计划快照恢复动作
+      if (navigationState?.planId !== undefined) {
+        try {
+          const plan = await plansApi.getById(navigationState.planId);
+          const historical = plan.days
+            .flatMap(day => [
+              ...day.exercises.map(item => item.exercise),
+              ...day.warmup,
+              ...day.cooldown,
+            ])
+            .find(item => item.id === exerciseId || item.canonical_exercise_id === exerciseId);
+          if (historical) { setExercise(historical); return; }
+        } catch {
+          // fall through to current-library lookup
+        }
+      }
+
+      // 4. 已登录 → 从当前动作库接口拉取
       if (isLoggedIn()) {
         try {
-          // 优先用游客 profile 里的项目；若没有则遍历所有6个项目
+          const current = await exercisesApi.getById(exerciseId);
+          if (current) { setExercise(current); return; }
+        } catch {
+          // fall through to per-project scan
+        }
+
+        // 5. 兼容旧数据：按项目遍历搜索
+        try {
           const profileProjects: string[] = storage.getUserProfile()?.selectedProjects || [];
           const projectIds = profileProjects.length > 0
             ? profileProjects
@@ -50,16 +96,16 @@ export const ExerciseDetailPage: React.FC = () => {
             if (found) { setExercise(found); return; }
           }
         } catch {
-          // API 失败时降级到提示
+          // API 失败时降级到返回上一页
         }
       }
 
-      // 3. 都找不到 → 返回上一页
+      // 6. 都找不到 → 返回上一页
       navigate(-1);
     };
 
     loadExercise();
-  }, [exerciseId, navigate]);
+  }, [exerciseId, location.state, navigate]);
 
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
@@ -92,7 +138,7 @@ export const ExerciseDetailPage: React.FC = () => {
 
   const getEquipmentLabel = (equip: string) => {
     const labels: Record<string, string> = {
-      none: '自重', chair: '椅子',
+      bodyweight: '自重', none: '自重', chair: '椅子',
       'dumbbell_1kg_pair': '1kg哑铃', 'dumbbell_1.5kg_pair': '1.5kg哑铃',
       'dumbbell_2kg_pair': '2kg哑铃', 'dumbbell_3kg_pair': '3kg哑铃',
       'dumbbell_4kg_pair': '4kg哑铃', 'dumbbell_5kg_pair': '5kg哑铃',

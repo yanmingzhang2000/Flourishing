@@ -1,3 +1,13 @@
+import {
+  CurrentExercise,
+  HistoricalPlanSnapshot,
+  MonthPlanGenerationResponse,
+  PlanGenerationResponse,
+  PlanSnapshot,
+  ProjectExercisesResponse,
+  StructuredUnavailableResult,
+} from './types';
+
 // 生产环境下前端和后端同源，使用相对路径；开发环境指向本地后端
 const BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3001' : '');
 
@@ -47,7 +57,21 @@ export const authApi = {
 // 用户档案
 export const userApi = {
   getProfile: () => request<any>('/api/user/profile'),
-  updateProfile: (data: any) =>
+  updateProfile: (data: {
+    experience?: string;
+    injuries?: string[];
+    equipment?: string[];
+    selected_projects?: string[];
+    max_days_per_week?: number;
+    session_max_min?: number;
+    /** ISO-week day indices: 0=Mon … 6=Sun */
+    training_days?: number[];
+    display_name?: string;
+    age?: number;
+    height?: number;
+    weight?: number;
+    onboarding_completed?: boolean;
+  }) =>
     request<{ ok: boolean }>('/api/user/profile', {
       method: 'PUT',
       body: JSON.stringify(data),
@@ -71,33 +95,57 @@ export const projectInstancesApi = {
     request<{ ok: boolean }>(`/api/project-instances/${id}`, { method: 'DELETE' }),
 };
 
+// V2: 按项目生成计划（服务端 /api/projects/:id/plans/*）
+export const projectPlansApi = {
+  generate: (projectId: string, weekNumber?: number) =>
+    request<PlanGenerationResponse>(`/api/projects/${projectId}/plans/generate`, {
+      method: 'POST',
+      body: JSON.stringify({ weekNumber }),
+    }),
+  getCurrent: (projectId: string) =>
+    request<PlanSnapshot | null>(`/api/projects/${projectId}/plans/current`),
+  getMonth: (projectId: string, year: number, month: number) =>
+    request<HistoricalPlanSnapshot[]>(`/api/projects/${projectId}/plans/month/${year}/${month}`),
+  generateMonth: (projectId: string, year: number, month: number): Promise<MonthPlanGenerationResponse> =>
+    request<MonthPlanGenerationResponse>(`/api/projects/${projectId}/plans/month/${year}/${month}/generate`, {
+      method: 'POST',
+    }),
+};
+
 // 项目
 export const projectsApi = {
   getAll: () => request<any[]>('/api/projects'),
   getById: (id: string) => request<any>(`/api/projects/${id}`),
-  getExercises: (id: string) => request<any>(`/api/projects/${id}/exercises`),
+  getExercises: (id: string) => request<ProjectExercisesResponse>(`/api/projects/${id}/exercises`),
+  getExercise: (id: string) => request<CurrentExercise>(`/api/exercises/${id}`),
+};
+
+export const exercisesApi = {
+  getById: (id: string) => request<CurrentExercise>(`/api/exercises/${id}`),
 };
 
 // 训练计划
 export const plansApi = {
   generate: (weekNumber?: number) =>
-    request<any>('/api/plans/generate', {
+    request<PlanGenerationResponse>('/api/plans/generate', {
       method: 'POST',
       body: JSON.stringify({ weekNumber }),
     }),
   /** V2：按指定项目列表生成计划，不改写 profile.selected_projects */
   generateForProject: (projectIds: string[], weekNumber?: number) =>
-    request<any>('/api/plans/generate', {
+    request<PlanGenerationResponse>('/api/plans/generate', {
       method: 'POST',
       body: JSON.stringify({ projectIds, weekNumber }),
     }),
-  getCurrent: () => request<any>('/api/plans/current'),
-  getByDate: (date: string) => request<any>(`/api/plans/by-date/${date}`),
+  getCurrent: () => request<PlanSnapshot | null>('/api/plans/current'),
+  getByDate: (date: string) => request<PlanSnapshot | null>(`/api/plans/by-date/${date}`),
+  getById: (id: number | string) => request<HistoricalPlanSnapshot>(`/api/plans/${id}`),
   getMonth: (year: number, month: number) =>
-    request<any[]>(`/api/plans/month/${year}/${month}`),
-  generateMonth: (year: number, month: number) =>
-    request<any>(`/api/plans/month/${year}/${month}/generate`, {
+    request<HistoricalPlanSnapshot[]>(`/api/plans/month/${year}/${month}`),
+  generateMonth: (year: number, month: number, projectIds?: string[]): Promise<MonthPlanGenerationResponse> =>
+    request<MonthPlanGenerationResponse>(`/api/plans/month/${year}/${month}/generate`, {
       method: 'POST',
+      body: JSON.stringify({ projectIds }),
     }),
 };
 
