@@ -501,61 +501,67 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onboarding = false }
   // ── 普通设置页 ───────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen bg-white pb-10">
+    <div className="min-h-screen bg-subtle pb-10">
       {/* Header */}
-      <div className="px-5 pt-12 pb-4 flex items-center gap-3 border-b border-gray-100">
-        <button
-          onClick={() => navigate(-1)}
-          className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
-          aria-label="返回"
-        >
-          <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-        </button>
-        <h1 className="text-xl font-bold text-text">设置</h1>
-      </div>
-
-      {/* Tab 切换（横向滚动） */}
-      <div className="px-5 pt-4 pb-2">
-        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-          {TABS.map(t => (
-            <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
-              className={`flex-shrink-0 px-4 py-2 rounded-xl text-sm font-semibold transition-all
-                ${tab === t.key ? 'bg-brand text-white' : 'bg-subtle text-muted hover:text-text'}`}
-            >
-              {t.label}
-            </button>
-          ))}
+      <div className="bg-brand px-8 pt-12 pb-5">
+        <div className="flex items-center gap-3 max-w-3xl mx-auto">
+          <button
+            onClick={() => navigate(-1)}
+            className="p-2 rounded-lg hover:bg-white/20 transition-colors"
+            aria-label="返回"
+          >
+            <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <h1 className="text-xl font-bold text-white">设置</h1>
         </div>
       </div>
 
-      <div className="px-5 pt-4 space-y-5">
-        {tabContent[tab]}
-
-        {error && (
-          <div className="flex items-center gap-2 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600">
-            <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-            </svg>
-            {error}
+      {/* 内容区 */}
+      <div className="max-w-3xl mx-auto px-8">
+        {/* Tab 切换 */}
+        <div className="pt-6 pb-2">
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+            {TABS.map(t => (
+              <button
+                key={t.key}
+                onClick={() => setTab(t.key)}
+                className={`flex-shrink-0 px-4 py-2 rounded-xl text-sm font-semibold transition-all
+                  ${tab === t.key ? 'bg-brand text-white' : 'bg-white text-muted hover:text-text shadow-sm'}`}
+              >
+                {t.label}
+              </button>
+            ))}
           </div>
-        )}
+        </div>
 
-        <Button onClick={handleSave} className="w-full" disabled={saving}>
-          {saving ? '保存中…' : saved ? '已保存 ✓' : '保存设置'}
-        </Button>
+        <div className="pt-4 space-y-5">
+          {tabContent[tab]}
 
-        <Button
-          variant="outline"
-          onClick={() => { clearToken(); navigate('/auth'); }}
-          className="w-full text-muted"
-        >
-          退出登录
-        </Button>
-        <div className="h-4" />
+          {error && (
+            <div className="flex items-center gap-2 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600">
+              <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+              </svg>
+              {error}
+            </div>
+          )}
+
+          <div className="flex items-center gap-3">
+            <Button onClick={handleSave} className="flex-1" disabled={saving}>
+              {saving ? '保存中…' : saved ? '已保存 ✓' : '保存设置'}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => { clearToken(); navigate('/auth'); }}
+              className="text-muted"
+            >
+              退出登录
+            </Button>
+          </div>
+          <div className="h-4" />
+        </div>
       </div>
     </div>
   );

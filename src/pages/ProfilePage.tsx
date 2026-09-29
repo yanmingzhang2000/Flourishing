@@ -34,61 +34,66 @@ export const ProfilePage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-surface pb-28">
-      {/* 顶部：头像 + 基础信息 */}
-      <div className="bg-white px-5 pt-12 pb-6 border-b border-gray-100">
-        <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-2xl bg-brand flex items-center justify-center text-white text-2xl font-bold flex-shrink-0">
-            {(profile?.display_name || '我')[0]}
+    <div className="min-h-screen bg-subtle pb-28">
+      {/* Hero 区：品牌绿背景，头像 + 昵称 + stats */}
+      <div className="bg-brand px-8 pt-12 pb-8">
+        <div className="max-w-3xl mx-auto">
+          {/* 头像 + 昵称行 */}
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 rounded-2xl bg-white/20 flex items-center justify-center text-white text-2xl font-bold flex-shrink-0">
+                {(profile?.display_name || '我')[0]}
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-white">
+                  {profile?.display_name || '未设置昵称'}
+                </h1>
+                <p className="text-sm text-white/70 mt-0.5">
+                  {profile?.experience ? expLabel[profile.experience] || profile.experience : '未设置'}
+                  {profile?.training_days?.length
+                    ? ` · 每周 ${profile.training_days.length} 天`
+                    : profile?.max_days_per_week
+                      ? ` · 每周 ${profile.max_days_per_week} 天`
+                      : ''}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => navigate('/settings')}
+              className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition-colors flex-shrink-0"
+              aria-label="设置"
+            >
+              <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5 text-white" stroke="currentColor" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round"
+                  d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+            </button>
           </div>
-          <div className="flex-1 min-w-0">
-            <h1 className="text-xl font-bold text-text truncate">
-              {profile?.display_name || '未设置昵称'}
-            </h1>
-            <p className="text-sm text-muted mt-0.5">
-              {profile?.experience ? expLabel[profile.experience] || profile.experience : '未设置'}
-              {profile?.training_days?.length
-                ? ` · 每周 ${profile.training_days.length} 天`
-                : profile?.max_days_per_week
-                  ? ` · 每周 ${profile.max_days_per_week} 天`
-                  : ''}
-            </p>
+
+          {/* Stats 卡片行 */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="rounded-2xl p-4 bg-white/15 text-center">
+              <div className="text-2xl font-bold text-white">{stats?.totalWorkouts ?? 0}</div>
+              <div className="text-xs text-white/70 mt-0.5">累计完成</div>
+            </div>
+            <div className="rounded-2xl p-4 bg-white/15 text-center">
+              <div className="text-2xl font-bold text-white">{stats?.currentStreak ?? 0}</div>
+              <div className="text-xs text-white/70 mt-0.5">连续天数</div>
+            </div>
+            <div className="rounded-2xl p-4 bg-white/15 text-center">
+              <div className="text-2xl font-bold text-white">{bmi ?? '--'}</div>
+              <div className="text-xs text-white/70 mt-0.5">{bmiLabel ?? 'BMI'}</div>
+            </div>
           </div>
-          {/* 设置入口 */}
-          <button
-            onClick={() => navigate('/settings')}
-            className="w-10 h-10 rounded-full bg-subtle flex items-center justify-center hover:bg-gray-200 transition-colors flex-shrink-0"
-            aria-label="设置"
-          >
-            <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5 text-text" stroke="currentColor" strokeWidth={1.8}>
-              <path strokeLinecap="round" strokeLinejoin="round"
-                d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-              <circle cx="12" cy="12" r="3" />
-            </svg>
-          </button>
         </div>
       </div>
 
-      {/* 统计卡片 */}
-      <div className="px-5 pt-5">
-        <div className="grid grid-cols-3 gap-3 mb-5">
-          <div className="rounded-2xl p-4 bg-white text-center shadow-sm">
-            <div className="text-2xl font-bold text-brand">{stats?.totalWorkouts ?? 0}</div>
-            <div className="text-xs text-muted mt-0.5">累计完成</div>
-          </div>
-          <div className="rounded-2xl p-4 bg-white text-center shadow-sm">
-            <div className="text-2xl font-bold text-brand">{stats?.currentStreak ?? 0}</div>
-            <div className="text-xs text-muted mt-0.5">连续天数</div>
-          </div>
-          <div className="rounded-2xl p-4 bg-white text-center shadow-sm">
-            <div className="text-2xl font-bold text-text">{bmi ?? '--'}</div>
-            <div className="text-xs text-muted mt-0.5">{bmiLabel ?? 'BMI'}</div>
-          </div>
-        </div>
-
+      {/* 内容区 */}
+      <div className="max-w-3xl mx-auto px-8 pt-6">
         {/* 身体信息摘要 */}
         {(profile?.height || profile?.weight) && (
-          <div className="bg-white rounded-2xl p-4 mb-4 shadow-sm">
+          <div className="bg-white rounded-2xl p-5 mb-4 shadow-sm">
             <h3 className="text-sm font-semibold text-text mb-3">身体信息</h3>
             <div className="grid grid-cols-3 gap-3">
               {profile.height && (
@@ -113,13 +118,13 @@ export const ProfilePage: React.FC = () => {
           </div>
         )}
 
-        {/* 快捷操作 */}
-        <div className="space-y-2">
+        {/* 快捷操作：2列 */}
+        <div className="grid grid-cols-2 gap-3 mb-6">
           <button
             onClick={() => navigate('/settings')}
-            className="w-full bg-white rounded-2xl px-4 py-4 flex items-center gap-3 shadow-sm hover:bg-gray-50 transition-colors text-left"
+            className="bg-white rounded-2xl px-5 py-4 flex items-center gap-3 shadow-sm hover:shadow-md transition-all text-left"
           >
-            <div className="w-9 h-9 rounded-xl bg-brand-light flex items-center justify-center flex-shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-brand-light flex items-center justify-center flex-shrink-0">
               <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5 text-brand" stroke="currentColor" strokeWidth={1.8}>
                 <path strokeLinecap="round" strokeLinejoin="round"
                   d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -137,9 +142,9 @@ export const ProfilePage: React.FC = () => {
 
           <button
             onClick={() => navigate('/')}
-            className="w-full bg-white rounded-2xl px-4 py-4 flex items-center gap-3 shadow-sm hover:bg-gray-50 transition-colors text-left"
+            className="bg-white rounded-2xl px-5 py-4 flex items-center gap-3 shadow-sm hover:shadow-md transition-all text-left"
           >
-            <div className="w-9 h-9 rounded-xl bg-ice-light flex items-center justify-center flex-shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-ice-light flex items-center justify-center flex-shrink-0">
               <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5 text-brand" stroke="currentColor" strokeWidth={1.8}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
               </svg>
@@ -155,10 +160,10 @@ export const ProfilePage: React.FC = () => {
         </div>
 
         {/* 退出登录 */}
-        <div className="mt-6">
+        <div className="flex justify-center">
           <button
             onClick={() => { clearToken(); navigate('/auth'); }}
-            className="w-full py-3.5 rounded-2xl border-2 border-gray-200 text-muted text-sm font-medium hover:border-red-200 hover:text-red-400 transition-colors"
+            className="px-10 py-3 rounded-2xl border-2 border-gray-200 text-muted text-sm font-medium hover:border-red-200 hover:text-red-400 transition-colors"
           >
             退出登录
           </button>
