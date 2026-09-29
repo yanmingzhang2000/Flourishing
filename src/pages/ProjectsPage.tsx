@@ -9,15 +9,25 @@ const getDifficultyLabel = (d: string) => {
   return '进阶';
 };
 
+// 品牌绿相近色系，按项目顺序分配（与 projects.json 顺序对应）
+const BRAND_PALETTE = [
+  '#7DC47A', // 品牌绿
+  '#5BAD89', // 深青绿
+  '#4A9E8E', // 海绿
+  '#6DB569', // 深品牌绿
+  '#52C4A0', // 薄荷绿
+  '#8FD4A0', // 浅叶绿
+];
+
 export const ProjectsPage: React.FC = () => {
   const navigate = useNavigate();
   const projects = projectsData as Project[];
 
   return (
-    <div className="min-h-screen bg-surface pb-10">
+    <div className="min-h-screen bg-subtle pb-10">
       {/* Header */}
-      <div className="bg-brand px-5 pt-12 pb-5">
-        <div className="flex items-center gap-3">
+      <div className="bg-brand px-8 pt-12 pb-6">
+        <div className="flex items-center gap-3 max-w-5xl mx-auto">
           <button
             onClick={() => navigate(-1)}
             className="p-2 rounded-lg hover:bg-white/20 transition-colors"
@@ -34,43 +44,66 @@ export const ProjectsPage: React.FC = () => {
         </div>
       </div>
 
-      <div className="max-w-md mx-auto px-4 py-5 grid grid-cols-3 gap-3">
-        {projects.map(project => (
-          <button
-            key={project.id}
-            className="text-center rounded-2xl overflow-hidden hover:shadow-md transition-all p-4 flex flex-col items-center"
-            style={{ backgroundColor: `${project.color}26` }}
-            onClick={() => navigate(`/projects/${project.id}/start`)}
-          >
-            {/* 图标 */}
-            <div
-              className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl mb-3"
-              style={{ backgroundColor: `${project.color}33` }}
+      <div className="max-w-5xl mx-auto px-8 py-8 grid grid-cols-3 gap-6">
+        {projects.map((project, idx) => {
+          const accentColor = BRAND_PALETTE[idx % BRAND_PALETTE.length];
+          return (
+            <button
+              key={project.id}
+              className="text-left bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-all group"
+              onClick={() => navigate(`/projects/${project.id}/start`)}
             >
-              {project.icon}
-            </div>
+              {/* 顶部彩色条纹 */}
+              <div
+                className="h-2 w-full"
+                style={{ backgroundColor: accentColor }}
+              />
 
-            {/* 标题 */}
-            <h3 className="text-sm font-bold text-gray-800 mb-1">{project.name}</h3>
-            <span className="text-xs text-gray-500 mb-2">{project.subtitle}</span>
+              <div className="p-5">
+                {/* 图标 + 标题行 */}
+                <div className="flex items-center gap-3 mb-3">
+                  <div
+                    className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl flex-shrink-0"
+                    style={{ backgroundColor: `${accentColor}18` }}
+                  >
+                    {project.icon}
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-gray-800 leading-tight">{project.name}</h3>
+                    <span className="text-xs text-gray-400">{project.subtitle}</span>
+                  </div>
+                </div>
 
-            {/* 标签 */}
-            <div className="flex flex-col gap-1 w-full">
-              <span
-                className="px-2 py-0.5 rounded-full text-xs font-medium"
-                style={{ backgroundColor: 'rgba(255,255,255,0.6)', color: project.color }}
-              >
-                {getDifficultyLabel(project.difficulty)}
-              </span>
-              <span
-                className="px-2 py-0.5 rounded-full text-xs font-medium"
-                style={{ backgroundColor: 'rgba(255,255,255,0.6)', color: project.color }}
-              >
-                {project.duration_minutes}分钟
-              </span>
-            </div>
-          </button>
-        ))}
+                {/* 描述 */}
+                <p className="text-sm text-gray-500 leading-relaxed mb-4 line-clamp-2">
+                  {project.description}
+                </p>
+
+                {/* 标签行 */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span
+                    className="px-2.5 py-0.5 rounded-full text-xs font-medium"
+                    style={{ backgroundColor: `${accentColor}18`, color: accentColor }}
+                  >
+                    {getDifficultyLabel(project.difficulty)}
+                  </span>
+                  <span
+                    className="px-2.5 py-0.5 rounded-full text-xs font-medium"
+                    style={{ backgroundColor: `${accentColor}18`, color: accentColor }}
+                  >
+                    {project.duration_minutes} 分钟
+                  </span>
+                  <span
+                    className="px-2.5 py-0.5 rounded-full text-xs font-medium"
+                    style={{ backgroundColor: `${accentColor}18`, color: accentColor }}
+                  >
+                    {project.target_area}
+                  </span>
+                </div>
+              </div>
+            </button>
+          );
+        })}
       </div>
     </div>
   );
