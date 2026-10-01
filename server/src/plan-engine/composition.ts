@@ -94,11 +94,26 @@ function pickExercise(
   const candidates = library.exercises.filter(
     ex => ex.target_projects.includes(projectId) && ex.category === category,
   );
+
+  // Collect all eligible candidates, tagging preferred-difficulty ones.
+  const eligible: Array<{ exercise: CanonicalExercise; withinPreferred: boolean }> = [];
   for (const candidate of candidates) {
     const result = selectQualifiedExercise(candidate, projectId, profile, library);
-    if (result) return result.exercise;
+    if (result) {
+      eligible.push({
+        exercise: result.exercise,
+        withinPreferred: result.assessment.withinPreferred ?? false,
+      });
+    }
   }
-  return null;
+
+  if (eligible.length === 0) return null;
+
+  // Prefer exercises within the experience-level preferred difficulty band.
+  // If none exist (e.g. trap_relax tops out at D2 for a "regular" user),
+  // fall back gracefully to any allowed exercise rather than returning null.
+  const preferred = eligible.filter(e => e.withinPreferred);
+  return (preferred.length > 0 ? preferred[0] : eligible[0]).exercise;
 }
 
 // ---------------------------------------------------------------------------

@@ -56,9 +56,10 @@ export function assessEligibility(
 ): EligibilityAssessment {
   const safety = assessSafety(exercise, profile.injuries);
   const range = EXPERIENCE_RANGE[profile.experience];
+  // Safety gate uses the `allowed` band; `preferred` is advisory only.
   const experiencePasses = Boolean(range)
-    && exercise.difficulty >= range[0]
-    && exercise.difficulty <= range[1];
+    && exercise.difficulty >= range.allowed[0]
+    && exercise.difficulty <= range.allowed[1];
   const equipmentPasses = exercise.equipment.includes('bodyweight')
     || exercise.equipment.some(item => profile.equipment.includes(item));
 
@@ -76,12 +77,12 @@ export function assessEligibility(
     experience: experiencePasses
       ? { category: 'experience', outcome: 'passed', reasons: [] }
       : {
-        category: 'experience',
-        outcome: 'failed',
-        reasons: range
-          ? [reason('difficulty_out_of_range', exercise.difficulty), reason('experience_range', `${range[0]}-${range[1]}`)]
-          : [reason('unsupported_experience', String(profile.experience))],
-      },
+          category: 'experience',
+          outcome: 'failed',
+          reasons: range
+            ? [reason('difficulty_out_of_range', exercise.difficulty), reason('experience_range', `${range.allowed[0]}-${range.allowed[1]}`)]
+            : [reason('unsupported_experience', String(profile.experience))],
+        },
   };
 
   // ELIGIBILITY_CATEGORIES is the single stable order shared by reports and
@@ -93,7 +94,13 @@ export function assessEligibility(
     .filter(category => category.outcome !== 'not_applicable')
     .every(category => category.outcome === 'passed');
 
-  return { exercise_id: exercise.exercise_id, project_id: projectId, categories, eligible };
+  // withinPreferred is advisory: eligible exercises in the preferred band sort
+  // first in composition, but ineligible exercises are never promoted.
+  const withinPreferred = eligible && Boolean(range)
+    && exercise.difficulty >= range.preferred[0]
+    && exercise.difficulty <= range.preferred[1];
+
+  return { exercise_id: exercise.exercise_id, project_id: projectId, categories, eligible, withinPreferred };
 }
 
 export interface SelectedExercise {

@@ -50,6 +50,9 @@ export interface EligibilityAssessment {
   project_id: ProjectId;
   categories: CategoryAssessment[];
   eligible: boolean;
+  /** True when eligible AND within the experience-level preferred difficulty band.
+   *  Used by composition to sort preferred exercises first; never affects safety. */
+  withinPreferred?: boolean;
   alternative_selection?: { replaced_exercise_id: string; selected_exercise_id: string; alternative_index: number; reason: 'first_eligible_referenced_alternative' };
 }
 export interface NormalizedProfile {
