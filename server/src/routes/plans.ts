@@ -29,13 +29,29 @@ function getDifficultyLevel(userId: number | undefined): 1 | 2 | 3 {
 // ---------------------------------------------------------------------------
 // Profile loading helpers
 // ---------------------------------------------------------------------------
-function readProfile(row: Record<string, unknown>): ReturnType<typeof normalizeProfile> {
+function readProfile(
+  row: Record<string, unknown>,
+  projectIdsOverride?: ProjectId[],
+): ReturnType<typeof normalizeProfile> {
   return normalizeProfile({
     experience: row.experience,
     injuries: row.injuries,
     equipment: row.equipment,
-    selected_projects: row.selected_projects,
+    // V2：请求体可指定项目列表（按实例生成），不改写 profile.selected_projects。
+    // The override must be applied before normalization so an empty/unselected
+    // profile.selected_projects never short-circuits a valid per-instance request.
+    selected_projects: projectIdsOverride && projectIdsOverride.length > 0
+      ? projectIdsOverride
+      : row.selected_projects,
   });
+}
+
+/** Extract a valid project-id override from the request body, if present. */
+function readProjectIdsOverride(body: unknown): ProjectId[] | undefined {
+  const raw = (body as Record<string, unknown> | undefined)?.projectIds;
+  if (!Array.isArray(raw) || raw.length === 0) return undefined;
+  const filtered = raw.filter((v): v is ProjectId => typeof v === 'string');
+  return filtered.length > 0 ? filtered : undefined;
 }
 
 /**
@@ -143,12 +159,15 @@ type LoadedContext =
   | { serviceError: PublishedLibraryUnavailableError }
   | { missingProfile: true };
 
-function loadNormalized(userId: number | undefined): LoadedContext {
+function loadNormalized(userId: number | undefined, projectIdsOverride?: ProjectId[]): LoadedContext {
   const profileRow = db.prepare('SELECT * FROM user_profiles WHERE user_id = ?').get(userId) as Record<string, unknown> | undefined;
   if (!profileRow) return { missingProfile: true };
 
   // Normalize the persisted profile exactly once at the compatibility boundary.
-  const normalized = readProfile(profileRow);
+  // A request-supplied project override (V2 per-instance generation) is folded
+  // in here so it participates in validation instead of being applied after
+  // the profile has already been judged unavailable.
+  const normalized = readProfile(profileRow, projectIdsOverride);
   if (normalized.unavailable || !normalized.profile) {
     return {
       response: normalized.unavailable || {
@@ -179,16 +198,11 @@ function loadNormalized(userId: number | undefined): LoadedContext {
 }
 
 router.post('/generate', (req: AuthRequest, res: Response) => {
-  const loaded = loadNormalized(req.userId);
+  const loaded = loadNormalized(req.userId, readProjectIdsOverride(req.body));
   if ('response' in loaded) return res.json(loaded.response);
   if ('missingProfile' in loaded) return res.status(400).json({ error: '请先完善个人信息' });
   if ('serviceError' in loaded) return res.status(503).json({ error: '动作库暂不可用', code: loaded.serviceError.code });
-  // V2：请求体可指定项目列表（按实例生成），不改写 profile.selected_projects
-  const requestedProjects: ProjectId[] =
-    Array.isArray(req.body.projectIds) && req.body.projectIds.length > 0
-      ? (req.body.projectIds as unknown[]).filter((v): v is ProjectId => typeof v === 'string')
-      : loaded.profile.selected_projects;
-  const profile: NormalizedProfile = { ...loaded.profile, selected_projects: requestedProjects };
+  const profile: NormalizedProfile = loaded.profile;
   const selection = generateSelection(profile.selected_projects, profile, loaded.library);
   if (selection.unavailable) return res.json(selection.unavailable);
   const startOfWeek = getStartOfWeek();
@@ -238,16 +252,11 @@ router.get('/:id', (req: AuthRequest, res: Response) => {
 });
 
 router.post('/month/:year/:month/generate', (req: AuthRequest, res: Response) => {
-  const loaded = loadNormalized(req.userId);
+  const loaded = loadNormalized(req.userId, readProjectIdsOverride(req.body));
   if ('response' in loaded) return res.json(loaded.response);
   if ('missingProfile' in loaded) return res.status(400).json({ error: '请先完善个人信息' });
   if ('serviceError' in loaded) return res.status(503).json({ error: '动作库暂不可用', code: loaded.serviceError.code });
-  // V2：请求体可指定项目列表（按实例生成），不改写 profile.selected_projects
-  const requestedProjects: ProjectId[] =
-    Array.isArray(req.body.projectIds) && req.body.projectIds.length > 0
-      ? (req.body.projectIds as unknown[]).filter((v): v is ProjectId => typeof v === 'string')
-      : loaded.profile.selected_projects;
-  const profile: NormalizedProfile = { ...loaded.profile, selected_projects: requestedProjects };
+  const profile: NormalizedProfile = loaded.profile;
   const selection = generateSelection(profile.selected_projects, profile, loaded.library);
   if (selection.unavailable) return res.json(selection.unavailable);
   const year = Number(req.params.year); const month = Number(req.params.month);
