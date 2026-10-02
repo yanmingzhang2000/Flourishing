@@ -14,17 +14,24 @@ import exercisesRouter from './routes/exercises';
 const app = express();
 const PORT = process.env.PORT || 80;
 
-app.use(cors({
-  origin: [
+// CORS 配置：支持环境变量覆盖
+const allowedOrigins = process.env.ALLOWED_ORIGINS 
+  ? process.env.ALLOWED_ORIGINS.split(',')
+  : [
+      'http://47.93.29.237',
+      'http://47.93.29.237:80',
+    ];
+
+// 开发环境额外添加 localhost
+if (process.env.NODE_ENV === 'development') {
+  allowedOrigins.push(
     'http://localhost:5173',
     'http://localhost:4173',
-    'http://localhost:3000',
-    'http://47.93.29.237',
-    'http://47.93.29.237:80',
-    'http://flourish.freesld.com',
-    'https://flourish.freesld.com',
-  ]
-}));
+    'http://localhost:3000'
+  );
+}
+
+app.use(cors({ origin: allowedOrigins }));
 app.use(express.json());
 
 // 初始化数据库
