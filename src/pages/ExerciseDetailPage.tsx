@@ -207,48 +207,59 @@ export const ExerciseDetailPage: React.FC = () => {
               </button>
             ))}
           </div>
-          <div className="flex-1 min-h-0 overflow-hidden flex items-center justify-center px-4 pb-4">
+          <div id={`media-container-${exercise.id}`} className="flex-1 min-h-0 overflow-hidden flex items-center justify-center px-4 pb-4">
             {mediaMode === 'video' ? (
-              <video
-                key={`video-${exercise.id}`}
-                src={`./videos/${exercise.id}.mp4`}
-                controls autoPlay loop playsInline
-                className="max-h-full max-w-full"
-                style={{ objectFit: 'contain' }}
-                onError={e => {
-                  const t = e.target as HTMLVideoElement;
-                  t.style.display = 'none';
-                  const p = t.parentElement;
-                  if (p && !p.querySelector('.media-fallback')) {
-                    const d = document.createElement('div');
-                    d.className = 'media-fallback text-center text-gray-400';
-                    d.innerHTML = `<p class="text-lg mb-1">视频暂未上传</p><p class="text-sm">${exercise.id}.mp4</p>`;
-                    p.appendChild(d);
-                  }
-                }}
-              />
-            ) : (
-              <img
-                key={`image-${exercise.id}`}
-                src={`./images/${exercise.id}.png`}
-                alt={exercise.name}
-                className="max-h-full max-w-full"
-                style={{ objectFit: 'contain' }}
-                onError={e => {
-                  const t = e.target as HTMLImageElement;
-                  t.src = `./images/${exercise.id}.jpg`;
-                  t.onerror = () => {
-                    t.style.display = 'none';
-                    const p = t.parentElement;
-                    if (p && !p.querySelector('.media-fallback')) {
-                      const d = document.createElement('div');
-                      d.className = 'media-fallback text-center text-gray-400';
-                      d.innerHTML = `<p class="text-lg mb-1">图片暂未上传</p><p class="text-sm">${exercise.id}.png</p>`;
-                      p.appendChild(d);
+              exercise.media?.video ? (
+                <video
+                  key={`video-${exercise.id}`}
+                  src={exercise.media.video}
+                  controls autoPlay loop playsInline
+                  className="max-h-full max-w-full"
+                  style={{ objectFit: 'contain' }}
+                  onError={() => {
+                    const container = document.getElementById(`media-container-${exercise.id}`);
+                    if (container) {
+                      container.innerHTML = `
+                        <div class="media-fallback text-center text-gray-400">
+                          <p class="text-lg mb-1">视频加载失败</p>
+                          <p class="text-sm">${exercise.media?.video || exercise.id}</p>
+                        </div>
+                      `;
                     }
-                  };
-                }}
-              />
+                  }}
+                />
+              ) : (
+                <div className="media-fallback text-center text-gray-400">
+                  <p className="text-lg mb-1">视频暂未上传</p>
+                  <p className="text-sm">{exercise.id}</p>
+                </div>
+              )
+            ) : (
+              exercise.media?.cover_image ? (
+                <img
+                  key={`image-${exercise.id}`}
+                  src={exercise.media.cover_image}
+                  alt={exercise.name}
+                  className="max-h-full max-w-full"
+                  style={{ objectFit: 'contain' }}
+                  onError={() => {
+                    const container = document.getElementById(`media-container-${exercise.id}`);
+                    if (container) {
+                      container.innerHTML = `
+                        <div class="media-fallback text-center text-gray-400">
+                          <p class="text-lg mb-1">图片加载失败</p>
+                          <p class="text-sm">${exercise.media?.cover_image || exercise.id}</p>
+                        </div>
+                      `;
+                    }
+                  }}
+                />
+              ) : (
+                <div className="media-fallback text-center text-gray-400">
+                  <p className="text-lg mb-1">图片暂未上传</p>
+                  <p className="text-sm">{exercise.id}</p>
+                </div>
+              )
             )}
           </div>
         </div>

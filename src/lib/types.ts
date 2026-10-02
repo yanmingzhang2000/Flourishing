@@ -36,6 +36,10 @@ export interface Exercise {
 export interface ExerciseSnapshot extends Exercise {
   canonical_exercise_id?: string;
   library_version?: string;
+  media?: {
+    cover_image?: string;
+    video?: string;
+  };
 }
 
 export interface ExerciseData {

@@ -168,5 +168,9 @@ export function canonicalToClientExercise(
     warning: exercise.warning,
     canonical_exercise_id: exercise.exercise_id,
     library_version: libraryVersion,
+    media: exercise.media ? {
+      cover_image: exercise.media.cover_image,
+      video: exercise.media.video,
+    } : undefined,
   };
 }

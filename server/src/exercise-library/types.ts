@@ -27,6 +27,10 @@ export interface CanonicalExercise {
   steps: string[];
   tips: string[];
   warning: string;
+  media?: {
+    cover_image?: string;
+    video?: string;
+  };
 }
 
 export interface ControlledVocabularyRegistry {
@@ -89,6 +93,10 @@ export interface ClientExerciseSnapshot {
   warning: string;
   canonical_exercise_id: string;
   library_version: string;
+  media?: {
+    cover_image?: string;
+    video?: string;
+  };
 }
 export interface WorkoutExerciseSnapshot {
   exerciseId: string;
