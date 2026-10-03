@@ -53,10 +53,9 @@ export const MonthView: React.FC<Props> = ({ year, month, records, plans, onMont
 
     // 检查是否在计划中
     for (const plan of plans) {
-      const startDate = new Date(plan.startDate);
       for (let i = 0; i < 7; i++) {
-        const d = new Date(startDate);
-        d.setDate(startDate.getDate() + i);
+        const d = new Date(plan.startDate);  // 每次循环都从原始 startDate 创建新的 Date 对象
+        d.setDate(d.getDate() + i);  // 基于当前 Date 对象累加天数
         if (d.toISOString().split('T')[0] === dateStr) {
           const day = (Array.isArray(plan.days) ? plan.days : JSON.parse(plan.days))[i];
           return day.type === 'rest' ? 'rest' : null;

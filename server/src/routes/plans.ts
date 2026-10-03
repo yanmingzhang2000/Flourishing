@@ -229,11 +229,31 @@ router.get('/current', (req: AuthRequest, res: Response) => {
 router.get('/by-date/:date', (req: AuthRequest, res: Response) => {
   const d = new Date(String(req.params.date));
   if (isNaN(d.getTime())) return res.status(400).json({ error: '日期格式无效' });
-  const startDate = getStartOfWeek(d).toISOString().split('T')[0];
-  const plan = db.prepare('SELECT * FROM weekly_plans WHERE user_id = ? AND start_date = ? ORDER BY id DESC LIMIT 1').get(req.userId, startDate) as Record<string, unknown> | undefined;
+  
+  // 改为范围查询：查询包含该日期的计划（start_date <= date < start_date + 7天）
+  const dateStr = d.toISOString().split('T')[0];
+  
+  const plan = db.prepare(`
+    SELECT * FROM weekly_plans 
+    WHERE user_id = ? 
+      AND start_date <= ?
+      AND DATE(start_date, '+7 days') > ?
+    ORDER BY start_date DESC 
+    LIMIT 1
+  `).get(req.userId, dateStr, dateStr) as Record<string, unknown> | undefined;
+  
   if (!plan) return res.json(null);
-  try { return res.json({ id: plan.id, weekNumber: plan.week_number, startDate: plan.start_date, days: JSON.parse(String(plan.days)) }); }
-  catch { return res.status(500).json({ error: '计划快照无效', code: 'plan_snapshot_invalid' }); }
+  try { 
+    return res.json({ 
+      id: plan.id, 
+      weekNumber: plan.week_number, 
+      startDate: plan.start_date, 
+      days: JSON.parse(String(plan.days)) 
+    }); 
+  }
+  catch { 
+    return res.status(500).json({ error: '计划快照无效', code: 'plan_snapshot_invalid' }); 
+  }
 });
 
 router.get('/month/:year/:month', (req: AuthRequest, res: Response) => {
