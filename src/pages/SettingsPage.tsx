@@ -13,8 +13,8 @@ const EXPERIENCE_OPTIONS = [
 ];
 
 const EQUIPMENT_TOP = [
-  { value: 'none',            emoji: '🤸', label: '自重',   desc: '不需要任何器械' },
-  { value: 'dumbbell',        emoji: '🏋️', label: '哑铃',   desc: '选择后指定重量' },
+  { value: 'none',            emoji: '🤸', label: '纯自重', desc: '仅用身体重量，零门槛' },
+  { value: 'dumbbell',        emoji: '🏋️', label: '哑铃',   desc: '可选择多个重量' },
   { value: 'resistance_band', emoji: '🎯', label: '弹力带', desc: '便携阻力训练' },
 ];
 
@@ -141,25 +141,49 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onboarding = false }
 
   // ── 器械逻辑 ──────────────────────────────────────────────────────────────
 
+  const hasNone = form.equipment.includes('none');
   const hasDumbbell = form.equipment.some(e => e.startsWith('dumbbell'));
-  const selectedDumbbell = form.equipment.find(e => e.startsWith('dumbbell')) || null;
+  const selectedDumbbells = form.equipment.filter(e => e.startsWith('dumbbell'));
 
   const toggleEquip = (value: string) => {
-    if (value === 'dumbbell') {
+    if (value === 'none') {
+      // 选择"自重"时，清空所有其他装备
+      if (hasNone) {
+        update({ equipment: [] });
+      } else {
+        update({ equipment: ['none'] });
+        setDumbbellExpanded(false);
+      }
+    } else if (value === 'dumbbell') {
+      // 选择"哑铃"时，先取消"自重"，然后展开重量选择
       if (hasDumbbell) {
         update({ equipment: form.equipment.filter(e => !e.startsWith('dumbbell')) });
         setDumbbellExpanded(false);
       } else {
+        // 取消"自重"
+        const newEquipment = form.equipment.filter(e => e !== 'none');
+        update({ equipment: newEquipment });
         setDumbbellExpanded(true);
       }
     } else {
-      const cur = form.equipment;
+      // 选择"弹力带"等其他装备时，先取消"自重"
+      const cur = form.equipment.filter(e => e !== 'none');
       update({ equipment: cur.includes(value) ? cur.filter(e => e !== value) : [...cur, value] });
     }
   };
 
   const selectDumbbellWeight = (weight: string) => {
-    update({ equipment: [...form.equipment.filter(e => !e.startsWith('dumbbell')), weight] });
+    // 支持多选哑铃重量
+    const otherDumbbells = form.equipment.filter(e => e.startsWith('dumbbell') && e !== weight);
+    const otherEquipment = form.equipment.filter(e => !e.startsWith('dumbbell') && e !== 'none');
+    
+    if (selectedDumbbells.includes(weight)) {
+      // 取消选择该重量
+      update({ equipment: [...otherEquipment, ...otherDumbbells] });
+    } else {
+      // 添加该重量
+      update({ equipment: [...otherEquipment, ...otherDumbbells, weight] });
+    }
   };
 
   // ── 保存逻辑 ──────────────────────────────────────────────────────────────
@@ -327,22 +351,29 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onboarding = false }
   );
 
   const renderEquipment = () => (
-    <div className="space-y-2">
+    <div className="space-y-3">
+      <p className="text-xs text-muted px-1">
+        💡 选择"纯自重"后，其他装备将自动取消；选择其他装备会自动取消"纯自重"
+      </p>
+      <div className="space-y-2">
       {EQUIPMENT_TOP.map(opt => {
         const active = opt.value === 'dumbbell' ? hasDumbbell : form.equipment.includes(opt.value);
+        const disabled = hasNone && opt.value !== 'none';
         return (
           <div key={opt.value}>
             <button
               onClick={() => toggleEquip(opt.value)}
+              disabled={disabled}
               className={`w-full text-left rounded-2xl px-4 py-3.5 flex items-center gap-4 transition-all shadow-sm
-                ${active ? 'bg-brand-light border-l-4 border-brand' : 'bg-white border-l-4 border-transparent hover:border-gray-200'}`}
+                ${disabled ? 'bg-gray-100 border-l-4 border-transparent opacity-50 cursor-not-allowed' :
+                  active ? 'bg-brand-light border-l-4 border-brand' : 'bg-white border-l-4 border-transparent hover:border-gray-200'}`}
             >
               <span className="text-2xl flex-shrink-0 w-8 text-center">{opt.emoji}</span>
               <div className="flex-1 min-w-0">
                 <div className={`font-semibold text-sm ${active ? 'text-brand' : 'text-text'}`}>{opt.label}</div>
                 <div className="text-xs text-muted mt-0.5">
-                  {opt.value === 'dumbbell' && hasDumbbell && selectedDumbbell
-                    ? `已选：${DUMBBELL_WEIGHTS.find(w => w.value === selectedDumbbell)?.label}`
+                  {opt.value === 'dumbbell' && hasDumbbell && selectedDumbbells.length > 0
+                    ? `已选：${selectedDumbbells.map(d => DUMBBELL_WEIGHTS.find(w => w.value === d)?.label).filter(Boolean).join(', ')}`
                     : opt.desc}
                 </div>
               </div>
@@ -357,14 +388,14 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onboarding = false }
             </button>
             {opt.value === 'dumbbell' && (hasDumbbell || dumbbellExpanded) && (
               <div className="mt-2 ml-12 p-3 bg-gray-50 rounded-xl border border-gray-100">
-                <p className="text-xs text-muted mb-2">选择你的哑铃重量（单个）</p>
+                <p className="text-xs text-muted mb-2">选择你的哑铃重量（可多选）</p>
                 <div className="grid grid-cols-3 gap-2">
                   {DUMBBELL_WEIGHTS.map(w => (
                     <button
                       key={w.value}
                       onClick={() => selectDumbbellWeight(w.value)}
                       className={`py-2 rounded-lg text-sm font-medium border-2 transition-all ${
-                        selectedDumbbell === w.value
+                        selectedDumbbells.includes(w.value)
                           ? 'border-brand bg-brand text-white'
                           : 'border-gray-200 bg-white text-text hover:border-brand/50'
                       }`}
@@ -378,6 +409,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onboarding = false }
           </div>
         );
       })}
+      </div>
     </div>
   );
 
