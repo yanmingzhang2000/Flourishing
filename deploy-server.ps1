@@ -34,7 +34,7 @@ Log "Upload complete" Green
 
 Step "4. Restart server"
 $tmpScript = [System.IO.Path]::GetTempFileName() + ".sh"
-$scriptContent = "#!/bin/bash`ncd " + $REMOTE + "/server`nnpm install --omit=dev 2>&1 | tail -3`npm2 restart flourish-api`npm2 save`npm2 list`nsleep 2`ncurl -s http://localhost:80/api/health"
+$scriptContent = "#!/bin/bash`ncd " + $REMOTE + "/server`nnpm install --omit=dev 2>&1 | tail -3`pm2 restart flourish-api`pm2 save`pm2 list`nsleep 2`ncurl -s http://localhost:80/api/health"
 $scriptContent | Set-Content -Path $tmpScript -Encoding ASCII
 
 $tmpDest = $SERVER + ":/tmp/flourish-deploy.sh"
