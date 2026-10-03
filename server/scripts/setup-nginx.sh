@@ -12,6 +12,12 @@ echo ""
 # 1. 安装 Nginx
 echo "[Step 1/5] Installing Nginx..."
 if ! command -v nginx &> /dev/null; then
+    # 先安装 EPEL 源
+    echo "Installing EPEL repository..."
+    yum install -y epel-release
+    
+    # 从 EPEL 源安装 Nginx
+    echo "Installing Nginx from EPEL..."
     yum install -y nginx
     echo "✓ Nginx installed"
 else
