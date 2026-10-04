@@ -85,11 +85,50 @@ export interface ExerciseLibraryLike {
 // Single-project exercise selection by category
 // ---------------------------------------------------------------------------
 
+/**
+ * Determines how many strength exercises to select per project based on
+ * available training time and number of projects.
+ * 
+ * Logic: User experience level affects exercise difficulty and volume (sets/reps),
+ * not the number of exercises. Training time determines exercise count.
+ * 
+ * @param profile - User profile with time preference
+ * @param totalProjects - Number of projects selected by user
+ * @returns Number of strength exercises per project (2-4)
+ */
+function getStrengthExerciseCount(
+  profile: NormalizedProfile,
+  totalProjects: number
+): number {
+  // Get user's time preference (default 30 minutes)
+  const maxMinutes = profile.session_max_min || 30;
+  
+  // Deduct warmup (5 min) and cooldown (5 min)
+  const availableMinutes = Math.max(maxMinutes - 10, 15);
+  
+  // Estimate time per exercise (sets × reps × tempo + rest)
+  // Average: 3 sets × 12 reps × 3 sec + 45 sec rest/set = ~8 min
+  const minutesPerExercise = 8;
+  
+  // Calculate total exercise budget
+  const totalExercises = Math.floor(availableMinutes / minutesPerExercise);
+  
+  // Distribute exercises across projects
+  // Each project gets at least 2, at most 4 exercises
+  const exercisesPerProject = Math.max(
+    2,
+    Math.min(4, Math.floor(totalExercises / totalProjects))
+  );
+  
+  return exercisesPerProject;
+}
+
 function pickExercise(
   projectId: ProjectId,
   category: CanonicalExercise['category'],
   profile: NormalizedProfile,
   library: ExerciseLibraryLike,
+  excludeExerciseIds: ReadonlySet<string> = new Set(),
 ): CanonicalExercise | null {
   const candidates = library.exercises.filter(
     ex => ex.target_projects.includes(projectId) && ex.category === category,
@@ -98,6 +137,9 @@ function pickExercise(
   // Collect all eligible candidates, tagging preferred-difficulty ones.
   const eligible: Array<{ exercise: CanonicalExercise; withinPreferred: boolean }> = [];
   for (const candidate of candidates) {
+    // Skip if already selected (deduplication)
+    if (excludeExerciseIds.has(candidate.exercise_id)) continue;
+    
     const result = selectQualifiedExercise(candidate, projectId, profile, library);
     if (result) {
       eligible.push({
@@ -189,9 +231,19 @@ export function assembleTrainingDay(
 
   for (const projectId of projects) {
     // ── Strength ───────────────────────────────────────────────────────────
-    const ex = pickExercise(projectId, 'strength', profile, library);
-    if (ex) {
-      const isReduced = reducedStrength.has(projectId);
+    const isReduced = reducedStrength.has(projectId);
+    const targetExerciseCount = getStrengthExerciseCount(profile, projects.length);
+    const excludedExerciseIds = new Set<string>();
+    let projectHasExercises = false;
+    
+    // Select multiple strength exercises for this project
+    for (let i = 0; i < targetExerciseCount; i++) {
+      const ex = pickExercise(projectId, 'strength', profile, library, excludedExerciseIds);
+      if (!ex) break; // No more eligible exercises available
+      
+      projectHasExercises = true;
+      excludedExerciseIds.add(ex.exercise_id);
+      
       const prescription = applyDifficulty(2, 12, difficultyLevel);
       
       // Reduce to 1 set if overlapping with full_body, otherwise use normal prescription
@@ -210,7 +262,10 @@ export function assembleTrainingDay(
         restBetweenSet: snapshot.rest_between_set,
         completed: false,
       });
-      
+    }
+    
+    // Track project inclusion and reduction status
+    if (projectHasExercises) {
       included.push(projectId);
       if (isReduced) {
         volumeReduced.push(projectId);
@@ -223,13 +278,13 @@ export function assembleTrainingDay(
     }
 
     // ── Warmup (always included, not reduced) ─────────────────────────
-    const warmupEx = pickExercise(projectId, 'warmup', profile, library);
+    const warmupEx = pickExercise(projectId, 'warmup', profile, library, new Set());
     if (warmupEx) {
       warmup.push(canonicalToClientExercise(warmupEx, library.library_version, { sets: 1, reps: 10 }));
     }
 
     // ── Cooldown / stretch ─────────────────────────────────────────────
-    const stretchEx = pickExercise(projectId, 'stretch', profile, library);
+    const stretchEx = pickExercise(projectId, 'stretch', profile, library, new Set());
     if (stretchEx) {
       cooldown.push(canonicalToClientExercise(stretchEx, library.library_version, { sets: 1, reps: 10 }));
     }

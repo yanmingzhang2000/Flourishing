@@ -13,9 +13,12 @@ const EXPERIENCE_OPTIONS = [
 ];
 
 const EQUIPMENT_TOP = [
-  { value: 'none',            emoji: '🤸', label: '纯自重', desc: '仅用身体重量，零门槛' },
+  { value: 'bodyweight',      emoji: '🤸', label: '纯自重', desc: '仅用身体重量，零门槛' },
   { value: 'dumbbell',        emoji: '🏋️', label: '哑铃',   desc: '可选择多个重量' },
   { value: 'resistance_band', emoji: '🎯', label: '弹力带', desc: '便携阻力训练' },
+  { value: 'mat',             emoji: '🧘', label: '瑜伽垫', desc: '地面动作必备' },
+  { value: 'foam_roller',     emoji: '💆', label: '泡沫轴', desc: '肌肉放松工具' },
+  { value: 'yoga_ball_55',    emoji: '⚽', label: '瑜伽球', desc: '平衡训练辅助' },
 ];
 
 const DUMBBELL_WEIGHTS = [
@@ -141,17 +144,17 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onboarding = false }
 
   // ── 器械逻辑 ──────────────────────────────────────────────────────────────
 
-  const hasNone = form.equipment.includes('none');
+  const hasBodyweight = form.equipment.includes('bodyweight');
   const hasDumbbell = form.equipment.some(e => e.startsWith('dumbbell'));
   const selectedDumbbells = form.equipment.filter(e => e.startsWith('dumbbell'));
 
   const toggleEquip = (value: string) => {
-    if (value === 'none') {
+    if (value === 'bodyweight') {
       // 选择"自重"时，清空所有其他装备
-      if (hasNone) {
+      if (hasBodyweight) {
         update({ equipment: [] });
       } else {
-        update({ equipment: ['none'] });
+        update({ equipment: ['bodyweight'] });
         setDumbbellExpanded(false);
       }
     } else if (value === 'dumbbell') {
@@ -161,13 +164,13 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onboarding = false }
         setDumbbellExpanded(false);
       } else {
         // 取消"自重"
-        const newEquipment = form.equipment.filter(e => e !== 'none');
+        const newEquipment = form.equipment.filter(e => e !== 'bodyweight');
         update({ equipment: newEquipment });
         setDumbbellExpanded(true);
       }
     } else {
       // 选择"弹力带"等其他装备时，先取消"自重"
-      const cur = form.equipment.filter(e => e !== 'none');
+      const cur = form.equipment.filter(e => e !== 'bodyweight');
       update({ equipment: cur.includes(value) ? cur.filter(e => e !== value) : [...cur, value] });
     }
   };
@@ -175,7 +178,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onboarding = false }
   const selectDumbbellWeight = (weight: string) => {
     // 支持多选哑铃重量
     const otherDumbbells = form.equipment.filter(e => e.startsWith('dumbbell') && e !== weight);
-    const otherEquipment = form.equipment.filter(e => !e.startsWith('dumbbell') && e !== 'none');
+    const otherEquipment = form.equipment.filter(e => !e.startsWith('dumbbell') && e !== 'bodyweight');
     
     if (selectedDumbbells.includes(weight)) {
       // 取消选择该重量
@@ -358,7 +361,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onboarding = false }
       <div className="space-y-2">
       {EQUIPMENT_TOP.map(opt => {
         const active = opt.value === 'dumbbell' ? hasDumbbell : form.equipment.includes(opt.value);
-        const disabled = hasNone && opt.value !== 'none';
+        const disabled = hasBodyweight && opt.value !== 'bodyweight';
         return (
           <div key={opt.value}>
             <button

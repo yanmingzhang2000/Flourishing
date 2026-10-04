@@ -12,11 +12,14 @@ const EXPERIENCE_OPTIONS = [
   { value: 'regular',    emoji: '💪', label: '经常练',  desc: '每周 3 次以上，有习惯' },
 ];
 
-// 顶层器械：自重、哑铃（可展开）、弹力带
+// 顶层器械：自重、哑铃（可展开）、弹力带、瑜伽垫、泡沫轴、瑜伽球
 const EQUIPMENT_TOP = [
-  { value: 'none',            emoji: '🤸', label: '自重',   desc: '不需要任何器械' },
+  { value: 'bodyweight',      emoji: '🤸', label: '自重',   desc: '不需要任何器械' },
   { value: 'dumbbell',        emoji: '🏋️', label: '哑铃',   desc: '选择后指定重量' },
   { value: 'resistance_band', emoji: '🎯', label: '弹力带', desc: '便携阻力训练' },
+  { value: 'mat',             emoji: '🧘', label: '瑜伽垫', desc: '地面动作必备' },
+  { value: 'foam_roller',     emoji: '💆', label: '泡沫轴', desc: '肌肉放松工具' },
+  { value: 'yoga_ball_55',    emoji: '⚽', label: '瑜伽球', desc: '平衡训练辅助' },
 ];
 
 // 哑铃重量子选项
