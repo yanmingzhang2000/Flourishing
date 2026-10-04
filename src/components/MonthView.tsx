@@ -58,7 +58,8 @@ export const MonthView: React.FC<Props> = ({ year, month, records, plans, onMont
         d.setDate(d.getDate() + i);  // 基于当前 Date 对象累加天数
         if (d.toISOString().split('T')[0] === dateStr) {
           const day = (Array.isArray(plan.days) ? plan.days : JSON.parse(plan.days))[i];
-          return day.type === 'rest' ? 'rest' : null;
+          // 休息日返回 'rest'，训练日返回 'missed'（未完成的训练）
+          return day.type === 'rest' ? 'rest' : 'missed';
         }
       }
     }
