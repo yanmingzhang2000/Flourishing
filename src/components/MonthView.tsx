@@ -102,15 +102,42 @@ export const MonthView: React.FC<Props> = ({ year, month, records, plans, instan
   const calendarDays = getCalendarDays();
   const today = formatLocalDate(new Date());
 
+  // 计算月份导航边界
+  const getMonthNavigationBounds = () => {
+    if (!instance) return { canGoPrev: true, canGoNext: true };
+    
+    const start = new Date(instance.startDate);
+    const end = new Date(instance.startDate);
+    end.setDate(end.getDate() + instance.targetWeeks * 7);
+    
+    const minYear = start.getFullYear();
+    const minMonth = start.getMonth() + 1;
+    const maxYear = end.getFullYear();
+    const maxMonth = end.getMonth() + 1;
+    
+    // 当前月是否可以向前/向后
+    const canGoPrev = (year > minYear) || (year === minYear && month > minMonth);
+    const canGoNext = (year < maxYear) || (year === maxYear && month < maxMonth);
+    
+    return { canGoPrev, canGoNext };
+  };
+
+  const { canGoPrev, canGoNext } = getMonthNavigationBounds();
+
   return (
     <div className="space-y-4">
       {/* 月份标题 */}
       <div className="flex items-center justify-center gap-3">
         <button
           onClick={() => onMonthChange(month === 1 ? year - 1 : year, month === 1 ? 12 : month - 1)}
-          className="w-8 h-8 rounded-lg bg-subtle hover:bg-ice-light flex items-center justify-center"
+          disabled={!canGoPrev}
+          className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
+            canGoPrev 
+              ? 'bg-subtle hover:bg-ice-light cursor-pointer' 
+              : 'bg-subtle/30 cursor-not-allowed'
+          }`}
         >
-          <svg className="w-4 h-4 text-text" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <svg className={`w-4 h-4 ${canGoPrev ? 'text-text' : 'text-muted/30'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
           </svg>
         </button>
@@ -119,9 +146,14 @@ export const MonthView: React.FC<Props> = ({ year, month, records, plans, instan
         </h2>
         <button
           onClick={() => onMonthChange(month === 12 ? year + 1 : year, month === 12 ? 1 : month + 1)}
-          className="w-8 h-8 rounded-lg bg-subtle hover:bg-ice-light flex items-center justify-center"
+          disabled={!canGoNext}
+          className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
+            canGoNext 
+              ? 'bg-subtle hover:bg-ice-light cursor-pointer' 
+              : 'bg-subtle/30 cursor-not-allowed'
+          }`}
         >
-          <svg className="w-4 h-4 text-text" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <svg className={`w-4 h-4 ${canGoNext ? 'text-text' : 'text-muted/30'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
           </svg>
         </button>
