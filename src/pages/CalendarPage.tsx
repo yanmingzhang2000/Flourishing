@@ -87,6 +87,43 @@ export const CalendarPage: React.FC = () => {
     };
   };
 
+  // 获取项目跨越的所有月份
+  const getProjectMonths = (startDate: string, targetWeeks: number): { year: number; month: number }[] => {
+    const start = new Date(startDate);
+    const end = new Date(startDate);
+    end.setDate(end.getDate() + targetWeeks * 7);
+    
+    const months: { year: number; month: number }[] = [];
+    const current = new Date(start.getFullYear(), start.getMonth(), 1);
+    
+    while (current < end) {
+      months.push({ year: current.getFullYear(), month: current.getMonth() + 1 });
+      current.setMonth(current.getMonth() + 1);
+    }
+    
+    return months;
+  };
+
+  // 确保项目的所有月份都有计划
+  const ensureCompleteProjectPlans = async (projectInstance: any) => {
+    if (!projectInstance) return;
+    
+    const months = getProjectMonths(projectInstance.startDate, projectInstance.targetWeeks);
+    
+    // 为每个月检查并生成计划
+    for (const { year, month } of months) {
+      try {
+        const plans = await plansApi.getMonth(year, month);
+        if (plans.length === 0) {
+          console.log(`生成 ${year}-${month} 的计划...`);
+          await plansApi.generateMonth(year, month, [projectInstance.projectId]);
+        }
+      } catch (error) {
+        console.error(`生成 ${year}-${month} 计划失败:`, error);
+      }
+    }
+  };
+
   useEffect(() => {
     if (isLoggedIn()) {
       const loadData = async () => {
@@ -124,6 +161,11 @@ export const CalendarPage: React.FC = () => {
             if (computedWeek !== inst.currentWeek) {
               projectInstancesApi.update(inst.id, { currentWeek: computedWeek }).catch(() => {});
             }
+
+            // 确保项目的所有月份都有完整的计划
+            ensureCompleteProjectPlans(updatedInst).catch(err => {
+              console.error('生成完整计划失败:', err);
+            });
 
             // 按 projectId 生成计划（不写入 profile.selected_projects）
             if (!planRes) {
