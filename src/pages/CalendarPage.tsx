@@ -108,20 +108,31 @@ export const CalendarPage: React.FC = () => {
   const ensureCompleteProjectPlans = async (projectInstance: any) => {
     if (!projectInstance) return;
     
+    console.log('[自动生成] 开始检查项目计划完整性...', {
+      startDate: projectInstance.startDate,
+      targetWeeks: projectInstance.targetWeeks,
+    });
+    
     const months = getProjectMonths(projectInstance.startDate, projectInstance.targetWeeks);
+    console.log('[自动生成] 项目跨越月份:', months);
     
     // 为每个月检查并生成计划
     for (const { year, month } of months) {
       try {
         const plans = await plansApi.getMonth(year, month);
+        console.log(`[自动生成] ${year}-${month} 已有 ${plans.length} 周计划`);
+        
         if (plans.length === 0) {
-          console.log(`生成 ${year}-${month} 的计划...`);
-          await plansApi.generateMonth(year, month, [projectInstance.projectId]);
+          console.log(`[自动生成] 开始生成 ${year}-${month} 的计划...`);
+          const result = await plansApi.generateMonth(year, month, [projectInstance.projectId]);
+          console.log(`[自动生成] 生成 ${year}-${month} 完成:`, result);
         }
       } catch (error) {
-        console.error(`生成 ${year}-${month} 计划失败:`, error);
+        console.error(`[自动生成] 生成 ${year}-${month} 计划失败:`, error);
       }
     }
+    
+    console.log('[自动生成] 检查完成');
   };
 
   useEffect(() => {
@@ -163,9 +174,7 @@ export const CalendarPage: React.FC = () => {
             }
 
             // 确保项目的所有月份都有完整的计划
-            ensureCompleteProjectPlans(updatedInst).catch(err => {
-              console.error('生成完整计划失败:', err);
-            });
+            await ensureCompleteProjectPlans(updatedInst);
 
             // 按 projectId 生成计划（不写入 profile.selected_projects）
             if (!planRes) {
