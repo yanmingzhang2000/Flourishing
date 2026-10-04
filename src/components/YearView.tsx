@@ -23,9 +23,17 @@ export const YearView: React.FC<Props> = ({ year, records }) => {
     const daysInMonth = lastDay.getDate();
     const days: string[] = [];
 
+    // 将 Date 对象转换为本地日期字符串 (YYYY-MM-DD)，避免时区问题
+    const formatDate = (date: Date): string => {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const d = String(date.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    };
+
     for (let i = 1; i <= daysInMonth; i++) {
       const d = new Date(year, month - 1, i);
-      days.push(d.toISOString().split('T')[0]);
+      days.push(formatDate(d));
     }
     return days;
   };

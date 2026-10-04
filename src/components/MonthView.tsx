@@ -24,27 +24,43 @@ export const MonthView: React.FC<Props> = ({ year, month, records, plans, onMont
 
     const days: { date: string; inMonth: boolean; day: number }[] = [];
 
+    // 将 Date 对象转换为本地日期字符串 (YYYY-MM-DD)，避免时区问题
+    const formatDate = (date: Date): string => {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const d = String(date.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    };
+
     // 上月尾巴
     const prevMonthLast = new Date(year, month - 1, 0).getDate();
     for (let i = startWeekday - 1; i >= 0; i--) {
       const d = new Date(year, month - 2, prevMonthLast - i);
-      days.push({ date: d.toISOString().split('T')[0], inMonth: false, day: prevMonthLast - i });
+      days.push({ date: formatDate(d), inMonth: false, day: prevMonthLast - i });
     }
 
     // 本月
     for (let i = 1; i <= daysInMonth; i++) {
       const d = new Date(year, month - 1, i);
-      days.push({ date: d.toISOString().split('T')[0], inMonth: true, day: i });
+      days.push({ date: formatDate(d), inMonth: true, day: i });
     }
 
     // 下月开头补齐到 6 周
     const remainingDays = 42 - days.length;
     for (let i = 1; i <= remainingDays; i++) {
       const d = new Date(year, month, i);
-      days.push({ date: d.toISOString().split('T')[0], inMonth: false, day: i });
+      days.push({ date: formatDate(d), inMonth: false, day: i });
     }
 
     return days;
+  };
+
+  // 将 Date 对象转换为本地日期字符串 (YYYY-MM-DD)，避免时区问题
+  const formatLocalDate = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   };
 
   const getRecordStatus = (dateStr: string): 'done' | 'missed' | 'rest' | null => {
@@ -56,7 +72,7 @@ export const MonthView: React.FC<Props> = ({ year, month, records, plans, onMont
       for (let i = 0; i < 7; i++) {
         const d = new Date(plan.startDate);  // 每次循环都从原始 startDate 创建新的 Date 对象
         d.setDate(d.getDate() + i);  // 基于当前 Date 对象累加天数
-        if (d.toISOString().split('T')[0] === dateStr) {
+        if (formatLocalDate(d) === dateStr) {
           const day = (Array.isArray(plan.days) ? plan.days : JSON.parse(plan.days))[i];
           // 休息日返回 'rest'，训练日返回 'missed'（未完成的训练）
           return day.type === 'rest' ? 'rest' : 'missed';
@@ -67,7 +83,7 @@ export const MonthView: React.FC<Props> = ({ year, month, records, plans, onMont
   };
 
   const calendarDays = getCalendarDays();
-  const today = new Date().toISOString().split('T')[0];
+  const today = formatLocalDate(new Date());
 
   return (
     <div className="space-y-4">
@@ -112,7 +128,7 @@ export const MonthView: React.FC<Props> = ({ year, month, records, plans, onMont
                 for (let idx = 0; idx < 7; idx++) {
                   const pd = new Date(plan.startDate);  // 每次循环从原始 startDate 创建
                   pd.setDate(pd.getDate() + idx);  // 基于 pd 自己累加
-                  if (pd.toISOString().split('T')[0] === d.date) return idx;
+                  if (formatLocalDate(pd) === d.date) return idx;
                 }
               }
               return 0;
