@@ -108,10 +108,9 @@ export const MonthView: React.FC<Props> = ({ year, month, records, plans, onMont
             // 找到该日期对应的 dayIndex（用于跳转）
             const getDayIndex = (): number => {
               for (const plan of plans) {
-                const startDate = new Date(plan.startDate);
                 for (let idx = 0; idx < 7; idx++) {
-                  const pd = new Date(startDate);
-                  pd.setDate(startDate.getDate() + idx);
+                  const pd = new Date(plan.startDate);  // 每次循环从原始 startDate 创建
+                  pd.setDate(pd.getDate() + idx);  // 基于 pd 自己累加
                   if (pd.toISOString().split('T')[0] === d.date) return idx;
                 }
               }
