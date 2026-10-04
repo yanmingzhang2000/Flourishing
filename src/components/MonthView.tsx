@@ -183,16 +183,20 @@ export const MonthView: React.FC<Props> = ({ year, month, records, plans, instan
               return 0;
             };
 
+            // 计算是否可点击：必须是本月日期、有状态、且不是休息日
+            const isClickable = d.inMonth && status && status !== 'rest';
+
             return (
               <div
                 key={i}
                 onClick={() => {
-                  if (!d.inMonth || status === 'rest') return;
-                  if (onDayClick) onDayClick(d.date, getDayIndex());
+                  if (isClickable && onDayClick) {
+                    onDayClick(d.date, getDayIndex());
+                  }
                 }}
-                className={`aspect-square rounded-lg flex items-center justify-center relative
+                className={`aspect-square rounded-lg flex items-center justify-center relative transition-all
                   ${!d.inMonth ? 'opacity-30' : ''}
-                  ${status === 'done' || (d.inMonth && status !== 'rest') ? 'cursor-pointer' : ''}
+                  ${isClickable ? 'cursor-pointer hover:opacity-80 active:scale-95' : 'cursor-default'}
                   ${status === 'done' ? 'bg-brand' :
                     status === 'missed' ? 'bg-accent-light' :
                     status === 'rest' ? 'bg-subtle' :
