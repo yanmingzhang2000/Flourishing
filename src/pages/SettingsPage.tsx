@@ -380,12 +380,34 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onboarding = false }
                     : opt.desc}
                 </div>
               </div>
-              <div className={`w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center
-                ${active ? 'bg-brand' : 'border-2 border-gray-200'}`}>
-                {active && (
-                  <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
+              {/* 哑铃：展开/收起指示器或勾选标记；其他装备：勾选标记 */}
+              <div className="flex-shrink-0 flex items-center justify-center w-5 h-5">
+                {opt.value === 'dumbbell' ? (
+                  // 哑铃特殊处理
+                  hasDumbbell && selectedDumbbells.length > 0 ? (
+                    // 已选中重量：显示勾选标记
+                    <div className="w-5 h-5 rounded-full bg-brand flex items-center justify-center">
+                      <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                  ) : (
+                    // 未选中或已展开：显示箭头
+                    <svg className="w-4 h-4 text-gray-400 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                      style={{ transform: dumbbellExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  )
+                ) : (
+                  // 其他装备：标准勾选框
+                  <div className={`w-5 h-5 rounded-full flex items-center justify-center
+                    ${active ? 'bg-brand' : 'border-2 border-gray-200'}`}>
+                    {active && (
+                      <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                  </div>
                 )}
               </div>
             </button>
