@@ -141,6 +141,15 @@ function buildDays(
 // ---------------------------------------------------------------------------
 // Date helpers
 // ---------------------------------------------------------------------------
+// 将 Date 对象转换为本地日期字符串 (YYYY-MM-DD)
+// 避免使用 toISOString() 导致的时区问题
+function formatLocalDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 function getStartOfWeek(date = new Date()): Date {
   const d = new Date(date);
   d.setHours(0, 0, 0, 0);
@@ -215,7 +224,7 @@ router.post('/generate', (req: AuthRequest, res: Response) => {
   const startOfWeek = getStartOfWeek();
   const days = buildDays(startOfWeek, profile, loaded.library, selection, req.userId, loaded.requestedDays);
   if (!days.length) return res.json({ outcome: 'temporarily_unavailable', display_message: '暂不可生成', requested_project_ids: profile.selected_projects, failed_eligibility_categories_by_project: {}, unknown_input_values: [], experience: profile.experience });
-  const startDate = startOfWeek.toISOString().split('T')[0];
+  const startDate = formatLocalDate(startOfWeek);
   const weekNumber = Number(req.body.weekNumber) || 1;
   const existing = db.prepare('SELECT id FROM weekly_plans WHERE user_id = ? AND start_date = ?').get(req.userId, startDate) as { id: number } | undefined;
   let planId: number;
@@ -225,7 +234,7 @@ router.post('/generate', (req: AuthRequest, res: Response) => {
 });
 
 router.get('/current', (req: AuthRequest, res: Response) => {
-  const startDate = getStartOfWeek().toISOString().split('T')[0];
+  const startDate = formatLocalDate(getStartOfWeek());
   const plan = db.prepare('SELECT * FROM weekly_plans WHERE user_id = ? AND start_date = ? ORDER BY id DESC LIMIT 1').get(req.userId, startDate) as Record<string, unknown> | undefined;
   if (!plan) return res.json(null);
   try { return res.json({ id: plan.id, weekNumber: plan.week_number, startDate: plan.start_date, days: JSON.parse(String(plan.days)) }); }
@@ -238,7 +247,7 @@ router.get('/by-date/:date', (req: AuthRequest, res: Response) => {
   if (isNaN(d.getTime())) return res.status(400).json({ error: '日期格式无效' });
   
   // 改为范围查询：查询包含该日期的计划（start_date <= date < start_date + 7天）
-  const dateStr = d.toISOString().split('T')[0];
+  const dateStr = formatLocalDate(d);
   
   const plan = db.prepare(`
     SELECT * FROM weekly_plans 
@@ -265,7 +274,7 @@ router.get('/by-date/:date', (req: AuthRequest, res: Response) => {
 
 router.get('/month/:year/:month', (req: AuthRequest, res: Response) => {
   const year = Number(req.params.year); const month = Number(req.params.month);
-  const start = new Date(year, month - 1, 1).toISOString().split('T')[0]; const end = new Date(year, month, 0).toISOString().split('T')[0];
+  const start = formatLocalDate(new Date(year, month - 1, 1)); const end = formatLocalDate(new Date(year, month, 0));
   const plans = db.prepare('SELECT * FROM weekly_plans WHERE user_id = ? AND start_date >= ? AND start_date <= ? ORDER BY start_date').all(req.userId, start, end) as Record<string, unknown>[];
   try { return res.json(plans.map(plan => ({ id: plan.id, weekNumber: plan.week_number, startDate: plan.start_date, days: JSON.parse(String(plan.days)) }))); }
   catch { return res.status(500).json({ error: '计划快照无效', code: 'plan_snapshot_invalid' }); }
@@ -293,7 +302,7 @@ router.post('/month/:year/:month/generate', (req: AuthRequest, res: Response) =>
   for (let monday = new Date(firstMonday); monday <= endOfMonth; monday.setDate(monday.getDate() + 7)) {
     const days = buildDays(new Date(monday), profile, loaded.library, selection, req.userId, loaded.requestedDays);
     if (!days.length) return res.json({ outcome: 'temporarily_unavailable', display_message: '暂不可生成', requested_project_ids: profile.selected_projects, failed_eligibility_categories_by_project: {}, unknown_input_values: [], experience: profile.experience });
-    pending.push({ startDate: new Date(monday).toISOString().split('T')[0], days });
+    pending.push({ startDate: formatLocalDate(new Date(monday)), days });
   }
   const generatedPlans: Array<{ id: number; startDate: string; days: WorkoutDaySnapshot[] }> = [];
   const transaction = db.transaction(() => {
