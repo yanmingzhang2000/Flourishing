@@ -145,6 +145,13 @@ function getStartOfWeek(date = new Date()): Date {
   const d = new Date(date);
   d.setHours(0, 0, 0, 0);
   const dayOfWeek = d.getDay();
+  
+  // ISO 8601: 一周从周一开始，周日作为一周的最后一天
+  // 周日(0) → 回退6天到本周一
+  // 周一(1) → 回退0天，就是今天
+  // 周二(2) → 回退1天到本周一
+  // ...
+  // 周六(6) → 回退5天到本周一
   const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
   d.setDate(d.getDate() - daysFromMonday);
   return d;
