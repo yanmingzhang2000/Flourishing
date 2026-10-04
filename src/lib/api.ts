@@ -142,6 +142,8 @@ export const plansApi = {
   getById: (id: number | string) => request<HistoricalPlanSnapshot>(`/api/plans/${id}`),
   getMonth: (year: number, month: number) =>
     request<HistoricalPlanSnapshot[]>(`/api/plans/month/${year}/${month}`),
+  getYear: (year: number) =>
+    request<HistoricalPlanSnapshot[]>(`/api/plans/year/${year}`),
   generateMonth: (year: number, month: number, projectIds?: string[]): Promise<MonthPlanGenerationResponse> =>
     request<MonthPlanGenerationResponse>(`/api/plans/month/${year}/${month}/generate`, {
       method: 'POST',

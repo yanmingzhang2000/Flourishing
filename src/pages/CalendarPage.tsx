@@ -21,6 +21,7 @@ export const CalendarPage: React.FC = () => {
   const [view, setView] = useState<ViewType>('week');
   const [currentPlan, setCurrentPlan] = useState<WeeklyPlan | null>(null);
   const [monthPlans, setMonthPlans] = useState<PlanSnapshot[]>([]);
+  const [yearPlans, setYearPlans] = useState<PlanSnapshot[]>([]);
   const [records, setRecords] = useState<TrainingRecord[]>([]);
   const [profile, setProfile] = useState<any | null>(null);
   const [instance, setInstance] = useState<any | null>(null);
@@ -150,6 +151,15 @@ export const CalendarPage: React.FC = () => {
     }
   }, [view, viewYear, viewMonth, instance?.projectId]);
 
+  // 年视图：加载该年所有计划
+  useEffect(() => {
+    if (view === 'year' && isLoggedIn()) {
+      plansApi.getYear(viewYear).then(plans => {
+        setYearPlans(plans);
+      });
+    }
+  }, [view, viewYear]);
+
   if (loading || !profile) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
@@ -272,7 +282,7 @@ export const CalendarPage: React.FC = () => {
             />
           )}
           {view === 'year' && (
-            <YearView year={viewYear} records={records} />
+            <YearView year={viewYear} records={records} plans={yearPlans} />
           )}
         </div>
       </div>

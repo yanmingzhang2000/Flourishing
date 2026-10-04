@@ -275,7 +275,18 @@ router.get('/by-date/:date', (req: AuthRequest, res: Response) => {
 router.get('/month/:year/:month', (req: AuthRequest, res: Response) => {
   const year = Number(req.params.year); const month = Number(req.params.month);
   const start = formatLocalDate(new Date(year, month - 1, 1)); const end = formatLocalDate(new Date(year, month, 0));
-  const plans = db.prepare('SELECT * FROM weekly_plans WHERE user_id = ? AND start_date >= ? AND start_date <= ? ORDER BY start_date').all(req.userId, start, end) as Record<string, unknown>[];
+  // 查询与该月有重叠的所有周计划（包括跨月计划）：计划开始 <= 月末 且 计划结束 >= 月初
+  const plans = db.prepare("SELECT * FROM weekly_plans WHERE user_id = ? AND start_date <= ? AND DATE(start_date, '+6 days') >= ? ORDER BY start_date").all(req.userId, end, start) as Record<string, unknown>[];
+  try { return res.json(plans.map(plan => ({ id: plan.id, weekNumber: plan.week_number, startDate: plan.start_date, days: JSON.parse(String(plan.days)) }))); }
+  catch { return res.status(500).json({ error: '计划快照无效', code: 'plan_snapshot_invalid' }); }
+});
+
+router.get('/year/:year', (req: AuthRequest, res: Response) => {
+  const year = Number(req.params.year);
+  const start = formatLocalDate(new Date(year, 0, 1)); // 1月1日
+  const end = formatLocalDate(new Date(year, 11, 31)); // 12月31日
+  // 查询与该年有重叠的所有周计划：计划开始 <= 年末 且 计划结束 >= 年初
+  const plans = db.prepare("SELECT * FROM weekly_plans WHERE user_id = ? AND start_date <= ? AND DATE(start_date, '+6 days') >= ? ORDER BY start_date").all(req.userId, end, start) as Record<string, unknown>[];
   try { return res.json(plans.map(plan => ({ id: plan.id, weekNumber: plan.week_number, startDate: plan.start_date, days: JSON.parse(String(plan.days)) }))); }
   catch { return res.status(500).json({ error: '计划快照无效', code: 'plan_snapshot_invalid' }); }
 });
