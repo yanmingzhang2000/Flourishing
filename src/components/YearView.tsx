@@ -5,9 +5,10 @@ interface Props {
   year: number;
   records: TrainingRecord[];
   plans: any[]; // 该年所有周计划
+  instance?: { startDate: string; targetWeeks: number }; // 项目实例信息
 }
 
-export const YearView: React.FC<Props> = ({ year, records, plans }) => {
+export const YearView: React.FC<Props> = ({ year, records, plans, instance }) => {
   const MONTH_NAMES = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
 
   // 将 Date 对象转换为本地日期字符串 (YYYY-MM-DD)，避免时区问题
@@ -22,6 +23,19 @@ export const YearView: React.FC<Props> = ({ year, records, plans }) => {
   const getDayStatus = (dateStr: string): 'done' | 'missed' | 'rest' | null => {
     const record = records.find(r => r.date === dateStr);
     if (record) return record.completed ? 'done' : 'missed';
+
+    // 检查是否在项目范围内
+    if (instance) {
+      const checkDate = new Date(dateStr);
+      const startDate = new Date(instance.startDate);
+      const endDate = new Date(instance.startDate);
+      endDate.setDate(endDate.getDate() + instance.targetWeeks * 7);
+      
+      // 早于项目开始 或 晚于项目结束 → 不显示计划
+      if (checkDate < startDate || checkDate >= endDate) {
+        return null;
+      }
+    }
 
     // 检查是否在计划中
     for (const plan of plans) {

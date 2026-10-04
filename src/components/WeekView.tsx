@@ -13,11 +13,12 @@ const PROJECT_NAME_MAP: Record<string, string> = Object.fromEntries(
 interface Props {
   plan: WeeklyPlan;
   records: TrainingRecord[];
+  instance?: { startDate: string; targetWeeks: number }; // 项目实例信息
   /** V2：由外部提供跳转逻辑（携带 instanceId）；不传时使用内部默认路由 */
   onDayClick?: (date: string, dayIndex: number) => void;
 }
 
-export const WeekView: React.FC<Props> = ({ plan, records, onDayClick }) => {
+export const WeekView: React.FC<Props> = ({ plan, records, instance, onDayClick }) => {
   const navigate = useNavigate();
 
   // 将 Date 对象转换为本地日期字符串 (YYYY-MM-DD)，避免时区问题
@@ -47,6 +48,18 @@ export const WeekView: React.FC<Props> = ({ plan, records, onDayClick }) => {
 
   const getRecord = (dayIndex: number) =>
     records.find(r => r.date === getDate(dayIndex));
+
+  // 检查日期是否在项目范围内
+  const isDateInRange = (dayIndex: number): boolean => {
+    if (!instance) return true; // 无实例限制 → 全部显示
+    
+    const checkDate = new Date(getDate(dayIndex));
+    const startDate = new Date(instance.startDate);
+    const endDate = new Date(instance.startDate);
+    endDate.setDate(endDate.getDate() + instance.targetWeeks * 7);
+    
+    return checkDate >= startDate && checkDate < endDate;
+  };
 
   const todayIndex = plan.days.findIndex((_, i) => isToday(i));
   const todayDay = todayIndex >= 0 ? plan.days[todayIndex] : null;
@@ -84,24 +97,28 @@ export const WeekView: React.FC<Props> = ({ plan, records, onDayClick }) => {
             const done = !!getRecord(index)?.completed;
             const today = isToday(index);
             const isRest = day.type === 'rest';
+            const inRange = isDateInRange(index);
             return (
               <button
                 key={index}
-                onClick={() => !isRest && goToDay(getDate(index), index)}
-                disabled={isRest}
+                onClick={() => !isRest && inRange && goToDay(getDate(index), index)}
+                disabled={isRest || !inRange}
                 className={`aspect-square rounded-xl flex flex-col items-center justify-center transition-all
-                  ${isRest ? 'cursor-default' : 'cursor-pointer active:scale-95'}
-                  ${done ? 'bg-brand' :
+                  ${(isRest || !inRange) ? 'cursor-default' : 'cursor-pointer active:scale-95'}
+                  ${!inRange ? 'bg-white' :
+                    done ? 'bg-brand' :
                     today ? 'bg-brand-light ring-2 ring-brand' :
                     isRest ? 'bg-subtle' : 'bg-accent-light hover:bg-accent-light/80'}`}
               >
                 <span className={`text-xs font-bold
-                  ${done ? 'text-white' : today ? 'text-brand' : isRest ? 'text-muted' : 'text-text'}`}>
+                  ${!inRange ? 'text-muted/30' :
+                    done ? 'text-white' : today ? 'text-brand' : isRest ? 'text-muted' : 'text-text'}`}>
                   {getDate(index).slice(8)}
                 </span>
                 <span className={`text-[10px] mt-0.5
-                  ${done ? 'text-white/80' : isRest ? 'text-muted/50' : 'text-muted'}`}>
-                  {done ? '✓' : isRest ? '休' : '练'}
+                  ${!inRange ? 'text-transparent' :
+                    done ? 'text-white/80' : isRest ? 'text-muted/50' : 'text-muted'}`}>
+                  {inRange ? (done ? '✓' : isRest ? '休' : '练') : ''}
                 </span>
               </button>
             );
@@ -115,6 +132,7 @@ export const WeekView: React.FC<Props> = ({ plan, records, onDayClick }) => {
         <div className="space-y-2">
           {plan.days.map((day, index) => {
             if (day.type === 'rest') return null;
+            if (!isDateInRange(index)) return null; // 超出范围不显示
             const done = !!getRecord(index)?.completed;
             const today = isToday(index);
             const dateStr = getDate(index);

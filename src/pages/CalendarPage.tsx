@@ -56,6 +56,37 @@ export const CalendarPage: React.FC = () => {
     setViewWeekStartDate(formatLocalDate(startDate));
   };
 
+  // 计算周导航边界
+  const getWeekNavigationBounds = () => {
+    if (!instance || !currentPlan) return { canGoPrev: true, canGoNext: true };
+    
+    const currentStart = new Date(currentPlan.startDate);
+    const projectStart = new Date(instance.startDate);
+    
+    // 计算项目第一周的周一（可能早于 startDate）
+    const firstWeekMonday = new Date(projectStart);
+    const dayOfWeek = projectStart.getDay();
+    const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    firstWeekMonday.setDate(firstWeekMonday.getDate() - daysToMonday);
+    
+    // 计算项目结束日期
+    const projectEnd = new Date(instance.startDate);
+    projectEnd.setDate(projectEnd.getDate() + instance.targetWeeks * 7);
+    
+    // 上一周的开始日期
+    const prevWeekStart = new Date(currentStart);
+    prevWeekStart.setDate(prevWeekStart.getDate() - 7);
+    
+    // 下一周的开始日期
+    const nextWeekStart = new Date(currentStart);
+    nextWeekStart.setDate(nextWeekStart.getDate() + 7);
+    
+    return {
+      canGoPrev: prevWeekStart >= firstWeekMonday,
+      canGoNext: nextWeekStart < projectEnd,
+    };
+  };
+
   useEffect(() => {
     if (isLoggedIn()) {
       const loadData = async () => {
@@ -156,17 +187,37 @@ export const CalendarPage: React.FC = () => {
       plansApi.getMonth(viewYear, viewMonth).then(plans => {
         setMonthPlans(plans);
         if (plans.length === 0) {
-          plansApi.generateMonth(viewYear, viewMonth, instance ? [instance.projectId] : undefined).then(result => {
-            if (result.outcome === 'temporarily_unavailable') {
-              setUnavailable(result);
-              return;
+          // 检查该月是否在项目范围内
+          if (instance) {
+            const viewMonthStart = new Date(viewYear, viewMonth - 1, 1);
+            const instanceStart = new Date(instance.startDate);
+            const instanceEnd = new Date(instance.startDate);
+            instanceEnd.setDate(instanceEnd.getDate() + instance.targetWeeks * 7);
+            
+            // 只在项目范围内生成
+            if (viewMonthStart < instanceEnd && new Date(viewYear, viewMonth, 0) >= instanceStart) {
+              plansApi.generateMonth(viewYear, viewMonth, [instance.projectId]).then(result => {
+                if (result.outcome === 'temporarily_unavailable') {
+                  setUnavailable(result);
+                  return;
+                }
+                plansApi.getMonth(viewYear, viewMonth).then(setMonthPlans);
+              });
             }
-            plansApi.getMonth(viewYear, viewMonth).then(setMonthPlans);
-          });
+          } else {
+            // 无实例限制，正常生成
+            plansApi.generateMonth(viewYear, viewMonth, undefined).then(result => {
+              if (result.outcome === 'temporarily_unavailable') {
+                setUnavailable(result);
+                return;
+              }
+              plansApi.getMonth(viewYear, viewMonth).then(setMonthPlans);
+            });
+          }
         }
       });
     }
-  }, [view, viewYear, viewMonth, instance?.projectId]);
+  }, [view, viewYear, viewMonth, instance?.projectId, instance?.startDate, instance?.targetWeeks]);
 
   // 年视图：加载该年所有计划
   useEffect(() => {
@@ -298,40 +349,58 @@ export const CalendarPage: React.FC = () => {
               ? <>
                   {/* 周导航栏 */}
                   <div className="flex items-center justify-between mb-4 bg-white rounded-2xl p-4">
-                    <button
-                      onClick={() => handleWeekChange(-1)}
-                      className="flex items-center gap-2 text-brand hover:text-brand-dark transition-colors"
-                    >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-                      </svg>
-                      <span className="text-sm font-medium">上一周</span>
-                    </button>
-                    
-                    <span className="text-sm font-semibold text-text">
-                      {(() => {
-                        const start = new Date(currentPlan.startDate);
-                        const end = new Date(start);
-                        end.setDate(end.getDate() + 6);
-                        const formatDate = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-                        return `${formatDate(start)} ~ ${formatDate(end)}`;
-                      })()}
-                    </span>
-                    
-                    <button
-                      onClick={() => handleWeekChange(1)}
-                      className="flex items-center gap-2 text-brand hover:text-brand-dark transition-colors"
-                    >
-                      <span className="text-sm font-medium">下一周</span>
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                      </svg>
-                    </button>
+                    {(() => {
+                      const { canGoPrev, canGoNext } = getWeekNavigationBounds();
+                      return (
+                        <>
+                          <button
+                            onClick={() => handleWeekChange(-1)}
+                            disabled={!canGoPrev}
+                            className={`flex items-center gap-2 transition-colors ${
+                              canGoPrev 
+                                ? 'text-brand hover:text-brand-dark cursor-pointer' 
+                                : 'text-muted/30 cursor-not-allowed'
+                            }`}
+                          >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                            </svg>
+                            <span className="text-sm font-medium">上一周</span>
+                          </button>
+                          
+                          <span className="text-sm font-semibold text-text">
+                            {(() => {
+                              const start = new Date(currentPlan.startDate);
+                              const end = new Date(start);
+                              end.setDate(end.getDate() + 6);
+                              const formatDate = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+                              return `${formatDate(start)} ~ ${formatDate(end)}`;
+                            })()}
+                          </span>
+                          
+                          <button
+                            onClick={() => handleWeekChange(1)}
+                            disabled={!canGoNext}
+                            className={`flex items-center gap-2 transition-colors ${
+                              canGoNext 
+                                ? 'text-brand hover:text-brand-dark cursor-pointer' 
+                                : 'text-muted/30 cursor-not-allowed'
+                            }`}
+                          >
+                            <span className="text-sm font-medium">下一周</span>
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                            </svg>
+                          </button>
+                        </>
+                      );
+                    })()}
                   </div>
                   
                   <WeekView
                     plan={currentPlan}
                     records={records}
+                    instance={instance}
                     onDayClick={(date, dayIndex) => navigate(workoutPath(date, dayIndex))}
                   />
                 </>
@@ -345,12 +414,13 @@ export const CalendarPage: React.FC = () => {
               month={viewMonth}
               records={records}
               plans={monthPlans}
+              instance={instance}
               onMonthChange={handleMonthChange}
               onDayClick={(date, dayIndex) => navigate(workoutPath(date, dayIndex))}
             />
           )}
           {view === 'year' && (
-            <YearView year={viewYear} records={records} plans={yearPlans} />
+            <YearView year={viewYear} records={records} plans={yearPlans} instance={instance} />
           )}
         </div>
       </div>

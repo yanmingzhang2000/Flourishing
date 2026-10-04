@@ -6,6 +6,7 @@ interface Props {
   month: number;
   records: TrainingRecord[];
   plans: any[]; // 该月所有周计划
+  instance?: { startDate: string; targetWeeks: number }; // 项目实例信息
   onMonthChange: (year: number, month: number) => void;
   /** V2：由外部提供跳转逻辑 */
   onDayClick?: (date: string, dayIndex: number) => void;
@@ -13,7 +14,7 @@ interface Props {
 
 const DAY_NAMES = ['一', '二', '三', '四', '五', '六', '日'];
 
-export const MonthView: React.FC<Props> = ({ year, month, records, plans, onMonthChange, onDayClick }) => {
+export const MonthView: React.FC<Props> = ({ year, month, records, plans, instance, onMonthChange, onDayClick }) => {
 
   // 生成日历格子（包含上月尾、本月、下月初）
   const getCalendarDays = () => {
@@ -69,6 +70,19 @@ export const MonthView: React.FC<Props> = ({ year, month, records, plans, onMont
   const getRecordStatus = (dateStr: string): 'done' | 'missed' | 'rest' | null => {
     const record = records.find(r => r.date === dateStr);
     if (record) return record.completed ? 'done' : 'missed';
+
+    // 检查是否在项目范围内
+    if (instance) {
+      const checkDate = new Date(dateStr);
+      const startDate = new Date(instance.startDate);
+      const endDate = new Date(instance.startDate);
+      endDate.setDate(endDate.getDate() + instance.targetWeeks * 7);
+      
+      // 早于项目开始 或 晚于项目结束 → 不显示计划
+      if (checkDate < startDate || checkDate >= endDate) {
+        return null;
+      }
+    }
 
     // 检查是否在计划中
     for (const plan of plans) {
