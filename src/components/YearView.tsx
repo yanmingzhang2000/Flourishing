@@ -89,7 +89,7 @@ export const YearView: React.FC<Props> = ({ year, records, plans }) => {
                       className={`aspect-square rounded-sm
                         ${status === 'done' ? 'bg-brand' :
                           status === 'missed' ? 'bg-accent-light' :
-                          status === 'rest' ? 'bg-ice' :
+                          status === 'rest' ? 'bg-subtle' :
                           'bg-white'
                         }`}
                       title={dateStr}

@@ -11,7 +11,7 @@ interface Props {
   onDayClick?: (date: string, dayIndex: number) => void;
 }
 
-const DAY_NAMES = ['日', '一', '二', '三', '四', '五', '六'];
+const DAY_NAMES = ['一', '二', '三', '四', '五', '六', '日'];
 
 export const MonthView: React.FC<Props> = ({ year, month, records, plans, onMonthChange, onDayClick }) => {
 
@@ -19,7 +19,7 @@ export const MonthView: React.FC<Props> = ({ year, month, records, plans, onMont
   const getCalendarDays = () => {
     const firstDay = new Date(year, month - 1, 1);
     const lastDay = new Date(year, month, 0);
-    const startWeekday = firstDay.getDay(); // 0=周日
+    const startWeekday = firstDay.getDay(); // 0=周日, 1=周一, ..., 6=周六
     const daysInMonth = lastDay.getDate();
 
     const days: { date: string; inMonth: boolean; day: number }[] = [];
@@ -32,9 +32,12 @@ export const MonthView: React.FC<Props> = ({ year, month, records, plans, onMont
       return `${y}-${m}-${d}`;
     };
 
+    // 转换为周一开始的索引：周一=0, 周二=1, ..., 周日=6
+    const mondayBasedWeekday = startWeekday === 0 ? 6 : startWeekday - 1;
+
     // 上月尾巴
     const prevMonthLast = new Date(year, month - 1, 0).getDate();
-    for (let i = startWeekday - 1; i >= 0; i--) {
+    for (let i = mondayBasedWeekday - 1; i >= 0; i--) {
       const d = new Date(year, month - 2, prevMonthLast - i);
       days.push({ date: formatDate(d), inMonth: false, day: prevMonthLast - i });
     }

@@ -93,7 +93,7 @@ export const WeekView: React.FC<Props> = ({ plan, records, onDayClick }) => {
                   ${isRest ? 'cursor-default' : 'cursor-pointer active:scale-95'}
                   ${done ? 'bg-brand' :
                     today ? 'bg-brand-light ring-2 ring-brand' :
-                    isRest ? 'bg-subtle' : 'bg-ice-light hover:bg-ice'}`}
+                    isRest ? 'bg-subtle' : 'bg-accent-light hover:bg-accent-light/80'}`}
               >
                 <span className={`text-xs font-bold
                   ${done ? 'text-white' : today ? 'text-brand' : isRest ? 'text-muted' : 'text-text'}`}>
@@ -123,7 +123,7 @@ export const WeekView: React.FC<Props> = ({ plan, records, onDayClick }) => {
                 key={index}
                 onClick={() => goToDay(dateStr, index)}
                 className={`w-full flex items-center gap-4 p-4 rounded-2xl transition-all text-left
-                  ${done ? 'bg-brand-light' : today ? 'bg-ice-light ring-1 ring-brand/30' : 'bg-subtle hover:bg-ice-light'}`}
+                  ${done ? 'bg-brand-light' : today ? 'bg-brand-light ring-2 ring-brand' : 'bg-white hover:bg-accent-light/50'}`}
               >
                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0
                   ${done || today ? 'bg-brand' : 'bg-white'}`}>

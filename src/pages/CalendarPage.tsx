@@ -29,6 +29,7 @@ export const CalendarPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [planLoading, setPlanLoading] = useState(false);
   const [unavailable, setUnavailable] = useState<StructuredUnavailableResult | null>(null);
+  const [viewWeekStartDate, setViewWeekStartDate] = useState<string | null>(null);
 
   const today = new Date();
   const [viewYear, setViewYear] = useState(today.getFullYear());
@@ -37,6 +38,22 @@ export const CalendarPage: React.FC = () => {
   const handleMonthChange = (y: number, m: number) => {
     setViewYear(y);
     setViewMonth(m);
+  };
+
+  const handleWeekChange = (offset: number) => {
+    if (!currentPlan) return;
+    
+    const startDate = new Date(viewWeekStartDate || currentPlan.startDate);
+    startDate.setDate(startDate.getDate() + (offset * 7));
+    
+    const formatLocalDate = (date: Date): string => {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const d = String(date.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    };
+    
+    setViewWeekStartDate(formatLocalDate(startDate));
   };
 
   useEffect(() => {
@@ -160,6 +177,22 @@ export const CalendarPage: React.FC = () => {
     }
   }, [view, viewYear]);
 
+  // 周视图：按日期加载指定周的计划
+  useEffect(() => {
+    if (view === 'week' && viewWeekStartDate && isLoggedIn()) {
+      plansApi.getByDate(viewWeekStartDate).then(plan => {
+        if (plan) setCurrentPlan(plan);
+      });
+    }
+  }, [view, viewWeekStartDate]);
+
+  // 切换视图时重置周视图状态
+  useEffect(() => {
+    if (view !== 'week') {
+      setViewWeekStartDate(null);
+    }
+  }, [view]);
+
   if (loading || !profile) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
@@ -262,11 +295,46 @@ export const CalendarPage: React.FC = () => {
         <div>
           {view === 'week' && (
             currentPlan
-              ? <WeekView
-                  plan={currentPlan}
-                  records={records}
-                  onDayClick={(date, dayIndex) => navigate(workoutPath(date, dayIndex))}
-                />
+              ? <>
+                  {/* 周导航栏 */}
+                  <div className="flex items-center justify-between mb-4 bg-white rounded-2xl p-4">
+                    <button
+                      onClick={() => handleWeekChange(-1)}
+                      className="flex items-center gap-2 text-brand hover:text-brand-dark transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                      </svg>
+                      <span className="text-sm font-medium">上一周</span>
+                    </button>
+                    
+                    <span className="text-sm font-semibold text-text">
+                      {(() => {
+                        const start = new Date(currentPlan.startDate);
+                        const end = new Date(start);
+                        end.setDate(end.getDate() + 6);
+                        const formatDate = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+                        return `${formatDate(start)} ~ ${formatDate(end)}`;
+                      })()}
+                    </span>
+                    
+                    <button
+                      onClick={() => handleWeekChange(1)}
+                      className="flex items-center gap-2 text-brand hover:text-brand-dark transition-colors"
+                    >
+                      <span className="text-sm font-medium">下一周</span>
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                      </svg>
+                    </button>
+                  </div>
+                  
+                  <WeekView
+                    plan={currentPlan}
+                    records={records}
+                    onDayClick={(date, dayIndex) => navigate(workoutPath(date, dayIndex))}
+                  />
+                </>
               : <div className="text-center text-muted py-10 text-sm bg-white rounded-2xl">
                   {planLoading ? '正在生成训练计划…' : '暂无本周计划'}
                 </div>
