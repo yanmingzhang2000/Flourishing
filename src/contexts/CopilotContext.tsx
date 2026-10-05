@@ -102,13 +102,17 @@ export const CopilotProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   const triggerEvent = useCallback(async (event: CopilotEvent) => {
     if (!isLoggedIn()) {
-      // 游客模式：添加本地消息
+      // 游客模式：添加本地消息（带动作按钮）
       addMessage({
         id: Date.now(),
         role: 'assistant',
-        content: '完成训练！继续保持💪',
+        content: '🎉 太棒了！你完成了今天的训练！\n\n今天的训练感觉怎么样？',
         read: false,
-        actions: [],
+        actions: [
+          { id: 'feedback_too_easy', label: '😊 太轻松', handler: 'submit_feedback_too_easy', style: 'secondary' },
+          { id: 'feedback_just_right', label: '💪 刚刚好', handler: 'submit_feedback_just_right', style: 'primary' },
+          { id: 'feedback_too_hard', label: '😫 太难了', handler: 'submit_feedback_too_hard', style: 'secondary' },
+        ],
       });
       setIsOpen(true);
       return;
@@ -133,13 +137,17 @@ export const CopilotProvider: React.FC<{ children: ReactNode }> = ({ children })
       }
     } catch (error) {
       console.error('Copilot trigger error:', error);
-      // 失败时显示本地消息
+      // 失败时显示本地消息（带动作按钮）
       addMessage({
         id: Date.now(),
         role: 'assistant',
-        content: '完成训练！继续保持💪',
+        content: '🎉 太棒了！你完成了今天的训练！\n\n今天的训练感觉怎么样？',
         read: false,
-        actions: [],
+        actions: [
+          { id: 'feedback_too_easy', label: '😊 太轻松', handler: 'submit_feedback_too_easy', style: 'secondary' },
+          { id: 'feedback_just_right', label: '💪 刚刚好', handler: 'submit_feedback_just_right', style: 'primary' },
+          { id: 'feedback_too_hard', label: '😫 太难了', handler: 'submit_feedback_too_hard', style: 'secondary' },
+        ],
       });
       setIsOpen(true);
     } finally {
@@ -179,7 +187,44 @@ export const CopilotProvider: React.FC<{ children: ReactNode }> = ({ children })
     sessionId: string,
     messageId: number
   ) => {
-    if (!isLoggedIn()) return;
+    // 游客模式：本地处理反馈动作
+    if (!isLoggedIn() || sessionId === 'guest') {
+      const feedbackMap: Record<string, string> = {
+        'submit_feedback_too_easy': '😊 太轻松',
+        'submit_feedback_just_right': '💪 刚刚好',
+        'submit_feedback_too_hard': '😫 太难了',
+      };
+
+      if (actionId in feedbackMap) {
+        // 添加用户消息
+        addMessage({
+          id: Date.now(),
+          role: 'user',
+          content: feedbackMap[actionId],
+          read: true,
+        });
+
+        // 添加 AI 响应
+        setTimeout(() => {
+          let responseText = '';
+          if (actionId === 'submit_feedback_just_right') {
+            responseText = '太好了！继续保持这个节奏💪';
+          } else if (actionId === 'submit_feedback_too_hard') {
+            responseText = '我会持续关注你的训练情况。如果接下来几次也觉得吃力，我可以为你调整难度。';
+          } else {
+            responseText = '收到！如果接下来几次也觉得轻松，我可以为你增加挑战。';
+          }
+
+          addMessage({
+            id: Date.now(),
+            role: 'assistant',
+            content: responseText,
+            read: false,
+          });
+        }, 300);
+      }
+      return;
+    }
 
     setIsLoading(true);
     try {
