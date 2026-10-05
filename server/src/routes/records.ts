@@ -7,7 +7,7 @@ router.use(authMiddleware);
 
 // 提交训练记录
 router.post('/', (req: AuthRequest, res: Response) => {
-  const { date, dayIndex, weekPlanId, completed, feedback, hasJointPain, completedExercises } = req.body;
+  const { date, dayIndex, weekPlanId, completed, feedback, hasJointPain, completedExercises, jointPainExerciseId } = req.body;
 
   const result = db.prepare(`
     INSERT INTO training_records
@@ -23,6 +23,23 @@ router.post('/', (req: AuthRequest, res: Response) => {
     hasJointPain ? 1 : 0,
     JSON.stringify(completedExercises || [])
   );
+
+  // 如果用户报告关节不适，将该动作添加到禁用列表
+  if (hasJointPain && jointPainExerciseId) {
+    const profile = db.prepare('SELECT disabled_exercises FROM user_profiles WHERE user_id = ?').get(req.userId) as any;
+    
+    if (profile) {
+      const disabledExercises = JSON.parse(profile.disabled_exercises || '[]');
+      
+      // 避免重复添加
+      if (!disabledExercises.includes(jointPainExerciseId)) {
+        disabledExercises.push(jointPainExerciseId);
+        
+        db.prepare('UPDATE user_profiles SET disabled_exercises = ? WHERE user_id = ?')
+          .run(JSON.stringify(disabledExercises), req.userId);
+      }
+    }
+  }
 
   return res.json({ id: result.lastInsertRowid });
 });

@@ -63,6 +63,14 @@ export function assessEligibility(
     && exercise.difficulty <= range.allowed[1];
   const equipmentPasses = exercise.equipment.includes('bodyweight')
     || exercise.equipment.some(item => hasEquipmentFor(item, profile.equipment));
+  
+  // 检查是否被用户禁用（关节不适）
+  const isDisabled = (profile.disabled_exercises || []).includes(exercise.exercise_id);
+  
+  // 如果动作被禁用，将其视为安全不通过
+  const safetyWithDisabled: CategoryAssessment = isDisabled
+    ? { category: 'safety', outcome: 'failed', reasons: [reason('user_disabled_joint_pain', exercise.exercise_id)] }
+    : safety;
 
   const checks: Record<Exclude<EligibilityCategory, 'alternative'>, CategoryAssessment> = {
     project: exercise.target_projects.includes(projectId)
@@ -71,7 +79,7 @@ export function assessEligibility(
     review_status: exercise.review_status === 'approved'
       ? { category: 'review_status', outcome: 'passed', reasons: [] }
       : { category: 'review_status', outcome: 'failed', reasons: [reason('review_status_not_approved', exercise.review_status)] },
-    safety,
+    safety: safetyWithDisabled,
     equipment: equipmentPasses
       ? { category: 'equipment', outcome: 'passed', reasons: [] }
       : { category: 'equipment', outcome: 'failed', reasons: [reason('equipment_unavailable', exercise.equipment)] },

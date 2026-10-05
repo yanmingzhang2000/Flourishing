@@ -60,13 +60,14 @@ export interface EligibilityAssessment {
   alternative_selection?: { replaced_exercise_id: string; selected_exercise_id: string; alternative_index: number; reason: 'first_eligible_referenced_alternative' };
 }
 export interface NormalizedProfile {
-  experience: TrainingExperience;
-  injuries: InjurySelection[];
-  equipment: string[];
-  selected_projects: ProjectId[];
-  max_days_per_week?: number;
-  session_max_min?: number;
-}
+    experience: TrainingExperience;
+    injuries: InjurySelection[];
+    equipment: string[];
+    selected_projects: ProjectId[];
+    max_days_per_week?: number;
+    session_max_min?: number;
+    disabled_exercises?: string[];
+  }
 export interface StructuredUnavailableResult {
   outcome: 'temporarily_unavailable';
   display_message: '暂不可生成';

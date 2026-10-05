@@ -1,5 +1,6 @@
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthPage } from '@/pages/AuthPage';
+import { DisclaimerPage } from '@/pages/DisclaimerPage';
 import { SettingsPage } from '@/pages/SettingsPage';
 import { MyProjectsPage } from '@/pages/MyProjectsPage';
 import { ProjectsPage } from '@/pages/ProjectsPage';
@@ -32,6 +33,9 @@ function App() {
       <Routes>
         {/* 认证 */}
         <Route path="/auth" element={<AuthPage />} />
+        
+        {/* 免责声明（公开访问） */}
+        <Route path="/disclaimer" element={<DisclaimerPage />} />
 
         {/* 首次引导：填训练偏好（onboarding 模式） */}
         <Route path="/onboarding" element={

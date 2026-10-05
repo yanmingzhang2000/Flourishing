@@ -99,6 +99,7 @@ export function initDB() {
     `ALTER TABLE user_profiles ADD COLUMN selected_projects TEXT DEFAULT '[]'`,
     `ALTER TABLE user_profiles ADD COLUMN max_days_per_week INTEGER DEFAULT 3`,
     `ALTER TABLE user_profiles ADD COLUMN session_max_min INTEGER DEFAULT 30`,
+    `ALTER TABLE user_profiles ADD COLUMN disabled_exercises TEXT DEFAULT '[]'`,
   ];
   for (const sql of migrations) {
     try {

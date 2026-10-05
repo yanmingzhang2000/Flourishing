@@ -37,6 +37,7 @@ function readProfile(
     experience: row.experience,
     injuries: row.injuries,
     equipment: row.equipment,
+    disabled_exercises: row.disabled_exercises,
     // V2：请求体可指定项目列表（按实例生成），不改写 profile.selected_projects。
     // The override must be applied before normalization so an empty/unselected
     // profile.selected_projects never short-circuits a valid per-instance request.

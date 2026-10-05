@@ -13,11 +13,16 @@ export const AuthPage: React.FC = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
 
   const handleSubmit = async () => {
     setError('');
     if (!email || !password) {
       setError('请填写邮箱和密码');
+      return;
+    }
+    if (mode === 'register' && !agreedToTerms) {
+      setError('请先阅读并同意免责声明');
       return;
     }
     setLoading(true);
@@ -110,6 +115,29 @@ export const AuthPage: React.FC = () => {
               onChange={e => setPassword(e.target.value)}
               onKeyDown={(e: React.KeyboardEvent) => e.key === 'Enter' && handleSubmit()}
             />
+
+            {mode === 'register' && (
+              <div className="flex items-start gap-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <input
+                  type="checkbox"
+                  id="terms"
+                  checked={agreedToTerms}
+                  onChange={e => setAgreedToTerms(e.target.checked)}
+                  className="mt-1 w-4 h-4 text-[#7DC47A] border-gray-300 rounded focus:ring-[#7DC47A]"
+                />
+                <label htmlFor="terms" className="text-xs text-gray-700 leading-relaxed">
+                  我已阅读并同意
+                  <button
+                    type="button"
+                    onClick={() => navigate('/disclaimer')}
+                    className="text-[#7DC47A] hover:underline mx-1 font-medium"
+                  >
+                    免责声明与使用条款
+                  </button>
+                  。我理解本产品不能替代专业医疗建议，在训练中如感不适会立即停止。
+                </label>
+              </div>
+            )}
 
             {error && (
               <p className="text-sm text-red-500 bg-red-50 px-3 py-2 rounded-lg">{error}</p>

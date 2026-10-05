@@ -124,12 +124,22 @@ export function normalizeProfile(raw: Record<string, unknown>): ProfileNormaliza
     };
   }
 
+  // 解析 disabled_exercises（关节不适导致的禁用动作）
+  const disabledExercises: string[] = [];
+  for (const rawValue of asArray(raw.disabled_exercises)) {
+    const value = String(rawValue).trim();
+    if (value && !disabledExercises.includes(value)) {
+      disabledExercises.push(value);
+    }
+  }
+
   return {
     profile: {
       experience,
       injuries,
       equipment,
       selected_projects: selectedProjects,
+      disabled_exercises: disabledExercises,
     },
     diagnostics,
   };

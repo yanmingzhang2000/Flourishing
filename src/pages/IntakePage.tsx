@@ -265,6 +265,16 @@ export const IntakePage: React.FC = () => {
       <div>
         <p className="text-sm font-semibold text-text mb-1">有需要注意的伤病吗？</p>
         <p className="text-xs text-muted mb-3">有选择的动作会自动过滤，可跳过</p>
+        
+        {/* 安全警告 */}
+        <div className="mb-3 p-3 bg-red-50 border-l-4 border-red-400 rounded-lg">
+          <p className="text-xs text-red-800 leading-relaxed">
+            <strong>⚠️ 重要提示：</strong>
+            如果你有严重伤病、慢性疾病或近期手术史，请先咨询医生是否适合进行训练。
+            本产品不能替代专业医疗建议。
+          </p>
+        </div>
+        
         <div className="flex flex-wrap gap-2">
           {INJURY_OPTIONS.map(opt => {
             const active = (prefs.injuries || []).includes(opt.value);

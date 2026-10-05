@@ -26,6 +26,8 @@ export const DayWorkoutPage: React.FC = () => {
   const [showFeedback, setShowFeedback] = useState(false);
   const [feedback, setFeedback] = useState<'too_easy' | 'just_right' | 'too_hard' | null>(null);
   const [hasJointPain, setHasJointPain] = useState(false);
+  const [jointPainExerciseId, setJointPainExerciseId] = useState<string | null>(null);
+  const [showJointPainModal, setShowJointPainModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState<'warmup' | 'workout' | 'cooldown'>('workout');
 
@@ -67,6 +69,13 @@ export const DayWorkoutPage: React.FC = () => {
 
   const handleSubmitFeedback = async () => {
     if (!feedback || submitting) return;
+    
+    // 如果勾选了关节不适但没有选择动作，打开模态框
+    if (hasJointPain && !jointPainExerciseId) {
+      setShowJointPainModal(true);
+      return;
+    }
+    
     setSubmitting(true);
 
     if (isLoggedIn()) {
@@ -77,6 +86,7 @@ export const DayWorkoutPage: React.FC = () => {
           completed: true,
           feedback,
           hasJointPain,
+          jointPainExerciseId: jointPainExerciseId || undefined,
           completedExercises: Array.from(completedExercises),
         });
       } catch {
@@ -298,6 +308,71 @@ export const DayWorkoutPage: React.FC = () => {
           )}
         </div>
       </div>
+      
+      {/* 底部安全提示 */}
+      <div className="bg-yellow-50 border-t border-yellow-200 px-4 py-3">
+        <p className="text-xs text-yellow-800 text-center">
+          ⚠️ <strong>如感到任何不适、疼痛、头晕或呼吸困难，请立即停止训练</strong>
+        </p>
+      </div>
+      
+      {/* 关节不适动作选择模态框 */}
+      {showJointPainModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 max-h-[80vh] overflow-y-auto">
+            <h3 className="text-lg font-bold text-gray-900 mb-2">请选择导致不适的动作</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              帮助我们记录这个动作，未来的训练计划将自动避开它。
+            </p>
+            
+            <div className="space-y-2 mb-6">
+              {day.exercises.map((ex) => (
+                <button
+                  key={ex.exerciseId}
+                  onClick={() => {
+                    setJointPainExerciseId(ex.exerciseId);
+                    setShowJointPainModal(false);
+                    // 立即提交
+                    setTimeout(() => handleSubmitFeedback(), 100);
+                  }}
+                  className="w-full p-3 text-left rounded-lg border-2 border-gray-200 hover:border-red-400 hover:bg-red-50 transition-all"
+                >
+                  <div className="font-medium text-gray-800">{ex.exercise.name}</div>
+                  <div className="text-xs text-gray-500 mt-1">{ex.exercise.primary_muscle}</div>
+                </button>
+              ))}
+            </div>
+            
+            <div className="bg-red-50 border-l-4 border-red-400 p-3 mb-4">
+              <p className="text-xs text-red-800">
+                <strong>⚠️ 重要提示：</strong>如果疼痛持续或加重，请及时就医。不要忍痛继续训练。
+              </p>
+            </div>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowJointPainModal(false);
+                  setHasJointPain(false);
+                }}
+                className="flex-1 py-2.5 border-2 border-gray-200 rounded-lg text-gray-600 font-medium hover:bg-gray-50"
+              >
+                取消
+              </button>
+              <button
+                onClick={() => {
+                  setShowJointPainModal(false);
+                  // 不选择动作，直接提交
+                  setTimeout(() => handleSubmitFeedback(), 100);
+                }}
+                className="flex-1 py-2.5 bg-gray-500 text-white rounded-lg font-medium hover:bg-gray-600"
+              >
+                跳过选择
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
