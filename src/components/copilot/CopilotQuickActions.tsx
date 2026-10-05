@@ -8,7 +8,9 @@ import { useCopilotContext } from '@/hooks/useCopilotContext';
 
 export const CopilotQuickActions: React.FC = () => {
   const navigate = useNavigate();
-  const { triggerEvent } = useCopilotContext();
+  const { triggerEvent, clearAllMessages, clearTestMessages, messages } = useCopilotContext();
+
+  const hasTestMessages = messages.some(m => m.isTest);
 
   const actions = [
     {
@@ -22,26 +24,28 @@ export const CopilotQuickActions: React.FC = () => {
           data: {
             date: new Date().toISOString().split('T')[0],
             completedExercises: ['test_exercise_1', 'test_exercise_2'],
+            isTest: true, // 标记为测试
           },
         });
       },
     },
     {
-      id: 'view_feedback',
-      label: '查看反馈历史',
-      icon: '📊',
+      id: 'clear_test',
+      label: '清空测试消息',
+      icon: '🧹',
+      show: hasTestMessages,
       onClick: () => {
-        // TODO: 导航到反馈历史页面（未来实现）
-        alert('反馈历史功能开发中...');
+        clearTestMessages();
       },
     },
     {
-      id: 'ask_question',
-      label: '问个问题',
-      icon: '💬',
+      id: 'clear_history',
+      label: '清空所有历史',
+      icon: '🗑️',
       onClick: () => {
-        // TODO: 打开输入框（未来实现）
-        alert('问答功能开发中，需要接入 LLM...');
+        if (confirm('确定要清空所有对话历史吗？此操作无法撤销。')) {
+          clearAllMessages();
+        }
       },
     },
   ];
@@ -50,7 +54,7 @@ export const CopilotQuickActions: React.FC = () => {
     <div className="border-t border-gray-100 p-4 bg-gray-50">
       <div className="text-xs font-semibold text-gray-500 mb-3">💡 快捷操作</div>
       <div className="space-y-2">
-        {actions.map((action) => (
+        {actions.filter(action => action.show !== false).map((action) => (
           <button
             key={action.id}
             onClick={action.onClick}

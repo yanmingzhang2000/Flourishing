@@ -19,6 +19,7 @@ export interface CopilotMessage {
   actions?: CopilotAction[];
   read: boolean;
   clickedActionId?: string; // 标记哪个动作被点击
+  isTest?: boolean; // 标记是否为测试消息
 }
 
 interface CopilotContextValue {
@@ -43,6 +44,10 @@ interface CopilotContextValue {
   
   // 动作执行
   executeAction: (actionId: string, sessionId: string, messageId: number) => Promise<void>;
+  
+  // 历史管理
+  clearAllMessages: () => void;
+  clearTestMessages: () => void;
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -78,11 +83,13 @@ export const CopilotProvider: React.FC<{ children: ReactNode }> = ({ children })
     loadHistory();
   }, []);
 
-  // 保存消息到 localStorage
+  // 保存消息到 localStorage（限制最多20条）
   useEffect(() => {
     try {
-      localStorage.setItem('copilot_messages', JSON.stringify(messages));
-      const unread = messages.filter(m => !m.read && m.role === 'assistant').length;
+      const MAX_MESSAGES = 20;
+      const recentMessages = messages.slice(-MAX_MESSAGES);
+      localStorage.setItem('copilot_messages', JSON.stringify(recentMessages));
+      const unread = recentMessages.filter(m => !m.read && m.role === 'assistant').length;
       setUnreadCount(unread);
     } catch (error) {
       console.error('Failed to save copilot messages:', error);
@@ -102,6 +109,8 @@ export const CopilotProvider: React.FC<{ children: ReactNode }> = ({ children })
   }, []);
 
   const triggerEvent = useCallback(async (event: CopilotEvent) => {
+    const isTestEvent = event.data?.isTest === true;
+    
     if (!isLoggedIn()) {
       // 游客模式：添加本地消息（带动作按钮）
       addMessage({
@@ -109,6 +118,7 @@ export const CopilotProvider: React.FC<{ children: ReactNode }> = ({ children })
         role: 'assistant',
         content: '🎉 太棒了！你完成了今天的训练！\n\n今天的训练感觉怎么样？',
         read: false,
+        isTest: isTestEvent,
         actions: [
           { id: 'feedback_too_easy', label: '😊 太轻松', handler: 'submit_feedback_too_easy', style: 'secondary' },
           { id: 'feedback_just_right', label: '💪 刚刚好', handler: 'submit_feedback_just_right', style: 'primary' },
@@ -132,6 +142,7 @@ export const CopilotProvider: React.FC<{ children: ReactNode }> = ({ children })
           content: response.message.content,
           actions: response.message.actions,
           read: false,
+          isTest: isTestEvent,
         });
         
         setIsOpen(true); // 自动打开侧边栏
@@ -144,6 +155,7 @@ export const CopilotProvider: React.FC<{ children: ReactNode }> = ({ children })
         role: 'assistant',
         content: '🎉 太棒了！你完成了今天的训练！\n\n今天的训练感觉怎么样？',
         read: false,
+        isTest: isTestEvent,
         actions: [
           { id: 'feedback_too_easy', label: '😊 太轻松', handler: 'submit_feedback_too_easy', style: 'secondary' },
           { id: 'feedback_just_right', label: '💪 刚刚好', handler: 'submit_feedback_just_right', style: 'primary' },
@@ -283,6 +295,15 @@ export const CopilotProvider: React.FC<{ children: ReactNode }> = ({ children })
     );
   }, []);
 
+  const clearAllMessages = useCallback(() => {
+    setMessages([]);
+    localStorage.removeItem('copilot_messages');
+  }, []);
+
+  const clearTestMessages = useCallback(() => {
+    setMessages(prev => prev.filter(m => !m.isTest));
+  }, []);
+
   const value: CopilotContextValue = {
     isOpen,
     messages,
@@ -296,6 +317,8 @@ export const CopilotProvider: React.FC<{ children: ReactNode }> = ({ children })
     markAllAsRead,
     submitFeedback,
     executeAction,
+    clearAllMessages,
+    clearTestMessages,
   };
 
   return (
