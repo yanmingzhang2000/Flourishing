@@ -11,6 +11,9 @@
       "dumbbell_1kg",
       "dumbbell_1.5kg",
       "dumbbell_2kg",
+      "dumbbell_3kg",
+      "dumbbell_4kg",
+      "dumbbell_5kg",
       "mat_6mm",
       "foam_roller_plain",
       "yoga_ball_55"
@@ -19,6 +22,7 @@
       "肱三头肌",
       "前臂",
       "斜方肌中下束",
+      "斜方肌下束",
       "菱形肌",
       "胸大肌",
       "三角肌前束",
@@ -36,6 +40,7 @@
       "三角肌后束",
       "小腿三头肌",
       "背阔肌",
+      "前锯肌",
       "多肌群协同"
     ]
   },
@@ -1807,6 +1812,7 @@
       },
       "category": "strength",
       "target_projects": [
+        "trap_relax",
         "round_shoulder_fix"
       ],
       "contraindications": [
@@ -1854,6 +1860,7 @@
       },
       "category": "strength",
       "target_projects": [
+        "trap_relax",
         "round_shoulder_fix"
       ],
       "contraindications": [
@@ -1948,6 +1955,7 @@
       },
       "category": "strength",
       "target_projects": [
+        "trap_relax",
         "round_shoulder_fix"
       ],
       "contraindications": [
@@ -2132,6 +2140,7 @@
       },
       "category": "strength",
       "target_projects": [
+        "trap_relax",
         "round_shoulder_fix"
       ],
       "contraindications": [
@@ -3134,6 +3143,101 @@
       "warning": "腰骶或坐骨神经症状者减小幅度或跳过。",
       "media": {
         "cover_image": "./images/seated_spinal_twist_cover.jpg",
+        "video": null
+      }
+    },
+    {
+      "exercise_id": "standing_scapular_depression",
+      "name": "站姿肩胛下沉",
+      "name_en": "Standing Scapular Depression",
+      "muscle_group": {
+        "primary": [
+          "斜方肌下束",
+          "菱形肌"
+        ],
+        "secondary": [
+          "前锯肌"
+        ]
+      },
+      "difficulty": 1,
+      "equipment": [
+        "bodyweight"
+      ],
+      "function": {
+        "primary": "改善体态",
+        "secondary": "激活"
+      },
+      "category": "strength",
+      "target_projects": [
+        "trap_relax"
+      ],
+      "contraindications": [],
+      "alternative_exercise_ids": [],
+      "review_status": "approved",
+      "rest_seconds": 30,
+      "steps": [
+        "自然站立，双臂垂于体侧，双肩先完全放松下沉",
+        "吸气准备；呼气时把肩胛骨向脚的方向\"沉下去\"，同时轻轻向脊柱中间夹",
+        "保持下沉 + 后缩 3-5 秒，全程不要耸肩、不要抬肩",
+        "吸气回到中立位，重复 8-10 次"
+      ],
+      "tips": [
+        "这是\"意识控制\"练习，幅度极小，靠感觉而非大幅运动",
+        "想象肩胛骨下端向脚底沉，而不是向上提",
+        "可与呼吸绑定，呼气下沉、吸气回正"
+      ],
+      "warning": "若肩颈极度僵硬，先做静态保持即可。",
+      "media": {
+        "cover_image": "./images/standing_scapular_depression_cover.jpg",
+        "video": null
+      }
+    },
+    {
+      "exercise_id": "supine_ball_scapular_slide",
+      "name": "瑜伽球仰卧肩胛滑动",
+      "name_en": "Supine Ball Scapular Slide",
+      "muscle_group": {
+        "primary": [
+          "斜方肌下束",
+          "前锯肌"
+        ],
+        "secondary": [
+          "菱形肌"
+        ]
+      },
+      "difficulty": 2,
+      "equipment": [
+        "yoga_ball_55",
+        "mat_6mm"
+      ],
+      "function": {
+        "primary": "改善体态",
+        "secondary": "激活"
+      },
+      "category": "strength",
+      "target_projects": [
+        "trap_relax"
+      ],
+      "contraindications": [
+        "neck_pain"
+      ],
+      "alternative_exercise_ids": [],
+      "review_status": "approved",
+      "rest_seconds": 40,
+      "steps": [
+        "将瑜伽球放在上背与头下仰卧，双脚踩地、膝屈 90°，骨盆中立",
+        "双臂向天花板上举、掌心相对，肩胛骨自然贴球",
+        "呼气时把肩胛骨轻轻向球上\"铺开下沉\"，双臂可微调向头顶方向滑",
+        "吸气回到起始，重复 8-10 次，保持颈部放松不发力"
+      ],
+      "tips": [
+        "球只支撑胸椎，头颈不承重",
+        "动作靠肩胛骨在球面上的小幅度滑动",
+        "若不稳可先只做\"沉肩\"不滑臂"
+      ],
+      "warning": "平衡差或眩晕者先在地垫上做静态沉肩；瑜伽球务必防滑、不滚动。",
+      "media": {
+        "cover_image": "./images/supine_ball_scapular_slide_cover.jpg",
         "video": null
       }
     }

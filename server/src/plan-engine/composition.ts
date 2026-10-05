@@ -15,6 +15,7 @@
 import { CanonicalExercise, NormalizedProfile, ProjectId } from '../exercise-library/types';
 import { selectQualifiedExercise } from '../exercise-library/eligibility';
 import { canonicalToClientExercise } from '../exercise-library/compatibility';
+import { hasEquipmentFor } from '../exercise-library/vocabulary';
 import { ClientExerciseSnapshot, WorkoutDaySnapshot } from '../exercise-library/types';
 
 // ---------------------------------------------------------------------------
@@ -314,7 +315,7 @@ export function checkEquipmentSubset(
   for (const slot of dayExercises) {
     const eq = slot.exercise.equipment;
     if (eq.length === 0) continue; // bodyweight — always allowed
-    const hasAny = eq.includes('bodyweight') || eq.some(e => userEquipment.includes(e));
+    const hasAny = eq.includes('bodyweight') || eq.some(e => hasEquipmentFor(e, userEquipment));
     if (!hasAny) violations.push(slot.exerciseId);
   }
   return violations;

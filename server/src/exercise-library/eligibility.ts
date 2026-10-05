@@ -16,6 +16,7 @@ import {
   INJURY_EXPANSION,
   INJURY_SELECTIONS,
   PROJECT_IDS,
+  hasEquipmentFor,
   isValue,
 } from './vocabulary';
 
@@ -61,7 +62,7 @@ export function assessEligibility(
     && exercise.difficulty >= range.allowed[0]
     && exercise.difficulty <= range.allowed[1];
   const equipmentPasses = exercise.equipment.includes('bodyweight')
-    || exercise.equipment.some(item => profile.equipment.includes(item));
+    || exercise.equipment.some(item => hasEquipmentFor(item, profile.equipment));
 
   const checks: Record<Exclude<EligibilityCategory, 'alternative'>, CategoryAssessment> = {
     project: exercise.target_projects.includes(projectId)
