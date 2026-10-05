@@ -4,18 +4,35 @@
 
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useCopilotContext } from '@/hooks/useCopilotContext';
 
 export const CopilotQuickActions: React.FC = () => {
   const navigate = useNavigate();
+  const { triggerEvent } = useCopilotContext();
 
   const actions = [
+    {
+      id: 'test_chat',
+      label: '测试对话',
+      icon: '🧪',
+      onClick: async () => {
+        // 触发测试事件，让用户看到 Copilot 响应
+        await triggerEvent({
+          type: 'training_completed',
+          data: {
+            date: new Date().toISOString().split('T')[0],
+            completedExercises: ['test_exercise_1', 'test_exercise_2'],
+          },
+        });
+      },
+    },
     {
       id: 'view_feedback',
       label: '查看反馈历史',
       icon: '📊',
       onClick: () => {
         // TODO: 导航到反馈历史页面（未来实现）
-        console.log('View feedback history');
+        alert('反馈历史功能开发中...');
       },
     },
     {
@@ -24,7 +41,7 @@ export const CopilotQuickActions: React.FC = () => {
       icon: '💬',
       onClick: () => {
         // TODO: 打开输入框（未来实现）
-        console.log('Ask question');
+        alert('问答功能开发中，需要接入 LLM...');
       },
     },
   ];
