@@ -18,6 +18,7 @@ export interface CopilotMessage {
   timestamp: string;
   actions?: CopilotAction[];
   read: boolean;
+  clickedActionId?: string; // 标记哪个动作被点击
 }
 
 interface CopilotContextValue {
@@ -187,12 +188,21 @@ export const CopilotProvider: React.FC<{ children: ReactNode }> = ({ children })
     sessionId: string,
     messageId: number
   ) => {
+    // 标记消息的按钮已点击
+    setMessages(prev => 
+      prev.map(m => 
+        m.id === messageId 
+          ? { ...m, clickedActionId: actionId }
+          : m
+      )
+    );
+
     // 游客模式：本地处理反馈动作
     if (!isLoggedIn() || sessionId === 'guest') {
       const feedbackMap: Record<string, string> = {
-        'submit_feedback_too_easy': '😊 太轻松',
-        'submit_feedback_just_right': '💪 刚刚好',
-        'submit_feedback_too_hard': '😫 太难了',
+        'submit_feedback_too_easy': '太轻松',
+        'submit_feedback_just_right': '刚刚好',
+        'submit_feedback_too_hard': '太难了',
       };
 
       if (actionId in feedbackMap) {
