@@ -13,7 +13,7 @@ import exercisesRouter from './routes/exercises';
 import copilotRouter from './copilot/router';
 
 const app = express();
-const PORT = process.env.PORT || 80;
+const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3001;
 
 // CORS 配置：支持环境变量覆盖
 const allowedOrigins = process.env.ALLOWED_ORIGINS 
