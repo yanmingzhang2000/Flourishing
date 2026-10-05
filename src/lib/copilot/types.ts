@@ -7,7 +7,7 @@
 // ────────────────────────────────────────────────────────────────────────────
 
 export interface CopilotEvent {
-  type: 'training_feedback_submitted' | 'plan_generated' | 'user_text_input' | 'user_inactive';
+  type: 'training_feedback_submitted' | 'training_completed' | 'plan_generated' | 'user_text_input' | 'user_inactive';
   data: Record<string, any>;
 }
 

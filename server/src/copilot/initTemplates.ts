@@ -8,6 +8,29 @@ import db from '../config/database';
 
 export function initCopilotTemplates() {
   const templates = [
+    // ════════════════════════════════════════════════════════════════════════
+    // 训练完成庆祝模板
+    // ════════════════════════════════════════════════════════════════════════
+    {
+      id: 'training_completed_celebration',
+      intent: 'training_completed',
+      condition_expr: 'true', // 总是触发
+      priority: 10,
+      message_template: '🎉 太棒了！你完成了今天的训练！\n\n今天的训练感觉怎么样？',
+      tone: 'celebratory',
+      actions: JSON.stringify([
+        { id: 'feedback_too_easy', label: '😊 太轻松', handler: 'submit_feedback_too_easy', style: 'secondary' },
+        { id: 'feedback_just_right', label: '💪 刚刚好', handler: 'submit_feedback_just_right', style: 'primary' },
+        { id: 'feedback_too_hard', label: '😫 太难了', handler: 'submit_feedback_too_hard', style: 'secondary' },
+      ]),
+      enabled: 1,
+      version: 1,
+    },
+
+    // ════════════════════════════════════════════════════════════════════════
+    // 训练反馈响应模板
+    // ════════════════════════════════════════════════════════════════════════
+    
     // 反馈响应 - 连续 2 次 too_hard
     {
       id: 'feedback_too_hard_warning',

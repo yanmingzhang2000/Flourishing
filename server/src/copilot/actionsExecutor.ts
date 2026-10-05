@@ -20,6 +20,36 @@ export class ActionsExecutor {
    * 注册核心动作
    */
   private registerCoreActions() {
+    // ════════════════════════════════════════════════════════════════════════
+    // 反馈快捷动作
+    // ════════════════════════════════════════════════════════════════════════
+    
+    this.register('submit_feedback_too_easy', async (params, context) => {
+      // 这些动作由前端直接处理，后端只需返回确认
+      return {
+        success: true,
+        message: '收到反馈！我会持续关注你的训练情况。',
+      };
+    });
+
+    this.register('submit_feedback_just_right', async (params, context) => {
+      return {
+        success: true,
+        message: '太好了！继续保持这个节奏💪',
+      };
+    });
+
+    this.register('submit_feedback_too_hard', async (params, context) => {
+      return {
+        success: true,
+        message: '我会持续关注你的训练情况。',
+      };
+    });
+
+    // ════════════════════════════════════════════════════════════════════════
+    // 难度调整动作
+    // ════════════════════════════════════════════════════════════════════════
+    
     // 降低难度
     this.register('adjust_difficulty_lower', async (params, context) => {
       if (!context.userId) {

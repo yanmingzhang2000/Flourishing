@@ -10,6 +10,7 @@ import { SessionService } from './sessionService';
 import { TemplateService } from './templateService';
 import { ActionsExecutor } from './actionsExecutor';
 import { FeedbackHandler } from './handlers/feedbackHandler';
+import { TrainingCompletedHandler } from './handlers/trainingCompletedHandler';
 import {
   CopilotEvent,
   CopilotProcessResult,
@@ -43,6 +44,12 @@ export class CopilotEngine {
    * 注册意图处理器
    */
   private registerHandlers() {
+    // 训练完成处理器
+    this.handlers.set(
+      'training_completed',
+      new TrainingCompletedHandler(this.templateService, this.sessionService)
+    );
+
     // 反馈响应处理器
     this.handlers.set(
       'feedback_response',

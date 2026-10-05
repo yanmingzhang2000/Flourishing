@@ -8,6 +8,7 @@
 
 export type CopilotIntent = 
   | 'feedback_response'      // 训练反馈响应
+  | 'training_completed'     // 训练完成庆祝
   | 'plan_adjustment'        // 计划调整
   | 'knowledge_query'        // 知识问答（预留）
   | 'progress_insight'       // 进度洞察（预留）
@@ -18,7 +19,7 @@ export type CopilotIntent =
 // ────────────────────────────────────────────────────────────────────────────
 
 export interface CopilotEvent {
-  type: 'training_feedback_submitted' | 'plan_generated' | 'user_text_input' | 'user_inactive';
+  type: 'training_feedback_submitted' | 'training_completed' | 'plan_generated' | 'user_text_input' | 'user_inactive';
   data: Record<string, any>;
 }
 

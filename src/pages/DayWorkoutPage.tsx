@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import Confetti from 'react-confetti';
 import { storage } from '@/lib/storage';
 import { plansApi, recordsApi, isLoggedIn } from '@/lib/api';
 import { WeeklyPlan, WorkoutExercise } from '@/lib/types';
 import projectsData from '@/data/projects.json';
-import { useCopilot } from '@/hooks/useCopilot';
-import { CopilotModal } from '@/components/copilot/CopilotModal';
+import { useCopilotContext } from '@/hooks/useCopilotContext';
+import { CopilotFeedbackButtons } from '@/components/copilot/CopilotFeedbackButtons';
 
 const PROJECT_NAME_MAP: Record<string, string> = Object.fromEntries(
   (projectsData as any[]).map(p => [p.id, p.name])
@@ -32,9 +33,12 @@ export const DayWorkoutPage: React.FC = () => {
   const [showJointPainModal, setShowJointPainModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState<'warmup' | 'workout' | 'cooldown'>('workout');
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [trainingCompleted, setTrainingCompleted] = useState(false);
 
-  // Copilot hook
-  const { currentResponse, isProcessing, trigger, executeAction, dismiss } = useCopilot();
+  // Copilot context
+  const { triggerEvent, submitFeedback: submitCopilotFeedback, open: openCopilot } = useCopilotContext();
+  
   // 返回时的目标路由
   const backPath = instanceId ? `/projects/${instanceId}/calendar` : '/calendar';
 
@@ -71,6 +75,58 @@ export const DayWorkoutPage: React.FC = () => {
 
   const allCompleted = day.exercises.every(ex => completedExercises.has(ex.exerciseId));
 
+  // 监听完成状态：所有动作完成时自动触发庆祝
+  useEffect(() => {
+    if (allCompleted && !trainingCompleted) {
+      handleTrainingComplete();
+    }
+  }, [allCompleted, trainingCompleted]);
+
+  const handleTrainingComplete = async () => {
+    setTrainingCompleted(true);
+    
+    // 1. 显示庆祝动画
+    setShowConfetti(true);
+    setTimeout(() => setShowConfetti(false), 3000);
+    
+    // 2. 记录完成状态（不含反馈）
+    if (isLoggedIn()) {
+      try {
+        await recordsApi.submit({
+          date: date!,
+          dayIndex: parseInt(dayIndex!),
+          completed: true,
+          hasJointPain,
+          jointPainExerciseId: jointPainExerciseId || undefined,
+          completedExercises: Array.from(completedExercises),
+        });
+      } catch (error) {
+        console.error('Failed to submit training record:', error);
+      }
+    } else {
+      storage.addTrainingRecord({
+        date: date!,
+        weekPlanId: plan?.id || 0,
+        dayIndex: parseInt(dayIndex!),
+        completed: true,
+        hasJointPain,
+        completedExercises: Array.from(completedExercises),
+      });
+    }
+    
+    // 3. 触发 Copilot 庆祝消息并自动打开侧边栏
+    await triggerEvent({
+      type: 'training_completed',
+      data: {
+        date: date!,
+        completedExercises: Array.from(completedExercises),
+      },
+    });
+    
+    // 4. 打开侧边栏（在 triggerEvent 中已自动打开）
+    openCopilot();
+  };
+
   const handleSubmitFeedback = async () => {
     if (!feedback || submitting) return;
     
@@ -82,58 +138,15 @@ export const DayWorkoutPage: React.FC = () => {
     
     setSubmitting(true);
 
-    if (isLoggedIn()) {
-      try {
-        await recordsApi.submit({
-          date: date!,
-          dayIndex: parseInt(dayIndex!),
-          completed: true,
-          feedback,
-          hasJointPain,
-          jointPainExerciseId: jointPainExerciseId || undefined,
-          completedExercises: Array.from(completedExercises),
-        });
-
-        // 触发 Copilot 事件
-        const hasResponse = await trigger({
-          type: 'training_feedback_submitted',
-          data: {
-            feedback,
-            date: date!,
-            completedExercises: Array.from(completedExercises),
-          },
-        });
-
-        // 如果没有 Copilot 响应，直接跳转
-        if (!hasResponse) {
-          navigate(backPath);
-        }
-      } catch {
-        storage.addTrainingRecord({
-          date: date!,
-          weekPlanId: plan.id,
-          dayIndex: parseInt(dayIndex!),
-          completed: true,
-          feedback,
-          hasJointPain,
-          completedExercises: Array.from(completedExercises),
-        });
-        navigate(backPath);
-      }
-    } else {
-      storage.addTrainingRecord({
-        date: date!,
-        weekPlanId: plan.id,
-        dayIndex: parseInt(dayIndex!),
-        completed: true,
-        feedback,
-        hasJointPain,
-        completedExercises: Array.from(completedExercises),
-      });
-      navigate(backPath);
-    }
+    // 提交反馈（通过 Copilot Context）
+    await submitCopilotFeedback(feedback, {
+      date: date!,
+      completedExercises: Array.from(completedExercises),
+    });
 
     setSubmitting(false);
+    
+    // 不再自动跳转，让用户在侧边栏中继续交互
   };
 
   const totalExercises = day.exercises.length;
@@ -243,60 +256,50 @@ export const DayWorkoutPage: React.FC = () => {
               </div>
 
               <div className="mt-6">
-                {!showFeedback ? (
-                  <button
-                    onClick={() => setShowFeedback(true)}
-                    disabled={!allCompleted}
-                    className={`w-full py-4 rounded-xl font-bold text-lg transition-all ${
-                      allCompleted
-                        ? 'bg-[#7DC47A] hover:bg-[#6DB569] text-white'
-                        : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                    }`}
-                  >
-                    {allCompleted ? '完成训练' : `完成所有动作 (${completedCount}/${totalExercises})`}
-                  </button>
-                ) : (
-                  <div className="bg-white rounded-xl p-5 border border-gray-200">
-                    <h3 className="font-bold text-gray-800 mb-2">训练反馈</h3>
-                    <p className="text-sm text-gray-500 mb-4">今天的训练感觉如何？</p>
-                    <div className="grid grid-cols-3 gap-3 mb-4">
-                      {[
-                        { key: 'too_easy' as const, emoji: '😊', label: '太轻松' },
-                        { key: 'just_right' as const, emoji: '💪', label: '刚刚好' },
-                        { key: 'too_hard' as const, emoji: '😫', label: '太难了' },
-                      ].map(f => (
-                        <button
-                          key={f.key}
-                          onClick={() => setFeedback(f.key)}
-                          className={`p-3 rounded-lg border-2 text-center transition-all ${
-                            feedback === f.key ? 'border-[#7DC47A] bg-[#7DC47A]/10' : 'border-gray-200 hover:border-gray-300'
-                          }`}
-                        >
-                          <div className="text-2xl mb-1">{f.emoji}</div>
-                          <div className="text-xs font-medium">{f.label}</div>
-                        </button>
-                      ))}
+                {!trainingCompleted ? (
+                  <div className="bg-white rounded-xl p-4 border border-gray-200">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-bold text-gray-800">进度</div>
+                        <div className="text-sm text-gray-500 mt-1">
+                          已完成 {completedCount}/{totalExercises} 个动作
+                        </div>
+                      </div>
+                      <div className="text-3xl">
+                        {allCompleted ? '✅' : '⏳'}
+                      </div>
                     </div>
-                    <label className="flex items-center gap-2 text-sm text-gray-600 mb-4">
-                      <input
-                        type="checkbox"
-                        checked={hasJointPain}
-                        onChange={e => setHasJointPain(e.target.checked)}
-                        className="w-4 h-4 rounded border-gray-300 text-[#7DC47A] focus:ring-[#7DC47A]"
-                      />
-                      有关节不适
-                    </label>
-                    <button
-                      onClick={handleSubmitFeedback}
-                      disabled={!feedback || submitting}
-                      className={`w-full py-3 rounded-lg font-medium transition-all ${
-                        feedback && !submitting
-                          ? 'bg-[#7DC47A] hover:bg-[#6DB569] text-white'
-                          : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                      }`}
-                    >
-                      {submitting ? '提交中...' : '提交反馈'}
-                    </button>
+                    {allCompleted && (
+                      <div className="mt-3 text-sm text-[#7DC47A] font-medium">
+                        🎉 训练完成！AI 教练正在为你准备反馈...
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="bg-gradient-to-r from-[#7DC47A]/10 to-blue-50 rounded-xl p-5 border border-[#7DC47A]/20">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="w-10 h-10 rounded-full bg-[#7DC47A] flex items-center justify-center text-white text-xl">
+                        🎉
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-gray-800">训练完成！</h3>
+                        <p className="text-xs text-gray-500">查看右侧 AI 教练反馈</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={openCopilot}
+                        className="flex-1 py-2.5 bg-[#7DC47A] text-white rounded-lg font-medium hover:bg-[#6DB569] transition"
+                      >
+                        查看反馈
+                      </button>
+                      <button
+                        onClick={() => navigate(backPath)}
+                        className="px-4 py-2.5 border-2 border-gray-200 rounded-lg text-gray-600 font-medium hover:bg-gray-50 transition"
+                      >
+                        返回
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -395,16 +398,14 @@ export const DayWorkoutPage: React.FC = () => {
         </div>
       )}
 
-      {/* Copilot 响应模态框 */}
-      {currentResponse && (
-        <CopilotModal
-          response={currentResponse}
-          isProcessing={isProcessing}
-          onAction={executeAction}
-          onDismiss={() => {
-            dismiss();
-            navigate(backPath);
-          }}
+      {/* Confetti 庆祝动画 */}
+      {showConfetti && (
+        <Confetti
+          width={window.innerWidth}
+          height={window.innerHeight}
+          recycle={false}
+          numberOfPieces={200}
+          gravity={0.3}
         />
       )}
     </div>

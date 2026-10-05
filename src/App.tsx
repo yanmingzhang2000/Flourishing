@@ -11,6 +11,9 @@ import { ExerciseDetailPage } from '@/pages/ExerciseDetailPage';
 import { ProfilePage } from '@/pages/ProfilePage';
 import { isLoggedIn } from '@/lib/api';
 import { storage } from '@/lib/storage';
+import { CopilotProvider } from '@/contexts/CopilotContext';
+import { CopilotSidebar } from '@/components/copilot/CopilotSidebar';
+import { CopilotFloatingButton } from '@/components/copilot/CopilotFloatingButton';
 
 // ── 路由守卫 ─────────────────────────────────────────────────────────────────
 
@@ -29,76 +32,82 @@ function RequireOnboarding({ children }: { children: React.ReactNode }) {
 
 function App() {
   return (
-    <HashRouter>
-      <Routes>
-        {/* 认证 */}
-        <Route path="/auth" element={<AuthPage />} />
+    <CopilotProvider>
+      <HashRouter>
+        <Routes>
+          {/* 认证 */}
+          <Route path="/auth" element={<AuthPage />} />
+          
+          {/* 免责声明（公开访问） */}
+          <Route path="/disclaimer" element={<DisclaimerPage />} />
+
+          {/* 首次引导：填训练偏好（onboarding 模式） */}
+          <Route path="/onboarding" element={
+            <RequireAuth><SettingsPage onboarding /></RequireAuth>
+          } />
+
+          {/* 设置页（普通模式） */}
+          <Route path="/settings" element={
+            <RequireAuth><SettingsPage /></RequireAuth>
+          } />
+
+          {/* 首页：我的训练列表 */}
+          <Route path="/" element={
+            <RequireAuth><RequireOnboarding><MyProjectsPage /></RequireOnboarding></RequireAuth>
+          } />
+
+          {/* 项目浏览 */}
+          <Route path="/projects" element={
+            <RequireAuth><ProjectsPage /></RequireAuth>
+          } />
+
+          {/* 项目启动配置（projectId = 项目类型 ID，如 tricep_tone） */}
+          <Route path="/projects/:projectId/start" element={
+            <RequireAuth><ProjectStartPage /></RequireAuth>
+          } />
+
+          {/* V2 项目日历（instanceId = 数据库实例 ID，数字） */}
+          <Route path="/projects/:instanceId/calendar" element={
+            <RequireAuth><CalendarPage /></RequireAuth>
+          } />
+
+          {/* V2 训练页（带 instanceId） */}
+          <Route path="/workout/:instanceId/:date/:dayIndex" element={
+            <RequireAuth><DayWorkoutPage /></RequireAuth>
+          } />
+
+          {/* 旧版全局日历（向后兼容游客 / 旧链接） */}
+          <Route path="/calendar" element={
+            <RequireAuth><CalendarPage /></RequireAuth>
+          } />
+
+          {/* 旧版训练页（无 instanceId，向后兼容） */}
+          <Route path="/workout/:date/:dayIndex" element={
+            <RequireAuth><DayWorkoutPage /></RequireAuth>
+          } />
+
+          {/* 旧版引导链接 */}
+          <Route path="/intake" element={<Navigate to="/onboarding" replace />} />
+
+          {/* 动作详情 */}
+          <Route path="/exercise/:exerciseId" element={
+            <RequireAuth><ExerciseDetailPage /></RequireAuth>
+          } />
+
+          {/* 个人页 */}
+          <Route path="/profile" element={
+            <RequireAuth><ProfilePage /></RequireAuth>
+          } />
+
+          {/* 兜底 */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
         
-        {/* 免责声明（公开访问） */}
-        <Route path="/disclaimer" element={<DisclaimerPage />} />
-
-        {/* 首次引导：填训练偏好（onboarding 模式） */}
-        <Route path="/onboarding" element={
-          <RequireAuth><SettingsPage onboarding /></RequireAuth>
-        } />
-
-        {/* 设置页（普通模式） */}
-        <Route path="/settings" element={
-          <RequireAuth><SettingsPage /></RequireAuth>
-        } />
-
-        {/* 首页：我的训练列表 */}
-        <Route path="/" element={
-          <RequireAuth><RequireOnboarding><MyProjectsPage /></RequireOnboarding></RequireAuth>
-        } />
-
-        {/* 项目浏览 */}
-        <Route path="/projects" element={
-          <RequireAuth><ProjectsPage /></RequireAuth>
-        } />
-
-        {/* 项目启动配置（projectId = 项目类型 ID，如 tricep_tone） */}
-        <Route path="/projects/:projectId/start" element={
-          <RequireAuth><ProjectStartPage /></RequireAuth>
-        } />
-
-        {/* V2 项目日历（instanceId = 数据库实例 ID，数字） */}
-        <Route path="/projects/:instanceId/calendar" element={
-          <RequireAuth><CalendarPage /></RequireAuth>
-        } />
-
-        {/* V2 训练页（带 instanceId） */}
-        <Route path="/workout/:instanceId/:date/:dayIndex" element={
-          <RequireAuth><DayWorkoutPage /></RequireAuth>
-        } />
-
-        {/* 旧版全局日历（向后兼容游客 / 旧链接） */}
-        <Route path="/calendar" element={
-          <RequireAuth><CalendarPage /></RequireAuth>
-        } />
-
-        {/* 旧版训练页（无 instanceId，向后兼容） */}
-        <Route path="/workout/:date/:dayIndex" element={
-          <RequireAuth><DayWorkoutPage /></RequireAuth>
-        } />
-
-        {/* 旧版引导链接 */}
-        <Route path="/intake" element={<Navigate to="/onboarding" replace />} />
-
-        {/* 动作详情 */}
-        <Route path="/exercise/:exerciseId" element={
-          <RequireAuth><ExerciseDetailPage /></RequireAuth>
-        } />
-
-        {/* 个人页 */}
-        <Route path="/profile" element={
-          <RequireAuth><ProfilePage /></RequireAuth>
-        } />
-
-        {/* 兜底 */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </HashRouter>
+        {/* Copilot 全局组件 */}
+        <CopilotSidebar />
+        <CopilotFloatingButton />
+      </HashRouter>
+    </CopilotProvider>
   );
 }
 
