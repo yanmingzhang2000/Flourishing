@@ -83,6 +83,70 @@ export function initDB() {
     );
   `);
 
+  // ── Copilot 系统表 ─────────────────────────────────────────────────────
+  db.exec(`
+    -- Copilot 会话记录表
+    CREATE TABLE IF NOT EXISTS copilot_sessions (
+      id TEXT PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      intent TEXT NOT NULL,
+      trigger_event TEXT,
+      context_snapshot TEXT,
+      started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      status TEXT DEFAULT 'active'
+    );
+
+    -- Copilot 消息记录表
+    CREATE TABLE IF NOT EXISTS copilot_messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      session_id TEXT REFERENCES copilot_sessions(id) ON DELETE CASCADE,
+      role TEXT NOT NULL,
+      content TEXT NOT NULL,
+      message_type TEXT,
+      metadata TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    -- Copilot 动作执行记录表
+    CREATE TABLE IF NOT EXISTS copilot_actions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      session_id TEXT REFERENCES copilot_sessions(id) ON DELETE CASCADE,
+      message_id INTEGER REFERENCES copilot_messages(id) ON DELETE CASCADE,
+      action_id TEXT NOT NULL,
+      action_params TEXT,
+      result TEXT,
+      executed_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    -- Copilot 模板表
+    CREATE TABLE IF NOT EXISTS copilot_templates (
+      id TEXT PRIMARY KEY,
+      intent TEXT NOT NULL,
+      condition_expr TEXT,
+      priority INTEGER DEFAULT 0,
+      message_template TEXT NOT NULL,
+      tone TEXT,
+      actions TEXT,
+      enabled INTEGER DEFAULT 1,
+      version INTEGER DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    -- Copilot 知识库表（预留）
+    CREATE TABLE IF NOT EXISTS copilot_knowledge (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      category TEXT NOT NULL,
+      question_pattern TEXT,
+      answer TEXT NOT NULL,
+      sources TEXT,
+      confidence_score REAL,
+      embedding BLOB,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
   // ── 幂等列迁移：为已存在的数据库补加新列 ─────────────────────────────────
   // SQLite 不支持 ADD COLUMN IF NOT EXISTS，用 try/catch 代替。
   const migrations: string[] = [
@@ -100,6 +164,7 @@ export function initDB() {
     `ALTER TABLE user_profiles ADD COLUMN max_days_per_week INTEGER DEFAULT 3`,
     `ALTER TABLE user_profiles ADD COLUMN session_max_min INTEGER DEFAULT 30`,
     `ALTER TABLE user_profiles ADD COLUMN disabled_exercises TEXT DEFAULT '[]'`,
+    `ALTER TABLE user_profiles ADD COLUMN copilot_settings TEXT DEFAULT '{}'`,
   ];
   for (const sql of migrations) {
     try {
@@ -110,6 +175,12 @@ export function initDB() {
   }
 
   console.log('Database initialized');
+}
+
+// 初始化 Copilot 模板（延迟导入避免循环依赖）
+export async function initCopilotData() {
+  const { initCopilotTemplates } = await import('../copilot/initTemplates');
+  initCopilotTemplates();
 }
 
 export default db;

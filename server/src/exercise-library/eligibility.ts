@@ -122,40 +122,61 @@ type ExerciseLibraryLike = { readonly exercises: readonly CanonicalExercise[] };
 /**
  * Select only the preferred record or its explicitly referenced alternatives.
  * Alternatives are never searched globally and are evaluated in stored order.
+ * 
+ * @param preferredDifficulty - 优先难度等级（1=降低，2=标准，3=提高）
  */
 export function selectQualifiedExercise(
   preferred: CanonicalExercise,
   projectId: ProjectId,
   profile: NormalizedProfile,
   library: ExerciseLibraryLike,
+  preferredDifficulty?: 1 | 2 | 3,
 ): SelectedExercise | null {
-  const initial = assessEligibility(preferred, projectId, profile);
-  if (initial.eligible) return { exercise: preferred, assessment: initial };
+  // 构建候选列表：首选 + 备选
+  const candidates = [
+    preferred,
+    ...preferred.alternative_exercise_ids
+      .map(id => library.exercises.find(ex => ex.exercise_id === id))
+      .filter((ex): ex is CanonicalExercise => ex !== undefined)
+  ];
 
-  for (let index = 0; index < preferred.alternative_exercise_ids.length; index += 1) {
-    const alternativeId = preferred.alternative_exercise_ids[index];
-    const alternative = library.exercises.find(item => item.exercise_id === alternativeId);
-    if (!alternative) continue;
+  // 根据 preferredDifficulty 排序候选列表
+  if (preferredDifficulty === 1) {
+    // 降低难度：优先低难度动作
+    candidates.sort((a, b) => a.difficulty - b.difficulty);
+  } else if (preferredDifficulty === 3) {
+    // 提高难度：优先高难度动作
+    candidates.sort((a, b) => b.difficulty - a.difficulty);
+  }
+  // preferredDifficulty === 2 或 undefined：保持原顺序
 
-    const assessment = assessEligibility(alternative, projectId, profile);
-    if (!assessment.eligible) continue;
-
-    assessment.alternative_selection = {
-      replaced_exercise_id: preferred.exercise_id,
-      selected_exercise_id: alternative.exercise_id,
-      alternative_index: index,
-      reason: 'first_eligible_referenced_alternative',
-    };
-    const alternativeCategory = assessment.categories.find(category => category.category === 'alternative');
-    if (alternativeCategory) {
-      alternativeCategory.outcome = 'passed';
-      alternativeCategory.reasons = [reason('first_eligible_referenced_alternative', index)];
+  // 选择第一个符合资格的
+  for (let i = 0; i < candidates.length; i++) {
+    const candidate = candidates[i];
+    const assessment = assessEligibility(candidate, projectId, profile);
+    
+    if (assessment.eligible) {
+      // 如果不是首选动作，标记为备选
+      if (candidate.exercise_id !== preferred.exercise_id) {
+        const originalIndex = preferred.alternative_exercise_ids.indexOf(candidate.exercise_id);
+        assessment.alternative_selection = {
+          replaced_exercise_id: preferred.exercise_id,
+          selected_exercise_id: candidate.exercise_id,
+          alternative_index: originalIndex,
+          reason: 'first_eligible_referenced_alternative',
+        };
+        const alternativeCategory = assessment.categories.find(category => category.category === 'alternative');
+        if (alternativeCategory) {
+          alternativeCategory.outcome = 'passed';
+          alternativeCategory.reasons = [reason('first_eligible_referenced_alternative', originalIndex)];
+        }
+      }
+      return { exercise: candidate, assessment };
     }
-    return { exercise: alternative, assessment };
   }
 
-  // The initial record was ineligible and every configured replacement was
-  // absent or ineligible, so alternative itself is a failed category.
+  // 所有候选都不符合资格
+  const initial = assessEligibility(preferred, projectId, profile);
   const alternativeCategory = initial.categories.find(category => category.category === 'alternative');
   if (alternativeCategory) {
     alternativeCategory.outcome = 'failed';

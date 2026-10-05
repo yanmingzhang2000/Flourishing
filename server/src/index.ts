@@ -2,7 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
-import { initDB } from './config/database';
+import { initDB, initCopilotData } from './config/database';
 import authRouter from './routes/auth';
 import userRouter from './routes/user';
 import projectsRouter from './routes/projects';
@@ -10,6 +10,7 @@ import plansRouter from './routes/plans';
 import recordsRouter from './routes/records';
 import projectInstancesRouter from './routes/projectInstances';
 import exercisesRouter from './routes/exercises';
+import copilotRouter from './copilot/router';
 
 const app = express();
 const PORT = process.env.PORT || 80;
@@ -37,6 +38,11 @@ app.use(express.json());
 // 初始化数据库
 initDB();
 
+// 初始化 Copilot 数据（模板等）
+initCopilotData().catch(err => {
+  console.error('Failed to initialize Copilot data:', err);
+});
+
 // API 路由
 app.use('/api/auth', authRouter);
 app.use('/api/user', userRouter);
@@ -45,6 +51,7 @@ app.use('/api/plans', plansRouter);
 app.use('/api/records', recordsRouter);
 app.use('/api/project-instances', projectInstancesRouter);
 app.use('/api/exercises', exercisesRouter);
+app.use('/api/copilot', copilotRouter);
 
 // 健康检查
 app.get('/api/health', (_req, res) => res.json({ status: 'ok', version: 'v2' }));

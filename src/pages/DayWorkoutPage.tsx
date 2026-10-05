@@ -4,6 +4,8 @@ import { storage } from '@/lib/storage';
 import { plansApi, recordsApi, isLoggedIn } from '@/lib/api';
 import { WeeklyPlan, WorkoutExercise } from '@/lib/types';
 import projectsData from '@/data/projects.json';
+import { useCopilot } from '@/hooks/useCopilot';
+import { CopilotModal } from '@/components/copilot/CopilotModal';
 
 const PROJECT_NAME_MAP: Record<string, string> = Object.fromEntries(
   (projectsData as any[]).map(p => [p.id, p.name])
@@ -31,6 +33,8 @@ export const DayWorkoutPage: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState<'warmup' | 'workout' | 'cooldown'>('workout');
 
+  // Copilot hook
+  const { currentResponse, isProcessing, trigger, executeAction, dismiss } = useCopilot();
   // 返回时的目标路由
   const backPath = instanceId ? `/projects/${instanceId}/calendar` : '/calendar';
 
@@ -89,6 +93,21 @@ export const DayWorkoutPage: React.FC = () => {
           jointPainExerciseId: jointPainExerciseId || undefined,
           completedExercises: Array.from(completedExercises),
         });
+
+        // 触发 Copilot 事件
+        const hasResponse = await trigger({
+          type: 'training_feedback_submitted',
+          data: {
+            feedback,
+            date: date!,
+            completedExercises: Array.from(completedExercises),
+          },
+        });
+
+        // 如果没有 Copilot 响应，直接跳转
+        if (!hasResponse) {
+          navigate(backPath);
+        }
       } catch {
         storage.addTrainingRecord({
           date: date!,
@@ -99,6 +118,7 @@ export const DayWorkoutPage: React.FC = () => {
           hasJointPain,
           completedExercises: Array.from(completedExercises),
         });
+        navigate(backPath);
       }
     } else {
       storage.addTrainingRecord({
@@ -110,9 +130,10 @@ export const DayWorkoutPage: React.FC = () => {
         hasJointPain,
         completedExercises: Array.from(completedExercises),
       });
+      navigate(backPath);
     }
 
-    navigate(backPath);
+    setSubmitting(false);
   };
 
   const totalExercises = day.exercises.length;
@@ -372,6 +393,19 @@ export const DayWorkoutPage: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Copilot 响应模态框 */}
+      {currentResponse && (
+        <CopilotModal
+          response={currentResponse}
+          isProcessing={isProcessing}
+          onAction={executeAction}
+          onDismiss={() => {
+            dismiss();
+            navigate(backPath);
+          }}
+        />
       )}
     </div>
   );

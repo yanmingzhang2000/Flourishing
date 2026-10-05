@@ -130,6 +130,7 @@ function pickExercise(
   profile: NormalizedProfile,
   library: ExerciseLibraryLike,
   excludeExerciseIds: ReadonlySet<string> = new Set(),
+  difficultyLevel?: 1 | 2 | 3,
 ): CanonicalExercise | null {
   const candidates = library.exercises.filter(
     ex => ex.target_projects.includes(projectId) && ex.category === category,
@@ -141,7 +142,7 @@ function pickExercise(
     // Skip if already selected (deduplication)
     if (excludeExerciseIds.has(candidate.exercise_id)) continue;
     
-    const result = selectQualifiedExercise(candidate, projectId, profile, library);
+    const result = selectQualifiedExercise(candidate, projectId, profile, library, difficultyLevel);
     if (result) {
       eligible.push({
         exercise: result.exercise,
@@ -239,7 +240,7 @@ export function assembleTrainingDay(
     
     // Select multiple strength exercises for this project
     for (let i = 0; i < targetExerciseCount; i++) {
-      const ex = pickExercise(projectId, 'strength', profile, library, excludedExerciseIds);
+      const ex = pickExercise(projectId, 'strength', profile, library, excludedExerciseIds, difficultyLevel);
       if (!ex) break; // No more eligible exercises available
       
       projectHasExercises = true;
