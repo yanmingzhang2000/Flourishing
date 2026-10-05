@@ -63,6 +63,20 @@ export class CopilotClient {
   async getSessionHistory(sessionId: string): Promise<any> {
     return request(`/api/copilot/sessions/${sessionId}`);
   }
+
+  /**
+   * 发送聊天消息（调用 LLM）
+   */
+  async chat(message: string, history: Array<{ role: string; content: string }> = []): Promise<{ content: string }> {
+    return request<{ content: string }>('/api/copilot/chat', {
+      method: 'POST',
+      body: JSON.stringify({ 
+        message, 
+        history,
+        stream: false, // 暂时不支持流式
+      }),
+    });
+  }
 }
 
 // 导出单例

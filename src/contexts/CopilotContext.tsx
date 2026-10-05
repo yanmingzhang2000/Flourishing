@@ -278,7 +278,7 @@ export const CopilotProvider: React.FC<{ children: ReactNode }> = ({ children })
   }, [addMessage]);
 
   const sendMessage = useCallback(async (content: string) => {
-    // 预留：用于未来的文本输入功能
+    // 添加用户消息
     addMessage({
       id: Date.now(),
       role: 'user',
@@ -286,8 +286,51 @@ export const CopilotProvider: React.FC<{ children: ReactNode }> = ({ children })
       read: true,
     });
 
-    // TODO: 调用 LLM API
-  }, [addMessage]);
+    // 如果未登录，显示提示
+    if (!isLoggedIn()) {
+      setTimeout(() => {
+        addMessage({
+          id: Date.now(),
+          role: 'assistant',
+          content: '抱歉，问答功能需要登录后使用。请先登录以获得完整的 AI 对话体验！',
+          read: false,
+        });
+      }, 300);
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      // 准备对话历史（最近5条）
+      const recentMessages = messages
+        .slice(-5)
+        .filter(m => m.role === 'user' || m.role === 'assistant')
+        .map(m => ({ role: m.role, content: m.content }));
+
+      // 调用 LLM API
+      const response = await copilotClient.chat(content, recentMessages);
+
+      // 添加 AI 响应
+      addMessage({
+        id: Date.now(),
+        role: 'assistant',
+        content: response.content,
+        read: false,
+      });
+    } catch (error) {
+      console.error('Send message error:', error);
+      // 添加错误提示
+      addMessage({
+        id: Date.now(),
+        role: 'assistant',
+        content: '抱歉，我现在无法回答你的问题，请稍后再试。',
+        read: false,
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [addMessage, messages]);
 
   const markAllAsRead = useCallback(() => {
     setMessages(prev => 

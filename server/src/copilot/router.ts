@@ -5,6 +5,7 @@
 import { Router, Response } from 'express';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
 import { copilotEngine } from './engine';
+import { llmService } from '../llm/service';
 
 const router = Router();
 
@@ -85,6 +86,65 @@ router.get('/sessions/:sessionId', async (req: AuthRequest, res: Response) => {
   } catch (error) {
     console.error('Copilot session error:', error);
     return res.status(404).json({ error: '会话不存在' });
+  }
+});
+
+/**
+ * POST /api/copilot/chat
+ * 
+ * LLM 对话接口（支持流式响应）
+ */
+router.post('/chat', async (req: AuthRequest, res: Response) => {
+  try {
+    const { message, history = [], stream = false } = req.body;
+
+    if (!message || typeof message !== 'string') {
+      return res.status(400).json({ error: '消息内容不能为空' });
+    }
+
+    // 限制历史消息数量（最多10条）
+    const recentHistory = history.slice(-10);
+
+    // 构建对话消息
+    const messages = [
+      ...recentHistory.map((msg: any) => ({
+        role: msg.role,
+        content: msg.content,
+      })),
+      { role: 'user', content: message },
+    ];
+
+    // 流式响应
+    if (stream) {
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+
+      try {
+        const streamResponse = await llmService.chatStream({ messages });
+        
+        for await (const chunk of streamResponse) {
+          res.write(`data: ${JSON.stringify({ content: chunk })}\n\n`);
+        }
+        
+        res.write('data: [DONE]\n\n');
+        res.end();
+      } catch (error) {
+        console.error('Stream error:', error);
+        res.write(`data: ${JSON.stringify({ error: 'Stream failed' })}\n\n`);
+        res.end();
+      }
+    } else {
+      // 非流式响应
+      const response = await llmService.chat({ messages });
+      return res.json({
+        content: response.content,
+        usage: response.usage,
+      });
+    }
+  } catch (error) {
+    console.error('Chat error:', error);
+    return res.status(500).json({ error: 'AI 对话失败，请稍后重试' });
   }
 });
 
