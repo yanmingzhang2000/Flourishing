@@ -114,9 +114,9 @@ export const DayWorkoutPage: React.FC = () => {
       openCopilot();
     }, 5000);
     
-    // 6. 立即返回日历页
+    // 6. 立即返回首页（而非日历页）
     setTimeout(() => {
-      navigate(backPath);
+      navigate('/');
     }, 500); // 短暂延迟确保动画效果
   };
 

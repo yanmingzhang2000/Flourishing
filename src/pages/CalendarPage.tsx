@@ -370,7 +370,7 @@ export const CalendarPage: React.FC = () => {
           </div>
 
           {/* Stats 卡片行 */}
-          <div className="grid grid-cols-3 gap-3 mt-5">
+          <div className="grid grid-cols-2 gap-3 mt-5">
             <div className="rounded-2xl p-4 bg-white/90 text-center">
               <div className="text-2xl font-bold text-brand">{stats.totalWorkouts}</div>
               <div className="text-xs text-gray-500 mt-0.5">累计完成</div>
@@ -378,10 +378,6 @@ export const CalendarPage: React.FC = () => {
             <div className="rounded-2xl p-4 bg-white/90 text-center">
               <div className="text-2xl font-bold text-brand">{stats.currentStreak}</div>
               <div className="text-xs text-gray-500 mt-0.5">连续天数</div>
-            </div>
-            <div className="rounded-2xl p-4 bg-white/90 text-center">
-              <div className="text-2xl font-bold text-text">{profile.bmi ? Number(profile.bmi).toFixed(1) : '--'}</div>
-              <div className="text-xs text-gray-500 mt-0.5">BMI</div>
             </div>
           </div>
         </div>

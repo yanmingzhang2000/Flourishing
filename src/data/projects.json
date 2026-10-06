@@ -2,7 +2,7 @@
   {
     "id": "tricep_tone",
     "name": "拜拜肉收紧",
-    "subtitle": "瘦大臂",
+    "subtitle": "紧致大臂",
     "target_area": "手臂",
     "description": "针对上臂后侧的拜拜肉，通过针对性训练收紧肱三头肌，让手臂线条更紧致修长",
     "difficulty": "beginner",
@@ -14,7 +14,7 @@
   {
     "id": "hip_thigh_tone",
     "name": "假胯宽改善",
-    "subtitle": "瘦腿提臀",
+    "subtitle": "提臀塑线",
     "target_area": "臀腿",
     "description": "改善假胯宽问题，激活臀中肌，拉伸髋部外侧，让腿部线条更流畅",
     "difficulty": "intermediate",
@@ -26,7 +26,7 @@
   {
     "id": "lower_abs_tone",
     "name": "下腹收紧",
-    "subtitle": "瘦小肚子",
+    "subtitle": "紧致小腹",
     "target_area": "腹部",
     "description": "针对下腹部赘肉，强化腹横肌和下腹部肌群，改善久坐导致的小腹凸出",
     "difficulty": "beginner",
@@ -38,7 +38,7 @@
   {
     "id": "trap_relax",
     "name": "斜方肌放松",
-    "subtitle": "瘦肩颈",
+    "subtitle": "优雅肩颈",
     "target_area": "肩颈",
     "description": "缓解上斜方肌紧张，改善肩颈酸痛，让肩部线条更优美，缓解办公久坐带来的不适",
     "difficulty": "beginner",
@@ -52,7 +52,7 @@
     "name": "圆肩改善",
     "subtitle": "挺拔体态",
     "target_area": "背部",
-    "description": "改善圆肩驼背，强化背部肌群，拉伸胸部，让体态更挺拔，视觉上显瘦显高",
+    "description": "改善圆肩驼背，强化背部肌群，拉伸胸部，让体态更挺拔，视觉上显高挺拔",
     "difficulty": "beginner",
     "duration_minutes": 15,
     "equipment_needed": ["resistance_band", "dumbbell_1kg_pair"],

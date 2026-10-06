@@ -66,6 +66,7 @@ export const CopilotProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [unreadCount, setUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  const [feedbackSubmittedToday, setFeedbackSubmittedToday] = useState<string | null>(null); // 记录今天是否已提交反馈
 
   // 从 localStorage 加载历史消息
   useEffect(() => {
@@ -75,6 +76,18 @@ export const CopilotProvider: React.FC<{ children: ReactNode }> = ({ children })
         if (history) {
           const parsed = JSON.parse(history);
           setMessages(parsed);
+        }
+        // 加载今日反馈状态
+        const todayFeedback = localStorage.getItem('copilot_feedback_today');
+        if (todayFeedback) {
+          const { date, submitted } = JSON.parse(todayFeedback);
+          const today = new Date().toISOString().split('T')[0];
+          if (date === today && submitted) {
+            setFeedbackSubmittedToday(today);
+          } else {
+            // 清除过期标记
+            localStorage.removeItem('copilot_feedback_today');
+          }
         }
       } catch (error) {
         console.error('Failed to load copilot history:', error);
@@ -110,20 +123,26 @@ export const CopilotProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   const triggerEvent = useCallback(async (event: CopilotEvent) => {
     const isTestEvent = event.data?.isTest === true;
+    const today = new Date().toISOString().split('T')[0];
+    
+    // 如果是训练完成事件且今天已提交过反馈，不显示反馈按钮
+    const shouldShowFeedback = event.type === 'training_completed' && feedbackSubmittedToday !== today;
     
     if (!isLoggedIn()) {
-      // 游客模式：添加本地消息（带动作按钮）
+      // 游客模式：添加本地消息
       addMessage({
         id: Date.now(),
         role: 'assistant',
-        content: '🎉 太棒了！你完成了今天的训练！\n\n今天的训练感觉怎么样？',
+        content: shouldShowFeedback 
+          ? '🎉 太棒了！你完成了今天的训练！\n\n今天的训练感觉怎么样？'
+          : '🎉 太棒了！你完成了今天的训练！继续保持💪',
         read: false,
         isTest: isTestEvent,
-        actions: [
+        actions: shouldShowFeedback ? [
           { id: 'feedback_too_easy', label: '😊 太轻松', handler: 'submit_feedback_too_easy', style: 'secondary' },
           { id: 'feedback_just_right', label: '💪 刚刚好', handler: 'submit_feedback_just_right', style: 'secondary' },
           { id: 'feedback_too_hard', label: '😫 太难了', handler: 'submit_feedback_too_hard', style: 'secondary' },
-        ],
+        ] : undefined,
       });
       setIsOpen(true);
       return;
@@ -149,24 +168,26 @@ export const CopilotProvider: React.FC<{ children: ReactNode }> = ({ children })
       }
     } catch (error) {
       console.error('Copilot trigger error:', error);
-      // 失败时显示本地消息（带动作按钮）
+      // 失败时显示本地消息
       addMessage({
         id: Date.now(),
         role: 'assistant',
-        content: '🎉 太棒了！你完成了今天的训练！\n\n今天的训练感觉怎么样？',
+        content: shouldShowFeedback 
+          ? '🎉 太棒了！你完成了今天的训练！\n\n今天的训练感觉怎么样？'
+          : '🎉 太棒了！你完成了今天的训练！继续保持💪',
         read: false,
         isTest: isTestEvent,
-        actions: [
+        actions: shouldShowFeedback ? [
           { id: 'feedback_too_easy', label: '😊 太轻松', handler: 'submit_feedback_too_easy', style: 'secondary' },
           { id: 'feedback_just_right', label: '💪 刚刚好', handler: 'submit_feedback_just_right', style: 'secondary' },
           { id: 'feedback_too_hard', label: '😫 太难了', handler: 'submit_feedback_too_hard', style: 'secondary' },
-        ],
+        ] : undefined,
       });
       setIsOpen(true);
     } finally {
       setIsLoading(false);
     }
-  }, [currentSessionId, addMessage]);
+  }, [currentSessionId, addMessage, feedbackSubmittedToday]);
 
   const submitFeedback = useCallback(async (
     feedback: 'too_easy' | 'just_right' | 'too_hard',
@@ -208,6 +229,13 @@ export const CopilotProvider: React.FC<{ children: ReactNode }> = ({ children })
           : m
       )
     );
+
+    // 如果是反馈动作，标记今天已提交
+    if (actionId.startsWith('submit_feedback_')) {
+      const today = new Date().toISOString().split('T')[0];
+      setFeedbackSubmittedToday(today);
+      localStorage.setItem('copilot_feedback_today', JSON.stringify({ date: today, submitted: true }));
+    }
 
     // 游客模式：本地处理反馈动作
     if (!isLoggedIn() || sessionId === 'guest') {
