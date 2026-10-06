@@ -89,10 +89,20 @@ export const MonthView: React.FC<Props> = ({ year, month, records, plans, instan
       for (let i = 0; i < 7; i++) {
         const d = new Date(plan.startDate);  // 每次循环都从原始 startDate 创建新的 Date 对象
         d.setDate(d.getDate() + i);  // 基于当前 Date 对象累加天数
+        
         if (formatLocalDate(d) === dateStr) {
-          const day = (Array.isArray(plan.days) ? plan.days : JSON.parse(plan.days))[i];
-          // 休息日返回 'rest'，训练日返回 'missed'（未完成的训练）
-          return day.type === 'rest' ? 'rest' : 'missed';
+          // 计算这一天是星期几（ISO格式：0=周一...6=周日）
+          const jsDay = d.getDay(); // 0=周日, 1=周一, ..., 6=周六
+          const isoDayIndex = jsDay === 0 ? 6 : jsDay - 1; // 转为ISO标准
+          
+          // 在 plan.days 中查找匹配的 dayIndex
+          const daysArray = Array.isArray(plan.days) ? plan.days : JSON.parse(plan.days);
+          const matchedDay = daysArray.find((day: any) => day.dayIndex === isoDayIndex);
+          
+          if (matchedDay) {
+            // 休息日返回 'rest'，训练日返回 'missed'（未完成的训练）
+            return matchedDay.type === 'rest' ? 'rest' : 'missed';
+          }
         }
       }
     }
@@ -173,14 +183,10 @@ export const MonthView: React.FC<Props> = ({ year, month, records, plans, instan
 
             // 找到该日期对应的 dayIndex（用于跳转）
             const getDayIndex = (): number => {
-              for (const plan of plans) {
-                for (let idx = 0; idx < 7; idx++) {
-                  const pd = new Date(plan.startDate);  // 每次循环从原始 startDate 创建
-                  pd.setDate(pd.getDate() + idx);  // 基于 pd 自己累加
-                  if (formatLocalDate(pd) === d.date) return idx;
-                }
-              }
-              return 0;
+              // 直接根据日期计算 dayIndex（ISO格式：0=周一...6=周日）
+              const date = new Date(d.date);
+              const jsDay = date.getDay(); // 0=周日, 1=周一...
+              return jsDay === 0 ? 6 : jsDay - 1; // 转为ISO标准
             };
 
             // 计算是否可点击：必须是本月日期、有状态、且不是休息日
