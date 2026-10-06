@@ -76,6 +76,28 @@ function parseTrainingDays(raw: unknown): WeekDayIndex[] | undefined {
   return undefined;
 }
 
+/**
+ * Validate and auto-correct startDate to ensure it's always a Monday (ISO 8601).
+ * This prevents calendar display bugs caused by misaligned week start dates.
+ */
+function ensureMonday(dateStr: string): string {
+  const date = new Date(dateStr);
+  const dayOfWeek = date.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+  
+  if (dayOfWeek === 1) {
+    // Already Monday, no correction needed
+    return dateStr;
+  }
+  
+  // Calculate days to subtract to get to Monday
+  const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+  date.setDate(date.getDate() - daysFromMonday);
+  
+  const corrected = formatLocalDate(date);
+  console.warn(`[plans] Auto-corrected startDate from ${dateStr} (day ${dayOfWeek}) to ${corrected} (Monday)`);
+  return corrected;
+}
+
 // ---------------------------------------------------------------------------
 // Core plan builder – replaces the old generateSchedule + buildDays pair
 // ---------------------------------------------------------------------------
@@ -225,7 +247,11 @@ router.post('/generate', (req: AuthRequest, res: Response) => {
   const startOfWeek = getStartOfWeek();
   const days = buildDays(startOfWeek, profile, loaded.library, selection, req.userId, loaded.requestedDays);
   if (!days.length) return res.json({ outcome: 'temporarily_unavailable', display_message: '暂不可生成', requested_project_ids: profile.selected_projects, failed_eligibility_categories_by_project: {}, unknown_input_values: [], experience: profile.experience });
-  const startDate = formatLocalDate(startOfWeek);
+  let startDate = formatLocalDate(startOfWeek);
+  
+  // Validate and auto-correct startDate to ensure it's always Monday
+  startDate = ensureMonday(startDate);
+  
   const weekNumber = Number(req.body.weekNumber) || 1;
   const existing = db.prepare('SELECT id FROM weekly_plans WHERE user_id = ? AND start_date = ?').get(req.userId, startDate) as { id: number } | undefined;
   let planId: number;
@@ -319,10 +345,13 @@ router.post('/month/:year/:month/generate', (req: AuthRequest, res: Response) =>
   const generatedPlans: Array<{ id: number; startDate: string; days: WorkoutDaySnapshot[] }> = [];
   const transaction = db.transaction(() => {
     for (const item of pending) {
-      const existing = db.prepare('SELECT id FROM weekly_plans WHERE user_id = ? AND start_date = ?').get(req.userId, item.startDate) as { id: number } | undefined;
+      // Validate and auto-correct startDate to ensure it's always Monday
+      const validatedStartDate = ensureMonday(item.startDate);
+      
+      const existing = db.prepare('SELECT id FROM weekly_plans WHERE user_id = ? AND start_date = ?').get(req.userId, validatedStartDate) as { id: number } | undefined;
       if (existing) continue;
-      const result = db.prepare('INSERT INTO weekly_plans (user_id, week_number, start_date, days) VALUES (?, ?, ?, ?)').run(req.userId, 1, item.startDate, JSON.stringify(item.days));
-      generatedPlans.push({ id: Number(result.lastInsertRowid), startDate: item.startDate, days: item.days });
+      const result = db.prepare('INSERT INTO weekly_plans (user_id, week_number, start_date, days) VALUES (?, ?, ?, ?)').run(req.userId, 1, validatedStartDate, JSON.stringify(item.days));
+      generatedPlans.push({ id: Number(result.lastInsertRowid), startDate: validatedStartDate, days: item.days });
     }
   });
   transaction();

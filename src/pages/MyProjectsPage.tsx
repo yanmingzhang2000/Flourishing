@@ -56,18 +56,20 @@ export const MyProjectsPage: React.FC = () => {
         try {
           const plan = await plansApi.getByDate(today);
           if (plan && plan.days) {
-            // 计算今天是本周第几天
-            const planStartDate = new Date(plan.startDate);
+            // 今天是星期几（0=周一...6=周日，ISO 8601标准）
             const todayDate = new Date(today);
-            const daysDiff = Math.floor((todayDate.getTime() - planStartDate.getTime()) / (1000 * 60 * 60 * 24));
-            const dayIndex = daysDiff % 7; // 一周7天
+            const todayJsDay = todayDate.getDay(); // JS: 0=周日, 1=周一, ..., 6=周六
+            const todayIsoDay = todayJsDay === 0 ? 6 : todayJsDay - 1; // ISO: 0=周一, ..., 6=周日
             
-            if (dayIndex >= 0 && dayIndex < plan.days.length && plan.days[dayIndex].exercises.length > 0) {
+            // 在计划中查找今天对应的训练（plan.days[i].dayIndex 是 ISO 格式）
+            const todayPlan = plan.days.find(d => d.dayIndex === todayIsoDay);
+            
+            if (todayPlan && todayPlan.type !== 'rest' && todayPlan.exercises.length > 0) {
               const project = PROJECT_MAP[activeInst.projectId];
               setTodayTraining({
                 instanceId: activeInst.id,
                 date: today,
-                dayIndex,
+                dayIndex: todayIsoDay,
                 projectName: project?.name || '训练',
                 projectIcon: project?.icon || '💪',
                 projectColor: project?.color || '#7DC47A',
