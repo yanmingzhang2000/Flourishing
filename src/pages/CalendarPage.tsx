@@ -449,8 +449,8 @@ export const CalendarPage: React.FC = () => {
           {view === 'week' && (
             currentPlan
               ? <>
-                  {/* 周导航栏 */}
-                  <div className="flex items-center justify-between mb-4 bg-white rounded-2xl p-4">
+                  {/* 周导航栏 - 去掉独立容器 */}
+                  <div className="flex items-center justify-between mb-4">
                     {(() => {
                       const { canGoPrev, canGoNext } = getWeekNavigationBounds();
                       return (
