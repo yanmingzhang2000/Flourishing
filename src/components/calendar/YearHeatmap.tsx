@@ -13,6 +13,8 @@ interface Props {
 interface MonthLabel {
   month: string;
   weekIndex: number;
+  year?: number;
+  isNewYear?: boolean;
 }
 
 export const YearHeatmap: React.FC<Props> = ({ records, plans, instance, onCellClick }) => {
@@ -55,19 +57,25 @@ export const YearHeatmap: React.FC<Props> = ({ records, plans, instance, onCellC
   const getMonthLabels = (): MonthLabel[] => {
     const labels: MonthLabel[] = [];
     let lastMonth = -1;
+    let lastYear = -1;
     
     weeks.forEach((weekDays, weekIndex) => {
       const firstDay = weekDays.find(d => d !== null);
       if (firstDay) {
         const date = new Date(firstDay);
         const month = date.getMonth();
+        const year = date.getFullYear();
+        
         if (month !== lastMonth) {
           const monthNames = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
           labels.push({
             month: monthNames[month],
-            weekIndex
+            weekIndex,
+            year,
+            isNewYear: year !== lastYear
           });
           lastMonth = month;
+          lastYear = year;
         }
       }
     });
@@ -109,23 +117,44 @@ export const YearHeatmap: React.FC<Props> = ({ records, plans, instance, onCellC
       {/* 热力图网格 */}
       <div className="overflow-x-auto pb-4 scrollbar-hide">
         <div className="inline-block min-w-full">
-          {/* 月份标签 */}
-          <div className="flex gap-[3px] mb-2 pl-6">
-            {monthLabels.map((label, index) => {
-              const prevWeekIndex = index > 0 ? monthLabels[index - 1].weekIndex : 0;
-              const weekSpan = label.weekIndex - prevWeekIndex;
-              const offset = weekSpan * 14 - (index === 0 ? 0 : 14);
-              
-              return (
+          {/* 月份标签 + 年份分隔线 */}
+          <div className="relative mb-2 pl-6" style={{ height: '24px' }}>
+            {monthLabels.map((label) => (
+              <React.Fragment key={label.weekIndex}>
+                {/* 年份分隔线 */}
+                {label.isNewYear && (
+                  <>
+                    <div 
+                      className="absolute bg-muted/30"
+                      style={{ 
+                        left: `${label.weekIndex * 14}px`,
+                        top: '0',
+                        width: '1px',
+                        height: '115px'
+                      }}
+                    />
+                    {/* 年份标签 */}
+                    <span 
+                      className="absolute text-sm font-bold text-text"
+                      style={{ 
+                        left: `${label.weekIndex * 14 - 16}px`,
+                        top: '-20px'
+                      }}
+                    >
+                      {label.year}
+                    </span>
+                  </>
+                )}
+                
+                {/* 月份标签 */}
                 <div 
-                  key={label.weekIndex} 
-                  style={{ marginLeft: index === 0 ? 0 : `${offset}px` }}
-                  className="text-xs text-muted"
+                  className="absolute text-xs text-muted"
+                  style={{ left: `${label.weekIndex * 14}px` }}
                 >
                   {label.month}
                 </div>
-              );
-            })}
+              </React.Fragment>
+            ))}
           </div>
           
           {/* 网格 */}
