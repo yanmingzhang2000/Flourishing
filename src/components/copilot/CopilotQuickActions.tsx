@@ -8,36 +8,9 @@ import { useCopilotContext } from '@/hooks/useCopilotContext';
 
 export const CopilotQuickActions: React.FC = () => {
   const navigate = useNavigate();
-  const { triggerEvent, clearAllMessages, clearTestMessages, messages } = useCopilotContext();
-
-  const hasTestMessages = messages.some(m => m.isTest);
+  const { clearAllMessages } = useCopilotContext();
 
   const actions = [
-    {
-      id: 'test_chat',
-      label: '测试对话',
-      icon: '🧪',
-      onClick: async () => {
-        // 触发测试事件，让用户看到 Copilot 响应
-        await triggerEvent({
-          type: 'training_completed',
-          data: {
-            date: new Date().toISOString().split('T')[0],
-            completedExercises: ['test_exercise_1', 'test_exercise_2'],
-            isTest: true, // 标记为测试
-          },
-        });
-      },
-    },
-    {
-      id: 'clear_test',
-      label: '清空测试消息',
-      icon: '🧹',
-      show: hasTestMessages,
-      onClick: () => {
-        clearTestMessages();
-      },
-    },
     {
       id: 'clear_history',
       label: '清空所有历史',
@@ -54,7 +27,7 @@ export const CopilotQuickActions: React.FC = () => {
     <div className="border-t border-gray-100 p-4 bg-gray-50">
       <div className="text-xs font-semibold text-gray-500 mb-3">💡 快捷操作</div>
       <div className="space-y-2">
-        {actions.filter(action => action.show !== false).map((action) => (
+        {actions.map((action) => (
           <button
             key={action.id}
             onClick={action.onClick}
