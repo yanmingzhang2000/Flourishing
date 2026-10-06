@@ -121,7 +121,7 @@ export const CopilotProvider: React.FC<{ children: ReactNode }> = ({ children })
         isTest: isTestEvent,
         actions: [
           { id: 'feedback_too_easy', label: '😊 太轻松', handler: 'submit_feedback_too_easy', style: 'secondary' },
-          { id: 'feedback_just_right', label: '💪 刚刚好', handler: 'submit_feedback_just_right', style: 'primary' },
+          { id: 'feedback_just_right', label: '💪 刚刚好', handler: 'submit_feedback_just_right', style: 'secondary' },
           { id: 'feedback_too_hard', label: '😫 太难了', handler: 'submit_feedback_too_hard', style: 'secondary' },
         ],
       });
@@ -158,7 +158,7 @@ export const CopilotProvider: React.FC<{ children: ReactNode }> = ({ children })
         isTest: isTestEvent,
         actions: [
           { id: 'feedback_too_easy', label: '😊 太轻松', handler: 'submit_feedback_too_easy', style: 'secondary' },
-          { id: 'feedback_just_right', label: '💪 刚刚好', handler: 'submit_feedback_just_right', style: 'primary' },
+          { id: 'feedback_just_right', label: '💪 刚刚好', handler: 'submit_feedback_just_right', style: 'secondary' },
           { id: 'feedback_too_hard', label: '😫 太难了', handler: 'submit_feedback_too_hard', style: 'secondary' },
         ],
       });
