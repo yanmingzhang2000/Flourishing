@@ -42,22 +42,32 @@ export const YearView: React.FC<Props> = ({ year, records, plans, instance }) =>
       for (let i = 0; i < 7; i++) {
         const d = new Date(plan.startDate);
         d.setDate(d.getDate() + i);
+        
         if (formatLocalDate(d) === dateStr) {
-          const day = (Array.isArray(plan.days) ? plan.days : JSON.parse(plan.days))[i];
-          // 休息日返回 'rest'，训练日返回 'missed'（未完成的训练）
-          return day.type === 'rest' ? 'rest' : 'missed';
+          // 计算这一天是星期几（ISO格式：0=周一...6=周日）
+          const jsDay = d.getDay(); // 0=周日, 1=周一, ..., 6=周六
+          const isoDayIndex = jsDay === 0 ? 6 : jsDay - 1; // 转为ISO标准
+          
+          // 在 plan.days 中查找匹配的 dayIndex
+          const daysArray = Array.isArray(plan.days) ? plan.days : JSON.parse(plan.days);
+          const matchedDay = daysArray.find((day: any) => day.dayIndex === isoDayIndex);
+          
+          if (matchedDay) {
+            // 休息日返回 'rest'，训练日返回 'missed'（未完成的训练）
+            return matchedDay.type === 'rest' ? 'rest' : 'missed';
+          }
         }
       }
     }
     return null;
   };
 
-  // 生成某月的日期格子（按周排列）
+  // 生成某月的日期格子（按周排列，周一开头）
   const getMonthDays = (month: number) => {
     const firstDay = new Date(year, month - 1, 1);
     const lastDay = new Date(year, month, 0);
     const daysInMonth = lastDay.getDate();
-    const days: string[] = [];
+    const days: (string | null)[] = [];
 
     // 将 Date 对象转换为本地日期字符串 (YYYY-MM-DD)，避免时区问题
     const formatDate = (date: Date): string => {
@@ -67,10 +77,21 @@ export const YearView: React.FC<Props> = ({ year, records, plans, instance }) =>
       return `${y}-${m}-${d}`;
     };
 
+    // 计算第一天是星期几（ISO格式：0=周一...6=周日）
+    const firstDayWeekday = firstDay.getDay(); // 0=周日, 1=周一...
+    const firstDayIsoWeekday = firstDayWeekday === 0 ? 6 : firstDayWeekday - 1;
+
+    // 前面填充 null（对齐到周一）
+    for (let i = 0; i < firstDayIsoWeekday; i++) {
+      days.push(null);
+    }
+
+    // 添加本月所有日期
     for (let i = 1; i <= daysInMonth; i++) {
       const d = new Date(year, month - 1, i);
       days.push(formatDate(d));
     }
+
     return days;
   };
 
@@ -86,7 +107,7 @@ export const YearView: React.FC<Props> = ({ year, records, plans, instance }) =>
         {MONTH_NAMES.map((name, index) => {
           const month = index + 1;
           const days = getMonthDays(month);
-          const completedDays = days.filter(d => getDayStatus(d) === 'done').length;
+          const completedDays = days.filter(d => d !== null && getDayStatus(d) === 'done').length;
 
           return (
             <div key={month} className="bg-subtle rounded-2xl p-3">
@@ -96,6 +117,11 @@ export const YearView: React.FC<Props> = ({ year, records, plans, instance }) =>
               </div>
               <div className="grid grid-cols-7 gap-0.5">
                 {days.map((dateStr, i) => {
+                  // 如果是 null（占位符），渲染透明格子
+                  if (dateStr === null) {
+                    return <div key={i} className="aspect-square" />;
+                  }
+                  
                   const status = getDayStatus(dateStr);
                   return (
                     <div
