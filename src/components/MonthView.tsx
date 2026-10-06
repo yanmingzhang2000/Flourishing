@@ -1,11 +1,14 @@
 import React from 'react';
-import { TrainingRecord } from '@/lib/types';
+import { TrainingRecord, WeeklyPlan } from '@/lib/types';
+import { getDayStatus, calculateMaxStreak, formatLocalDate, getMonday } from '@/lib/calendarUtils';
+import { HeatCell } from '@/components/calendar/HeatCell';
+import { CalendarLegend } from '@/components/calendar/CalendarLegend';
 
 interface Props {
   year: number;
   month: number;
   records: TrainingRecord[];
-  plans: any[]; // 该月所有周计划
+  plans: WeeklyPlan[]; // 该月所有周计划
   instance?: { startDate: string; targetWeeks: number }; // 项目实例信息
   onMonthChange: (year: number, month: number) => void;
   /** V2：由外部提供跳转逻辑 */
@@ -59,58 +62,32 @@ export const MonthView: React.FC<Props> = ({ year, month, records, plans, instan
     return days;
   };
 
-  // 将 Date 对象转换为本地日期字符串 (YYYY-MM-DD)，避免时区问题
-  const formatLocalDate = (date: Date): string => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
-
-  const getRecordStatus = (dateStr: string): 'done' | 'missed' | 'rest' | null => {
-    const record = records.find(r => r.date === dateStr);
-    if (record) return record.completed ? 'done' : 'missed';
-
-    // 检查是否在项目范围内
-    if (instance) {
-      const checkDate = new Date(dateStr);
-      const startDate = new Date(instance.startDate);
-      const endDate = new Date(instance.startDate);
-      endDate.setDate(endDate.getDate() + instance.targetWeeks * 7);
-      
-      // 早于项目开始 或 晚于项目结束 → 不显示计划
-      if (checkDate < startDate || checkDate >= endDate) {
-        return null;
-      }
-    }
-
-    // 检查是否在计划中
-    for (const plan of plans) {
-      for (let i = 0; i < 7; i++) {
-        const d = new Date(plan.startDate);  // 每次循环都从原始 startDate 创建新的 Date 对象
-        d.setDate(d.getDate() + i);  // 基于当前 Date 对象累加天数
-        
-        if (formatLocalDate(d) === dateStr) {
-          // 计算这一天是星期几（ISO格式：0=周一...6=周日）
-          const jsDay = d.getDay(); // 0=周日, 1=周一, ..., 6=周六
-          const isoDayIndex = jsDay === 0 ? 6 : jsDay - 1; // 转为ISO标准
-          
-          // 在 plan.days 中查找匹配的 dayIndex
-          const daysArray = Array.isArray(plan.days) ? plan.days : JSON.parse(plan.days);
-          const matchedDay = daysArray.find((day: any) => day.dayIndex === isoDayIndex);
-          
-          if (matchedDay) {
-            // 休息日返回 'rest'，训练日返回 'missed'（未完成的训练）
-            return matchedDay.type === 'rest' ? 'rest' : 'missed';
-          }
-        }
-      }
-    }
-    return null;
-  };
-
   const calendarDays = getCalendarDays();
   const today = formatLocalDate(new Date());
+
+  // 计算本月统计
+  const monthRecords = records.filter(r => {
+    const recordDate = new Date(r.date);
+    return recordDate.getFullYear() === year && recordDate.getMonth() === month - 1;
+  });
+  const completedCount = monthRecords.filter(r => r.completed).length;
+  
+  // 计算本月目标（本月内的训练日总数）
+  const monthDays = calendarDays.filter(d => d.inMonth);
+  let targetCount = 0;
+  monthDays.forEach(d => {
+    const status = getDayStatus(d.date, records, plans, instance);
+    if (status.type !== 'empty') {
+      // 有计划的日子（训练日或已完成）
+      const dateObj = new Date(d.date);
+      const today = new Date(formatLocalDate(new Date()));
+      if (dateObj <= today) {
+        targetCount++; // 只统计过去和今天
+      }
+    }
+  });
+  
+  const maxStreak = calculateMaxStreak(records);
 
   // 计算月份导航边界
   const getMonthNavigationBounds = () => {
@@ -134,10 +111,20 @@ export const MonthView: React.FC<Props> = ({ year, month, records, plans, instan
 
   const { canGoPrev, canGoNext } = getMonthNavigationBounds();
 
+  // 点击日期跳转到周视图
+  const handleDayClick = (date: string) => {
+    if (onDayClick) {
+      const dateObj = new Date(date);
+      const jsDay = dateObj.getDay();
+      const dayIndex = jsDay === 0 ? 6 : jsDay - 1;
+      onDayClick(date, dayIndex);
+    }
+  };
+
   return (
     <div className="space-y-4">
-      {/* 月份标题 */}
-      <div className="flex items-center justify-center gap-3">
+      {/* 月份标题 + 统计 */}
+      <div className="flex items-center justify-between">
         <button
           onClick={() => onMonthChange(month === 1 ? year - 1 : year, month === 1 ? 12 : month - 1)}
           disabled={!canGoPrev}
@@ -151,9 +138,15 @@ export const MonthView: React.FC<Props> = ({ year, month, records, plans, instan
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
           </svg>
         </button>
-        <h2 className="text-xl font-bold text-text min-w-[120px] text-center">
-          {year}年 {month}月
-        </h2>
+        
+        <div className="flex-1 text-center">
+          <h2 className="text-xl font-bold text-text">{year}年 {month}月</h2>
+          <div className="flex items-center justify-center gap-4 text-xs text-muted mt-1">
+            <span>完成 <strong className="text-brand">{completedCount}</strong>/{targetCount} 次</span>
+            <span>最长连续 <strong className="text-brand">{maxStreak}</strong> 天</span>
+          </div>
+        </div>
+        
         <button
           onClick={() => onMonthChange(month === 12 ? year + 1 : year, month === 12 ? 1 : month + 1)}
           disabled={!canGoNext}
@@ -178,68 +171,36 @@ export const MonthView: React.FC<Props> = ({ year, month, records, plans, instan
         </div>
         <div className="grid grid-cols-7 gap-1">
           {calendarDays.map((d, i) => {
-            const status = getRecordStatus(d.date);
-            const isToday = d.date === today;
-
-            // 找到该日期对应的 dayIndex（用于跳转）
-            const getDayIndex = (): number => {
-              // 直接根据日期计算 dayIndex（ISO格式：0=周一...6=周日）
-              const date = new Date(d.date);
-              const jsDay = date.getDay(); // 0=周日, 1=周一...
-              return jsDay === 0 ? 6 : jsDay - 1; // 转为ISO标准
-            };
-
-            // 计算是否可点击：必须是本月日期、有状态、且不是休息日
-            const isClickable = d.inMonth && status && status !== 'rest';
+            const status = getDayStatus(d.date, records, plans, instance);
+            const isClickable = d.inMonth && (status.type === 'completed' || status.type === 'today-completed' || status.type === 'todo' || status.type === 'today-todo');
 
             return (
               <div
                 key={i}
-                onClick={() => {
-                  if (isClickable && onDayClick) {
-                    onDayClick(d.date, getDayIndex());
-                  }
-                }}
-                className={`aspect-square rounded-lg flex items-center justify-center relative transition-all
-                  ${!d.inMonth ? 'opacity-30' : ''}
-                  ${isClickable ? 'cursor-pointer hover:opacity-80 active:scale-95' : 'cursor-default'}
-                  ${status === 'done' ? 'bg-brand' :
-                    status === 'missed' ? 'bg-accent-light' :
-                    status === 'rest' ? 'bg-subtle' :
-                    isToday ? 'ring-2 ring-brand bg-brand-light' :
-                    'bg-white'
-                  }`}
+                onClick={() => isClickable && handleDayClick(d.date)}
+                className={`relative ${!d.inMonth ? 'opacity-30' : ''}`}
               >
-                <span className={`text-xs font-semibold
-                  ${status === 'done' ? 'text-white' :
-                    isToday ? 'text-brand' :
-                    d.inMonth ? 'text-text' : 'text-muted'}`}>
-                  {d.day}
-                </span>
-                {status === 'done' && (
-                  <div className="absolute bottom-0.5 w-1 h-1 rounded-full bg-white" />
-                )}
+                <HeatCell
+                  status={status}
+                  size="medium"
+                  onClick={isClickable ? () => handleDayClick(d.date) : undefined}
+                >
+                  <span className={`text-xs font-semibold ${
+                    status.type === 'completed' || status.type === 'today-completed' ? 'text-white' :
+                    status.type.includes('today') ? 'text-todo' :
+                    d.inMonth ? 'text-text' : 'text-muted'
+                  }`}>
+                    {d.day}
+                  </span>
+                </HeatCell>
               </div>
             );
           })}
         </div>
       </div>
 
-      {/* 图例 */}
-      <div className="flex items-center justify-center gap-4 text-xs text-muted">
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded bg-brand" />
-          <span>已完成</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded bg-accent-light" />
-          <span>未完成</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded bg-subtle" />
-          <span>休息</span>
-        </div>
-      </div>
+      {/* 统一图例 */}
+      <CalendarLegend variant="month" />
     </div>
   );
 };

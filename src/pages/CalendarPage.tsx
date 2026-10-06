@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { storage } from '@/lib/storage';
 import { plansApi, recordsApi, userApi, projectInstancesApi, isLoggedIn } from '@/lib/api';
 import { WeeklyPlan, PlanSnapshot, TrainingRecord, StructuredUnavailableResult } from '@/lib/types';
@@ -7,6 +7,7 @@ import { BottomNav } from '@/components/BottomNav';
 import { WeekView } from '@/components/WeekView';
 import { MonthView } from '@/components/MonthView';
 import { YearView } from '@/components/YearView';
+import { getMonday } from '@/lib/calendarUtils';
 import projectsData from '@/data/projects.json';
 
 const PROJECT_MAP = Object.fromEntries((projectsData as any[]).map(p => [p.id, p]));
@@ -15,10 +16,14 @@ type ViewType = 'week' | 'month' | 'year';
 
 export const CalendarPage: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   // instanceId 存在时为 V2 项目日历；不存在时为旧版全局日历（向后兼容）
   const { instanceId } = useParams<{ instanceId?: string }>();
 
-  const [view, setView] = useState<ViewType>('week');
+  const [view, setView] = useState<ViewType>(() => {
+    const viewParam = searchParams.get('view') as ViewType | null;
+    return viewParam && ['week', 'month', 'year'].includes(viewParam) ? viewParam : 'week';
+  });
   const [currentPlan, setCurrentPlan] = useState<WeeklyPlan | null>(null);
   const [monthPlans, setMonthPlans] = useState<PlanSnapshot[]>([]);
   const [yearPlans, setYearPlans] = useState<PlanSnapshot[]>([]);
@@ -54,6 +59,31 @@ export const CalendarPage: React.FC = () => {
     };
     
     setViewWeekStartDate(formatLocalDate(startDate));
+  };
+
+  // 月/年视图点击日期跳转到周视图
+  const handleDayClickFromMonthOrYear = async (date: string, dayIndex: number) => {
+    const monday = getMonday(date);
+    
+    // 加载该周的计划
+    if (isLoggedIn()) {
+      try {
+        const plan = await plansApi.getByDate(monday);
+        if (plan) {
+          setCurrentPlan(plan);
+          setViewWeekStartDate(monday);
+          setView('week');
+          // 更新 URL 参数
+          setSearchParams({ view: 'week', date: monday, selected: date });
+        }
+      } catch (error) {
+        console.error('加载周计划失败:', error);
+      }
+    } else {
+      // 离线模式直接跳转
+      setView('week');
+      setViewWeekStartDate(monday);
+    }
   };
 
   // 计算周导航边界
@@ -482,11 +512,17 @@ export const CalendarPage: React.FC = () => {
               plans={monthPlans}
               instance={instance}
               onMonthChange={handleMonthChange}
-              onDayClick={(date, dayIndex) => navigate(workoutPath(date, dayIndex))}
+              onDayClick={handleDayClickFromMonthOrYear}
             />
           )}
           {view === 'year' && (
-            <YearView year={viewYear} records={records} plans={yearPlans} instance={instance} />
+            <YearView 
+              year={viewYear} 
+              records={records} 
+              plans={yearPlans} 
+              instance={instance}
+              onDayClick={handleDayClickFromMonthOrYear}
+            />
           )}
         </div>
       </div>

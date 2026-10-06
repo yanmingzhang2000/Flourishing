@@ -1,6 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { WeeklyPlan, TrainingRecord } from '@/lib/types';
+import { getDayStatus, calculateStreak, formatLocalDate } from '@/lib/calendarUtils';
+import { HeatCell } from '@/components/calendar/HeatCell';
+import { SessionAccordion } from '@/components/calendar/SessionAccordion';
 import projectsData from '@/data/projects.json';
 
 const DAY_LABELS = ['一', '二', '三', '四', '五', '六', '日'];
@@ -20,14 +23,6 @@ interface Props {
 
 export const WeekView: React.FC<Props> = ({ plan, records, instance, onDayClick }) => {
   const navigate = useNavigate();
-
-  // 将 Date 对象转换为本地日期字符串 (YYYY-MM-DD)，避免时区问题
-  const formatLocalDate = (date: Date): string => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
 
   const goToDay = (date: string, dayIndex: number) => {
     if (onDayClick) {
@@ -61,13 +56,70 @@ export const WeekView: React.FC<Props> = ({ plan, records, instance, onDayClick 
     return checkDate >= startDate && checkDate < endDate;
   };
 
+  // Q4: 默认展开逻辑 - 今天有训练展开今天，否则展开本周最近的未来待练日
+  const getDefaultSelectedDay = (): number | null => {
+    const todayIndex = plan.days.findIndex((_, i) => isToday(i));
+    
+    if (todayIndex >= 0) {
+      const todayDay = plan.days[todayIndex];
+      if (todayDay.type === 'strength' && isDateInRange(todayIndex)) {
+        return todayIndex; // 今天有训练，展开今天
+      }
+    }
+    
+    // 今天是休息日，找本周最近的未来待练日
+    const today = new Date(formatLocalDate(new Date()));
+    const futureDays = plan.days
+      .map((day, i) => ({ day, index: i, date: new Date(getDate(i)) }))
+      .filter(({ day, index, date }) => 
+        day.type === 'strength' && 
+        isDateInRange(index) && 
+        date > today
+      )
+      .sort((a, b) => a.date.getTime() - b.date.getTime());
+    
+    if (futureDays.length > 0) {
+      return futureDays[0].index;
+    }
+    
+    // 兜底：展开今天或第一个训练日
+    if (todayIndex >= 0) return todayIndex;
+    const firstTrainingDay = plan.days.findIndex((day, i) => day.type === 'strength' && isDateInRange(i));
+    return firstTrainingDay >= 0 ? firstTrainingDay : null;
+  };
+
+  const [selectedDayIndex, setSelectedDayIndex] = useState<number | null>(getDefaultSelectedDay);
+
+  // 准备 session 数据
+  const sessions = plan.days
+    .map((day, index) => {
+      if (day.type === 'rest' || !isDateInRange(index)) return null;
+      const done = !!getRecord(index)?.completed;
+      return {
+        date: getDate(index),
+        dayIndex: index,
+        dayLabel: `周${DAY_LABELS[index]}`,
+        projectName: day.projectId ? PROJECT_NAME_MAP[day.projectId] : undefined,
+        exerciseCount: day.exercises?.length || 0,
+        status: done ? 'completed' as const : 'todo' as const,
+        isToday: isToday(index)
+      };
+    })
+    .filter((s): s is NonNullable<typeof s> => s !== null);
+
+  // 计算统计数据
+  const trainingDaysCount = plan.days.filter((d, i) => d.type === 'strength' && isDateInRange(i)).length;
+  const completedCount = sessions.filter(s => s.status === 'completed').length;
+  const remainingCount = trainingDaysCount - completedCount;
+  const streakDays = calculateStreak(records);
+
   const todayIndex = plan.days.findIndex((_, i) => isToday(i));
   const todayDay = todayIndex >= 0 ? plan.days[todayIndex] : null;
 
   return (
     <div className="space-y-5">
       {/* 今日快捷入口 */}
-      {todayDay && todayDay.type !== 'rest' && !getRecord(todayIndex)?.completed && (
+      {todayDay && todayDay.type !== 'rest' && !getRecord(todayIndex)?.completed && isDateInRange(todayIndex) && (
         <button
           onClick={() => goToDay(getDate(todayIndex), todayIndex)}
           className="w-full bg-brand rounded-2xl p-4 flex items-center justify-between text-white"
@@ -94,78 +146,72 @@ export const WeekView: React.FC<Props> = ({ plan, records, instance, onDayClick 
         </div>
         <div className="grid grid-cols-7 gap-1.5">
           {plan.days.map((day, index) => {
-            const done = !!getRecord(index)?.completed;
-            const today = isToday(index);
-            const isRest = day.type === 'rest';
+            const dateStr = getDate(index);
             const inRange = isDateInRange(index);
+            const status = getDayStatus(dateStr, records, [plan], instance);
+            const isRest = day.type === 'rest';
+            const isSelected = selectedDayIndex === index;
+            
             return (
               <button
                 key={index}
-                onClick={() => !isRest && inRange && goToDay(getDate(index), index)}
+                onClick={() => {
+                  if (!isRest && inRange) {
+                    setSelectedDayIndex(index);
+                  }
+                }}
                 disabled={isRest || !inRange}
-                className={`aspect-square rounded-xl flex flex-col items-center justify-center transition-all
-                  ${(isRest || !inRange) ? 'cursor-default' : 'cursor-pointer active:scale-95'}
-                  ${!inRange ? 'bg-white' :
-                    done ? 'bg-brand' :
-                    today ? 'bg-brand-light ring-2 ring-brand' :
-                    isRest ? 'bg-subtle' : 'bg-accent-light hover:bg-accent-light/80'}`}
+                className={`relative ${(isRest || !inRange) ? 'cursor-default' : 'cursor-pointer'}`}
               >
-                <span className={`text-xs font-bold
-                  ${!inRange ? 'text-muted/30' :
-                    done ? 'text-white' : today ? 'text-brand' : isRest ? 'text-muted' : 'text-text'}`}>
-                  {getDate(index).slice(8)}
-                </span>
-                <span className={`text-[10px] mt-0.5
-                  ${!inRange ? 'text-transparent' :
-                    done ? 'text-white/80' : isRest ? 'text-muted/50' : 'text-muted'}`}>
-                  {inRange ? (done ? '✓' : isRest ? '休' : '练') : ''}
-                </span>
+                <HeatCell
+                  status={status}
+                  size="large"
+                >
+                  <div className="flex flex-col items-center justify-center">
+                    <span className={`text-xs font-bold ${
+                      !inRange ? 'text-muted/30' :
+                      status.type === 'completed' || status.type === 'today-completed' ? 'text-white' : 
+                      status.type.includes('today') ? 'text-todo' : 
+                      isRest ? 'text-muted' : 'text-text'
+                    }`}>
+                      {dateStr.slice(8)}
+                    </span>
+                    <span className={`text-[10px] mt-0.5 ${
+                      !inRange ? 'text-transparent' :
+                      status.type === 'completed' || status.type === 'today-completed' ? 'text-white/80' : 
+                      isRest ? 'text-muted/50' : 'text-muted'
+                    }`}>
+                      {inRange ? (
+                        status.type === 'completed' || status.type === 'today-completed' ? '✓' : 
+                        isRest ? '休' : '练'
+                      ) : ''}
+                    </span>
+                  </div>
+                </HeatCell>
+                {isSelected && !isRest && inRange && (
+                  <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-brand" />
+                )}
               </button>
             );
           })}
         </div>
       </div>
 
-      {/* 训练列表 */}
+      {/* 手风琴 session 卡 */}
       <div>
-        <h3 className="text-sm font-semibold text-muted mb-3">本周训练</h3>
-        <div className="space-y-2">
-          {plan.days.map((day, index) => {
-            if (day.type === 'rest') return null;
-            if (!isDateInRange(index)) return null; // 超出范围不显示
-            const done = !!getRecord(index)?.completed;
-            const today = isToday(index);
-            const dateStr = getDate(index);
-            return (
-              <button
-                key={index}
-                onClick={() => goToDay(dateStr, index)}
-                className={`w-full flex items-center gap-4 p-4 rounded-2xl transition-all text-left
-                  ${done ? 'bg-brand-light' : today ? 'bg-brand-light ring-2 ring-brand' : 'bg-white hover:bg-accent-light/50'}`}
-              >
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0
-                  ${done || today ? 'bg-brand' : 'bg-white'}`}>
-                  {done
-                    ? <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                    : <svg className="w-5 h-5 text-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                  }
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className={`font-semibold text-sm ${done ? 'text-brand' : 'text-text'}`}>
-                    周{DAY_LABELS[index]} · {dateStr.slice(5)}
-                    {today && <span className="ml-2 text-xs bg-brand text-white px-1.5 py-0.5 rounded-full">今天</span>}
-                  </p>
-                  <p className="text-xs text-muted mt-0.5">
-                    {day.projectId ? `${PROJECT_NAME_MAP[day.projectId] ?? day.projectId} · ` : ''}{day.exercises.length} 个动作
-                  </p>
-                </div>
-                <svg className="w-4 h-4 text-muted flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                </svg>
-              </button>
-            );
-          })}
-        </div>
+        <h3 className="text-sm font-semibold text-muted mb-3">训练详情</h3>
+        <SessionAccordion
+          selectedDayIndex={selectedDayIndex}
+          sessions={sessions}
+          onStartWorkout={goToDay}
+        />
+      </div>
+
+      {/* 底部统计 */}
+      <div className="flex items-center justify-center gap-6 text-sm text-muted pt-2 border-t border-subtle">
+        <span>本周 <strong className="text-brand">{completedCount}</strong>/{trainingDaysCount} 次</span>
+        <span>还差 <strong className="text-text">{remainingCount}</strong> 次</span>
+        <span>连续 <strong className="text-brand">{streakDays}</strong> 天</span>
       </div>
     </div>
   );
