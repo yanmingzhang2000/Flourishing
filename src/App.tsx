@@ -1,4 +1,6 @@
+import { useEffect } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Toaster } from 'sonner';
 import { AuthPage } from '@/pages/AuthPage';
 import { DisclaimerPage } from '@/pages/DisclaimerPage';
 import { SettingsPage } from '@/pages/SettingsPage';
@@ -14,6 +16,8 @@ import { storage } from '@/lib/storage';
 import { CopilotProvider } from '@/contexts/CopilotContext';
 import { CopilotSidebar } from '@/components/copilot/CopilotSidebar';
 import { CopilotFloatingButton } from '@/components/copilot/CopilotFloatingButton';
+import { setupIndexedDB } from '@/lib/indexedDB';
+import { offlineQueue } from '@/lib/offlineQueue';
 
 // ── 路由守卫 ─────────────────────────────────────────────────────────────────
 
@@ -31,6 +35,20 @@ function RequireOnboarding({ children }: { children: React.ReactNode }) {
 }
 
 function App() {
+  // 初始化 IndexedDB 和离线队列
+  useEffect(() => {
+    setupIndexedDB().catch(err => {
+      console.error('Failed to setup IndexedDB:', err);
+    });
+
+    // 监听队列状态变化
+    const unsubscribe = offlineQueue.on(({ type, data }) => {
+      console.log('[App] Offline queue event:', type, data);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
   return (
     <CopilotProvider>
       <HashRouter>
@@ -106,6 +124,9 @@ function App() {
         {/* Copilot 全局组件 */}
         <CopilotSidebar />
         <CopilotFloatingButton />
+        
+        {/* Toast 通知 */}
+        <Toaster position="top-center" richColors />
       </HashRouter>
     </CopilotProvider>
   );

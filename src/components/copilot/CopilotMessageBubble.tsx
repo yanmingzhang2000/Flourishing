@@ -12,9 +12,10 @@ interface CopilotMessageBubbleProps {
 }
 
 export const CopilotMessageBubble: React.FC<CopilotMessageBubbleProps> = ({ message, sessionId }) => {
-  const { executeAction } = useCopilotContext();
+  const { executeAction, isLoading } = useCopilotContext();
   const isUser = message.role === 'user';
   const isAssistant = message.role === 'assistant';
+  const isStreaming = isAssistant && message.content === '' && isLoading;
 
   const formatTime = (timestamp: string) => {
     const date = new Date(timestamp);
@@ -40,7 +41,22 @@ export const CopilotMessageBubble: React.FC<CopilotMessageBubbleProps> = ({ mess
                 : 'bg-gray-100 text-gray-800'
             }`}
           >
-            <p className="text-sm whitespace-pre-line leading-relaxed">{message.content}</p>
+            {isStreaming ? (
+              // 正在流式加载，显示打字动画
+              <div className="flex items-center gap-1">
+                <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+              </div>
+            ) : (
+              <p className="text-sm whitespace-pre-line leading-relaxed">
+                {message.content}
+                {/* 流式响应时显示光标 */}
+                {isAssistant && isLoading && message.content && (
+                  <span className="inline-block w-0.5 h-4 bg-gray-600 ml-0.5 animate-pulse" />
+                )}
+              </p>
+            )}
           </div>
 
           {/* 动作按钮（仅 AI 消息） */}
@@ -73,9 +89,11 @@ export const CopilotMessageBubble: React.FC<CopilotMessageBubbleProps> = ({ mess
           )}
 
           {/* 时间戳 */}
-          <span className={`text-xs text-gray-400 mt-1 ${isUser ? 'text-right' : 'text-left'}`}>
-            {formatTime(message.timestamp)}
-          </span>
+          {!isStreaming && (
+            <span className={`text-xs text-gray-400 mt-1 ${isUser ? 'text-right' : 'text-left'}`}>
+              {formatTime(message.timestamp)}
+            </span>
+          )}
         </div>
       </div>
     </div>

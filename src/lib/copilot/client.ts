@@ -73,9 +73,81 @@ export class CopilotClient {
       body: JSON.stringify({ 
         message, 
         history,
-        stream: false, // 暂时不支持流式
+        stream: false,
       }),
     });
+  }
+
+  /**
+   * 发送聊天消息（流式响应）
+   */
+  async *chatStream(
+    message: string,
+    history: Array<{ role: string; content: string }> = []
+  ): AsyncGenerator<string, void, unknown> {
+    const token = getToken();
+    const response = await fetch(`${BASE_URL}/api/copilot/chat`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({
+        message,
+        history,
+        stream: true,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Stream request failed');
+    }
+
+    const reader = response.body?.getReader();
+    if (!reader) {
+      throw new Error('Response body is not readable');
+    }
+
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        
+        // 保留最后一个不完整的行
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6);
+            
+            if (data === '[DONE]') {
+              return;
+            }
+
+            try {
+              const parsed = JSON.parse(data);
+              if (parsed.content) {
+                yield parsed.content;
+              }
+              if (parsed.error) {
+                throw new Error(parsed.error);
+              }
+            } catch (e) {
+              console.error('Failed to parse SSE data:', e);
+            }
+          }
+        }
+      }
+    } finally {
+      reader.releaseLock();
+    }
   }
 }
 

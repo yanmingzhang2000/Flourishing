@@ -166,7 +166,7 @@ export const AuthPage: React.FC = () => {
             disabled={loading}
             className="w-full py-3 border-2 border-dashed border-gray-200 rounded-xl text-gray-500 text-sm hover:border-[#7DC47A] hover:text-[#7DC47A] transition-all"
           >
-            游客体验（数据保存在本设备）
+            游客体验（快速开始，稍后可注册）
           </button>
         </div>
       </div>

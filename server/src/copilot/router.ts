@@ -6,8 +6,10 @@ import { Router, Response } from 'express';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
 import { copilotEngine } from './engine';
 import { llmService } from '../llm/service';
+import { KnowledgeQueryHandler } from './handlers/knowledgeQueryHandler';
 
 const router = Router();
+const knowledgeHandler = new KnowledgeQueryHandler();
 
 // 所有 Copilot 接口都需要认证（游客也可以，但需要 token）
 router.use(authMiddleware);
@@ -105,14 +107,8 @@ router.post('/chat', async (req: AuthRequest, res: Response) => {
     // 限制历史消息数量（最多10条）
     const recentHistory = history.slice(-10);
 
-    // 构建对话消息
-    const messages = [
-      ...recentHistory.map((msg: any) => ({
-        role: msg.role,
-        content: msg.content,
-      })),
-      { role: 'user', content: message },
-    ];
+    // 检查是否为知识问答
+    const isKnowledgeQuery = knowledgeHandler.isKnowledgeQuery(message);
 
     // 流式响应
     if (stream) {
@@ -121,7 +117,22 @@ router.post('/chat', async (req: AuthRequest, res: Response) => {
       res.setHeader('Connection', 'keep-alive');
 
       try {
-        const streamResponse = await llmService.chatStream({ messages });
+        let streamResponse;
+        
+        if (isKnowledgeQuery) {
+          // 使用知识问答处理器（RAG）
+          streamResponse = await knowledgeHandler.handleStream(message, recentHistory);
+        } else {
+          // 普通对话
+          const messages = [
+            ...recentHistory.map((msg: any) => ({
+              role: msg.role,
+              content: msg.content,
+            })),
+            { role: 'user', content: message },
+          ];
+          streamResponse = await llmService.chatStream({ messages });
+        }
         
         for await (const chunk of streamResponse) {
           res.write(`data: ${JSON.stringify({ content: chunk })}\n\n`);
@@ -136,11 +147,25 @@ router.post('/chat', async (req: AuthRequest, res: Response) => {
       }
     } else {
       // 非流式响应
-      const response = await llmService.chat({ messages });
-      return res.json({
-        content: response.content,
-        usage: response.usage,
-      });
+      let content;
+      
+      if (isKnowledgeQuery) {
+        // 使用知识问答处理器（RAG）
+        content = await knowledgeHandler.handle(message, recentHistory);
+      } else {
+        // 普通对话
+        const messages = [
+          ...recentHistory.map((msg: any) => ({
+            role: msg.role,
+            content: msg.content,
+          })),
+          { role: 'user', content: message },
+        ];
+        const response = await llmService.chat({ messages });
+        content = response.content;
+      }
+      
+      return res.json({ content });
     }
   } catch (error) {
     console.error('Chat error:', error);

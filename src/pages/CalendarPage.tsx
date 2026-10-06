@@ -104,35 +104,54 @@ export const CalendarPage: React.FC = () => {
     return months;
   };
 
-  // 确保项目的所有月份都有计划
+  // 确保单个月份有计划（辅助函数）
+  const ensureMonthPlan = async (year: number, month: number, projectId: string) => {
+    try {
+      const plans = await plansApi.getMonth(year, month);
+      console.log(`[自动生成] ${year}-${month} 已有 ${plans.length} 周计划`);
+      
+      if (plans.length === 0) {
+        console.log(`[自动生成] 开始生成 ${year}-${month} 的计划...`);
+        const result = await plansApi.generateMonth(year, month, [projectId]);
+        console.log(`[自动生成] 生成 ${year}-${month} 完成:`, result);
+      }
+    } catch (error) {
+      console.error(`[自动生成] 生成 ${year}-${month} 计划失败:`, error);
+    }
+  };
+
+  // 渐进式加载：优先当前月，后台预加载下月
   const ensureCompleteProjectPlans = async (projectInstance: any) => {
     if (!projectInstance) return;
     
-    console.log('[自动生成] 开始检查项目计划完整性...', {
+    console.log('[渐进式加载] 开始检查项目计划...', {
       startDate: projectInstance.startDate,
       targetWeeks: projectInstance.targetWeeks,
     });
     
-    const months = getProjectMonths(projectInstance.startDate, projectInstance.targetWeeks);
-    console.log('[自动生成] 项目跨越月份:', months);
+    const now = new Date();
+    const currentMonth = { year: now.getFullYear(), month: now.getMonth() + 1 };
     
-    // 为每个月检查并生成计划
-    for (const { year, month } of months) {
-      try {
-        const plans = await plansApi.getMonth(year, month);
-        console.log(`[自动生成] ${year}-${month} 已有 ${plans.length} 周计划`);
+    // 🟢 首屏：立即生成当前月计划（阻塞）
+    console.log('[渐进式加载] 首屏加载当前月:', currentMonth);
+    await ensureMonthPlan(currentMonth.year, currentMonth.month, projectInstance.projectId);
+    
+    // 🟡 后台：2秒后异步预加载下个月和后续月份（不阻塞UI）
+    setTimeout(async () => {
+      console.log('[渐进式加载] 后台预加载开始...');
+      const months = getProjectMonths(projectInstance.startDate, projectInstance.targetWeeks);
+      
+      for (const { year, month } of months) {
+        // 跳过已加载的当前月
+        if (year === currentMonth.year && month === currentMonth.month) continue;
         
-        if (plans.length === 0) {
-          console.log(`[自动生成] 开始生成 ${year}-${month} 的计划...`);
-          const result = await plansApi.generateMonth(year, month, [projectInstance.projectId]);
-          console.log(`[自动生成] 生成 ${year}-${month} 完成:`, result);
-        }
-      } catch (error) {
-        console.error(`[自动生成] 生成 ${year}-${month} 计划失败:`, error);
+        await ensureMonthPlan(year, month, projectInstance.projectId);
       }
-    }
+      
+      console.log('[渐进式加载] 后台预加载完成');
+    }, 2000);
     
-    console.log('[自动生成] 检查完成');
+    console.log('[渐进式加载] 首屏加载完成');
   };
 
   useEffect(() => {

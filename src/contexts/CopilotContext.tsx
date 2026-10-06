@@ -308,16 +308,28 @@ export const CopilotProvider: React.FC<{ children: ReactNode }> = ({ children })
         .filter(m => m.role === 'user' || m.role === 'assistant')
         .map(m => ({ role: m.role, content: m.content }));
 
-      // 调用 LLM API
-      const response = await copilotClient.chat(content, recentMessages);
-
-      // 添加 AI 响应
+      // 创建一个占位消息用于流式更新
+      const assistantMessageId = Date.now();
       addMessage({
-        id: Date.now(),
+        id: assistantMessageId,
         role: 'assistant',
-        content: response.content,
+        content: '',
         read: false,
       });
+
+      // 使用流式 API
+      let fullContent = '';
+      for await (const chunk of copilotClient.chatStream(content, recentMessages)) {
+        fullContent += chunk;
+        // 更新消息内容
+        setMessages(prev => 
+          prev.map(m => 
+            m.id === assistantMessageId 
+              ? { ...m, content: fullContent }
+              : m
+          )
+        );
+      }
     } catch (error) {
       console.error('Send message error:', error);
       // 添加错误提示

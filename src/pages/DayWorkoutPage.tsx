@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Confetti from 'react-confetti';
+import { toast } from 'sonner';
 import { storage } from '@/lib/storage';
 import { plansApi, recordsApi, isLoggedIn } from '@/lib/api';
 import { WeeklyPlan, WorkoutExercise } from '@/lib/types';
 import projectsData from '@/data/projects.json';
 import { useCopilotContext } from '@/hooks/useCopilotContext';
-import { CopilotFeedbackButtons } from '@/components/copilot/CopilotFeedbackButtons';
 
 const PROJECT_NAME_MAP: Record<string, string> = Object.fromEntries(
   (projectsData as any[]).map(p => [p.id, p.name])
@@ -26,8 +26,6 @@ export const DayWorkoutPage: React.FC = () => {
 
   const [plan, setPlan] = useState<WeeklyPlan | null>(null);
   const [completedExercises, setCompletedExercises] = useState<Set<string>>(new Set());
-  const [showFeedback, setShowFeedback] = useState(false);
-  const [feedback, setFeedback] = useState<'too_easy' | 'just_right' | 'too_hard' | null>(null);
   const [hasJointPain, setHasJointPain] = useState(false);
   const [jointPainExerciseId, setJointPainExerciseId] = useState<string | null>(null);
   const [showJointPainModal, setShowJointPainModal] = useState(false);
@@ -37,7 +35,7 @@ export const DayWorkoutPage: React.FC = () => {
   const [trainingCompleted, setTrainingCompleted] = useState(false);
 
   // Copilot context
-  const { triggerEvent, submitFeedback: submitCopilotFeedback, open: openCopilot } = useCopilotContext();
+  const { triggerEvent, open: openCopilot } = useCopilotContext();
   
   // 返回时的目标路由
   const backPath = instanceId ? `/projects/${instanceId}/calendar` : '/calendar';
@@ -59,28 +57,6 @@ export const DayWorkoutPage: React.FC = () => {
       setPlan(savedPlan);
     }
   }, [navigate, date, dayIndex, backPath]);
-
-  if (!plan || dayIndex === undefined) return null;
-
-  const day = plan.days[parseInt(dayIndex)];
-  if (!day) return null;
-
-  const toggleExercise = (exerciseId: string) => {
-    setCompletedExercises(prev => {
-      const next = new Set(prev);
-      next.has(exerciseId) ? next.delete(exerciseId) : next.add(exerciseId);
-      return next;
-    });
-  };
-
-  const allCompleted = day.exercises.every(ex => completedExercises.has(ex.exerciseId));
-
-  // 监听完成状态：所有动作完成时自动触发庆祝
-  useEffect(() => {
-    if (allCompleted && !trainingCompleted) {
-      handleTrainingComplete();
-    }
-  }, [allCompleted, trainingCompleted]);
 
   const handleTrainingComplete = async () => {
     setTrainingCompleted(true);
@@ -114,8 +90,8 @@ export const DayWorkoutPage: React.FC = () => {
       });
     }
     
-    // 3. 触发 Copilot 庆祝消息并自动打开侧边栏
-    await triggerEvent({
+    // 3. 触发 Copilot 事件（异步，不等待）
+    triggerEvent({
       type: 'training_completed',
       data: {
         date: date!,
@@ -123,34 +99,93 @@ export const DayWorkoutPage: React.FC = () => {
       },
     });
     
-    // 4. 打开侧边栏（在 triggerEvent 中已自动打开）
-    openCopilot();
+    // 4. 显示庆祝 Toast（5秒）
+    toast.success('🎉 训练完成！', {
+      description: 'AI 教练正在为你准备反馈...',
+      duration: 5000,
+      action: {
+        label: '查看反馈',
+        onClick: () => openCopilot(),
+      },
+    });
+    
+    // 5. 延迟5秒后自动打开 Copilot（用户可选择提前离开）
+    setTimeout(() => {
+      openCopilot();
+    }, 5000);
+    
+    // 6. 立即返回日历页
+    setTimeout(() => {
+      navigate(backPath);
+    }, 500); // 短暂延迟确保动画效果
+  };
+
+  // 监听完成状态：所有动作完成时自动触发庆祝
+  useEffect(() => {
+    if (plan && dayIndex !== undefined) {
+      const day = plan.days[parseInt(dayIndex)];
+      if (day) {
+        const allCompleted = day.exercises.every(ex => completedExercises.has(ex.exerciseId));
+        if (allCompleted && !trainingCompleted) {
+          handleTrainingComplete();
+        }
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [completedExercises, trainingCompleted, plan, dayIndex]);
+
+  if (!plan || dayIndex === undefined) return null;
+
+  const day = plan.days[parseInt(dayIndex)];
+  if (!day) return null;
+
+  const toggleExercise = (exerciseId: string) => {
+    setCompletedExercises(prev => {
+      const next = new Set(prev);
+      if (next.has(exerciseId)) {
+        next.delete(exerciseId);
+      } else {
+        next.add(exerciseId);
+      }
+      return next;
+    });
   };
 
   const handleSubmitFeedback = async () => {
-    if (!feedback || submitting) return;
-    
     // 如果勾选了关节不适但没有选择动作，打开模态框
     if (hasJointPain && !jointPainExerciseId) {
       setShowJointPainModal(true);
       return;
     }
     
+    if (submitting) return;
     setSubmitting(true);
 
-    // 提交反馈（通过 Copilot Context）
-    await submitCopilotFeedback(feedback, {
-      date: date!,
-      completedExercises: Array.from(completedExercises),
-    });
+    // 更新训练记录，添加关节不适信息
+    if (isLoggedIn() && jointPainExerciseId) {
+      try {
+        await recordsApi.submit({
+          date: date!,
+          dayIndex: parseInt(dayIndex!),
+          completed: true,
+          hasJointPain,
+          jointPainExerciseId,
+          completedExercises: Array.from(completedExercises),
+        });
+      } catch (error) {
+        console.error('Failed to update training record:', error);
+      }
+    }
 
     setSubmitting(false);
     
-    // 不再自动跳转，让用户在侧边栏中继续交互
+    // 关闭模态框
+    setShowJointPainModal(false);
   };
 
   const totalExercises = day.exercises.length;
   const completedCount = day.exercises.filter(ex => completedExercises.has(ex.exerciseId)).length;
+  const allCompleted = day.exercises.every(ex => completedExercises.has(ex.exerciseId));
 
   return (
     <div className="h-screen flex flex-col bg-[#DCF0FB]">
@@ -346,7 +381,7 @@ export const DayWorkoutPage: React.FC = () => {
           <div className="bg-white rounded-2xl max-w-md w-full p-6 max-h-[80vh] overflow-y-auto">
             <h3 className="text-lg font-bold text-gray-900 mb-2">请选择导致不适的动作</h3>
             <p className="text-sm text-gray-600 mb-4">
-              帮助我们记录这个动作，未来的训练计划将自动避开它。
+              帮助我们记录这个动作，未来的训练计划将自动避开它。您也可以稍后在"个人档案"中管理禁用动作列表。
             </p>
             
             <div className="space-y-2 mb-6">
@@ -391,7 +426,7 @@ export const DayWorkoutPage: React.FC = () => {
                 }}
                 className="flex-1 py-2.5 bg-gray-500 text-white rounded-lg font-medium hover:bg-gray-600"
               >
-                跳过选择
+                稍后标记
               </button>
             </div>
           </div>

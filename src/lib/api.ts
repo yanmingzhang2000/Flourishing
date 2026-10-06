@@ -7,6 +7,8 @@ import {
   ProjectExercisesResponse,
   StructuredUnavailableResult,
 } from './types';
+import { offlineQueue, isOnline } from './offlineQueue';
+import { cache } from './indexedDB';
 
 // 生产环境下前端和后端同源，使用相对路径；开发环境指向本地后端
 const BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3001' : '');
@@ -15,23 +17,101 @@ function getToken(): string | null {
   return localStorage.getItem('token');
 }
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const token = getToken();
-  const res = await fetch(`${BASE_URL}${path}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...options.headers,
-    },
-  });
+interface RequestOptions extends RequestInit {
+  /** 是否使用缓存（仅 GET 请求） */
+  useCache?: boolean;
+  /** 缓存时间（秒），默认 3600 */
+  cacheTTL?: number;
+  /** 离线时是否加入重试队列（仅 POST/PUT/DELETE） */
+  queueIfOffline?: boolean;
+}
 
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: '请求失败' }));
-    throw new Error(err.error || '请求失败');
+async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const { useCache = false, cacheTTL = 3600, queueIfOffline = true, ...fetchOptions } = options;
+  const method = fetchOptions.method || 'GET';
+  const token = getToken();
+  
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+  
+  // 合并用户提供的 headers
+  if (fetchOptions.headers) {
+    Object.entries(fetchOptions.headers).forEach(([key, value]) => {
+      if (typeof value === 'string') {
+        headers[key] = value;
+      }
+    });
   }
 
-  return res.json();
+  const fullUrl = `${BASE_URL}${path}`;
+
+  // GET 请求且启用缓存
+  if (method === 'GET' && useCache) {
+    const cacheKey = `api:${path}`;
+    const cached = await cache.get<T>(cacheKey);
+    if (cached) {
+      console.log('[API] Cache hit:', path);
+      return cached;
+    }
+  }
+
+  // 检查网络状态
+  if (!isOnline() && method !== 'GET') {
+    // 写操作且离线，加入队列
+    if (queueIfOffline) {
+      const requestId = await offlineQueue.addRequest(
+        fullUrl,
+        method,
+        fetchOptions.body as string,
+        headers
+      );
+      console.log('[API] Request queued for retry:', requestId);
+      
+      // 返回一个假的成功响应（前端乐观更新）
+      return { queued: true, requestId } as any;
+    } else {
+      throw new Error('网络连接不可用');
+    }
+  }
+
+  // 正常发起请求
+  try {
+    const res = await fetch(fullUrl, {
+      ...fetchOptions,
+      headers,
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: '请求失败' }));
+      throw new Error(err.error || '请求失败');
+    }
+
+    const data = await res.json();
+
+    // GET 请求且启用缓存，保存到缓存
+    if (method === 'GET' && useCache) {
+      const cacheKey = `api:${path}`;
+      await cache.set(cacheKey, data, cacheTTL);
+    }
+
+    return data;
+  } catch (error: any) {
+    // 网络错误且是写操作，尝试加入队列
+    if (queueIfOffline && method !== 'GET' && error.name === 'TypeError') {
+      const requestId = await offlineQueue.addRequest(
+        fullUrl,
+        method,
+        fetchOptions.body as string,
+        headers
+      );
+      console.log('[API] Network error, request queued:', requestId);
+      return { queued: true, requestId } as any;
+    }
+    
+    throw error;
+  }
 }
 
 // 认证
