@@ -414,7 +414,8 @@ export const CalendarPage: React.FC = () => {
       </div>
 
       {/* 主内容区 */}
-      <div className="max-w-4xl mx-auto px-8 pt-6">
+      <div className="px-8 pt-6">
+        <div className="max-w-4xl mx-auto">
         {unavailable && (
           <div className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-center">
             <p className="font-semibold text-amber-800">{unavailable.display_message}</p>
@@ -541,6 +542,7 @@ export const CalendarPage: React.FC = () => {
             />
           )}
         </div>
+      </div>
       </div>
 
       <BottomNav />
