@@ -23,9 +23,10 @@ export const HeatCell: React.FC<Props> = ({ status, size = 'medium', onClick, ch
         const level = Math.min(status.completedCount, 3);
         return level === 1 ? 'bg-heat-1' : level === 2 ? 'bg-heat-2' : 'bg-heat-3';
       case 'todo':
-        return 'bg-white border border-todo'; // 细橙边框
+        // 年视图用纯背景色，周/月视图用边框
+        return size === 'small' ? 'bg-todo/30' : 'bg-white border border-todo';
       case 'today-todo':
-        return 'bg-todo/10 border-2 border-todo'; // 浅橙背景 + 粗橙边框
+        return size === 'small' ? 'bg-todo/50' : 'bg-todo/10 border-2 border-todo';
       case 'empty':
       default:
         return 'bg-heat-empty';
@@ -35,7 +36,7 @@ export const HeatCell: React.FC<Props> = ({ status, size = 'medium', onClick, ch
   // 今日标记：使用 status.isToday 而不是 type 判断
   const todayRingClass = status.isToday
     ? size === 'small' 
-      ? 'ring-2 ring-today-ring scale-110' // 年视图：深圈+放大
+      ? 'ring-1 ring-today-ring' // 年视图：细环，不放大
       : 'ring-2 ring-todo ring-offset-1' // 周/月视图：橙圈 + 偏移
     : '';
   

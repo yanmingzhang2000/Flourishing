@@ -111,24 +111,34 @@ export const YearHeatmap: React.FC<Props> = ({ records, plans, instance, onCellC
         <div className="inline-block min-w-full">
           {/* 月份标签 */}
           <div className="flex gap-[3px] mb-2 pl-6">
-            {monthLabels.map(({ month, weekIndex }) => (
-              <div 
-                key={weekIndex} 
-                style={{ marginLeft: weekIndex === 0 ? 0 : `${(weekIndex - (monthLabels[monthLabels.indexOf({ month, weekIndex }) - 1]?.weekIndex || 0)) * 14}px` }}
-                className="text-xs text-muted"
-              >
-                {month}
-              </div>
-            ))}
+            {monthLabels.map((label, index) => {
+              const prevWeekIndex = index > 0 ? monthLabels[index - 1].weekIndex : 0;
+              const weekSpan = label.weekIndex - prevWeekIndex;
+              const offset = weekSpan * 14 - (index === 0 ? 0 : 14);
+              
+              return (
+                <div 
+                  key={label.weekIndex} 
+                  style={{ marginLeft: index === 0 ? 0 : `${offset}px` }}
+                  className="text-xs text-muted"
+                >
+                  {label.month}
+                </div>
+              );
+            })}
           </div>
           
           {/* 网格 */}
           <div className="flex gap-[3px]">
             {/* 周几标签（左侧） */}
-            <div className="flex flex-col justify-between pr-2" style={{ height: `${7 * 11 + 6 * 3}px` }}>
+            <div className="flex flex-col gap-[3px] pr-2">
               <div className="h-[11px] text-[10px] text-muted leading-[11px]">一</div>
+              <div className="h-[11px] invisible">二</div>
               <div className="h-[11px] text-[10px] text-muted leading-[11px]">三</div>
+              <div className="h-[11px] invisible">四</div>
               <div className="h-[11px] text-[10px] text-muted leading-[11px]">五</div>
+              <div className="h-[11px] invisible">六</div>
+              <div className="h-[11px] invisible">日</div>
             </div>
             
             {/* 53 列周格 */}
@@ -147,14 +157,17 @@ export const YearHeatmap: React.FC<Props> = ({ records, plans, instance, onCellC
                       className="group relative"
                       onMouseEnter={(e) => handleMouseEnter(e, dateStr, status)}
                       onMouseLeave={handleMouseLeave}
-                      onClick={() => {
-                        const date = new Date(dateStr);
-                        const jsDay = date.getDay();
-                        const isoDay = jsDay === 0 ? 6 : jsDay - 1;
-                        onCellClick(dateStr, isoDay);
-                      }}
                     >
-                      <HeatCell size="small" status={status} />
+                      <HeatCell 
+                        size="small" 
+                        status={status}
+                        onClick={() => {
+                          const date = new Date(dateStr);
+                          const jsDay = date.getDay();
+                          const isoDay = jsDay === 0 ? 6 : jsDay - 1;
+                          onCellClick(dateStr, isoDay);
+                        }}
+                      />
                     </div>
                   );
                 })}
