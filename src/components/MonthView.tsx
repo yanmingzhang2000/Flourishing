@@ -138,9 +138,11 @@ export const MonthView: React.FC<Props> = ({ year, month, records, plans, instan
 
   return (
     <div className="space-y-4">
-      {/* 月份标题 + 统计 */}
-      <div className="flex items-center justify-between">
-        <button
+      {/* 月份导航 + 网格容器 - 412px 居中 */}
+      <div className="max-w-[412px] mx-auto">
+        {/* 月份标题 + 统计 */}
+        <div className="flex items-center justify-between mb-4">
+          <button
           onClick={() => onMonthChange(month === 1 ? year - 1 : year, month === 1 ? 12 : month - 1)}
           disabled={!canGoPrev}
           className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
@@ -218,6 +220,7 @@ export const MonthView: React.FC<Props> = ({ year, month, records, plans, instan
             );
           })}
         </div>
+      </div>
       </div>
 
       {/* 统一图例 */}

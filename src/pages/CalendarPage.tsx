@@ -7,7 +7,7 @@ import { BottomNav } from '@/components/BottomNav';
 import { WeekView } from '@/components/WeekView';
 import { MonthView } from '@/components/MonthView';
 import { YearView } from '@/components/YearView';
-import { getMonday } from '@/lib/calendarUtils';
+import { getMonday, calculateStreak } from '@/lib/calendarUtils';
 import projectsData from '@/data/projects.json';
 
 const PROJECT_MAP = Object.fromEntries((projectsData as any[]).map(p => [p.id, p]));
@@ -450,8 +450,9 @@ export const CalendarPage: React.FC = () => {
           {view === 'week' && (
             currentPlan
               ? <>
-                  {/* 周导航栏 - 去掉独立容器 */}
-                  <div className="flex items-center justify-between mb-4">
+                  {/* 周导航栏 - 484px 容器居中对齐 */}
+                  <div className="max-w-[484px] mx-auto mb-4">
+                    <div className="flex items-center justify-between">
                     {(() => {
                       const { canGoPrev, canGoNext } = getWeekNavigationBounds();
                       return (
@@ -508,6 +509,7 @@ export const CalendarPage: React.FC = () => {
                         </>
                       );
                     })()}
+                    </div>
                   </div>
                   
                   <WeekView
@@ -549,22 +551,3 @@ export const CalendarPage: React.FC = () => {
     </div>
   );
 };
-
-function calculateStreak(records: TrainingRecord[]): number {
-  const completedDates = records
-    .filter(r => r.completed)
-    .map(r => new Date(r.date))
-    .sort((a, b) => b.getTime() - a.getTime());
-  if (completedDates.length === 0) return 0;
-  let streak = 1;
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  const last = new Date(completedDates[0]); last.setHours(0, 0, 0, 0);
-  if (Math.floor((today.getTime() - last.getTime()) / 86400000) > 1) return 0;
-  for (let i = 0; i < completedDates.length - 1; i++) {
-    const a = new Date(completedDates[i]); a.setHours(0, 0, 0, 0);
-    const b = new Date(completedDates[i + 1]); b.setHours(0, 0, 0, 0);
-    if (Math.floor((a.getTime() - b.getTime()) / 86400000) === 1) streak++;
-    else break;
-  }
-  return streak;
-}

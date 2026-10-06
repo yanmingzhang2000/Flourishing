@@ -11,32 +11,32 @@ interface Props {
 export const HeatCell: React.FC<Props> = ({ status, size = 'medium', onClick, children }) => {
   const sizeClass = {
     small: 'w-[11px] h-[11px]',   // 年视图
-    medium: 'w-8 h-8',              // 月视图
-    large: 'w-12 h-12'              // 周视图
+    medium: 'w-[52px] h-[52px]',   // 月视图
+    large: 'w-16 h-16'              // 周视图
   }[size];
   
-  // 背景色映射
+  // 背景色映射（静态类名，避免 JIT 扫描遗漏）
   const getBgClass = () => {
     switch (status.type) {
       case 'completed':
-        return `bg-heat-${Math.min(status.completedCount, 3)}`;
       case 'today-completed':
-        return `bg-heat-${Math.min(status.completedCount, 3)}`;
+        const level = Math.min(status.completedCount, 3);
+        return level === 1 ? 'bg-heat-1' : level === 2 ? 'bg-heat-2' : 'bg-heat-3';
       case 'todo':
-        return 'bg-white border-2 border-todo';
+        return 'bg-white border border-todo'; // 细橙边框
       case 'today-todo':
-        return 'bg-white border-2 border-todo';
+        return 'bg-todo/10 border-2 border-todo'; // 浅橙背景 + 粗橙边框
       case 'empty':
       default:
         return 'bg-heat-empty';
     }
   };
   
-  // 今天标记
-  const todayRingClass = status.type.startsWith('today-') 
+  // 今日标记：使用 status.isToday 而不是 type 判断
+  const todayRingClass = status.isToday
     ? size === 'small' 
       ? 'ring-2 ring-today-ring scale-110' // 年视图：深圈+放大
-      : 'ring-2 ring-todo' // 周/月视图：橙圈
+      : 'ring-2 ring-todo ring-offset-1' // 周/月视图：橙圈 + 偏移
     : '';
   
   const clickable = onClick ? 'cursor-pointer hover:scale-105' : '';

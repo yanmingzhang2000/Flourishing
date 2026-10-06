@@ -194,7 +194,7 @@ export const WeekView: React.FC<Props> = ({ plan, records, instance, onDayClick 
       )}
 
       {/* 本周格子 */}
-      <div>
+      <div className="max-w-[484px] mx-auto">
         <div className="grid grid-cols-7 gap-1.5 mb-1">
           {DAY_LABELS.map(l => (
             <div key={l} className="text-center text-[11px] text-muted font-medium py-1">{l}</div>

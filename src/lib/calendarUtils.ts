@@ -3,6 +3,7 @@ import { TrainingRecord, WeeklyPlan } from './types';
 export type DayStatus = {
   type: 'completed' | 'todo' | 'today-todo' | 'today-completed' | 'empty';
   completedCount: number; // 0, 1, 2, 3+
+  isToday: boolean; // 独立的今日标记，与 type 解耦
 };
 
 export interface ProjectInstance {
@@ -64,13 +65,14 @@ export function getDayStatus(
   if (dayRecords.length > 0) {
     return {
       type: isToday ? 'today-completed' : 'completed',
-      completedCount: Math.min(dayRecords.length, 3)
+      completedCount: Math.min(dayRecords.length, 3),
+      isToday
     };
   }
   
   // 2. 检查是否在项目范围内
   if (instance && !isDateInProjectRange(dateStr, instance)) {
-    return { type: 'empty', completedCount: 0 };
+    return { type: 'empty', completedCount: 0, isToday };
   }
   
   // 3. 检查是否在计划中（使用正确的 dayIndex 映射）
@@ -82,16 +84,16 @@ export function getDayStatus(
     const isFuture = dateObj > todayObj;
     
     if (isToday) {
-      return { type: 'today-todo', completedCount: 0 };
+      return { type: 'today-todo', completedCount: 0, isToday };
     } else if (isFuture) {
-      return { type: 'todo', completedCount: 0 };
+      return { type: 'todo', completedCount: 0, isToday: false };
     } else {
       // 过去未完成的训练日 → empty（不强调、不制造负罪感）
-      return { type: 'empty', completedCount: 0 };
+      return { type: 'empty', completedCount: 0, isToday: false };
     }
   }
   
-  return { type: 'empty', completedCount: 0 };
+  return { type: 'empty', completedCount: 0, isToday };
 }
 
 // 计算某个日期所在周的周一
@@ -108,8 +110,11 @@ export function getMonday(dateStr: string): string {
 export function calculateStreak(records: TrainingRecord[]): number {
   if (records.length === 0) return 0;
   
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
   const completedDates = records
-    .filter(r => r.completed)
+    .filter(r => r.completed && new Date(r.date) <= today) // 排除未来日期
     .map(r => r.date)
     .sort()
     .reverse(); // 从最近的日期开始
@@ -117,13 +122,13 @@ export function calculateStreak(records: TrainingRecord[]): number {
   if (completedDates.length === 0) return 0;
   
   let streak = 1;
-  const today = formatLocalDate(new Date());
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
   const yesterdayStr = formatLocalDate(yesterday);
+  const todayStr = formatLocalDate(today);
   
   // 如果最近一次训练不是今天或昨天，连续天数为0
-  if (completedDates[0] !== today && completedDates[0] !== yesterdayStr) {
+  if (completedDates[0] !== todayStr && completedDates[0] !== yesterdayStr) {
     return 0;
   }
   
