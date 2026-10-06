@@ -18,29 +18,35 @@ interface MonthLabel {
 export const YearHeatmap: React.FC<Props> = ({ records, plans, instance, onCellClick }) => {
   const [tooltip, setTooltip] = useState<{ date: string; x: number; y: number; count: number } | null>(null);
 
-  // 计算滚动近 12 个月的日期范围
-  const endDate = new Date();
-  const startDate = new Date();
-  startDate.setMonth(startDate.getMonth() - 12);
+  // 计算滚动近 12 个月的日期范围（止于今天）
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const endDate = new Date(today); // 今天
+  const startDate = new Date(today);
+  startDate.setDate(startDate.getDate() - 365); // 近一年
   
-  // 对齐到周一
+  // 对齐 startDate 到周一
   const startWeekday = startDate.getDay();
   const mondayOffset = startWeekday === 0 ? -6 : 1 - startWeekday;
   startDate.setDate(startDate.getDate() + mondayOffset);
   
-  // 生成 53 周的网格数据
+  // 计算需要多少周
+  const diffDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+  const weeksCount = Math.ceil(diffDays / 7);
+  
+  // 生成网格，确保不超过今天
   const weeks: Array<Array<string | null>> = [];
   let currentDate = new Date(startDate);
   
-  for (let week = 0; week < 53; week++) {
+  for (let week = 0; week < weeksCount; week++) {
     const weekDays: Array<string | null> = [];
     for (let day = 0; day < 7; day++) {
       if (currentDate <= endDate) {
         weekDays.push(formatLocalDate(currentDate));
-        currentDate.setDate(currentDate.getDate() + 1);
       } else {
         weekDays.push(null); // 未来日期不渲染
       }
+      currentDate.setDate(currentDate.getDate() + 1);
     }
     weeks.push(weekDays);
   }
@@ -101,7 +107,7 @@ export const YearHeatmap: React.FC<Props> = ({ records, plans, instance, onCellC
       </div>
       
       {/* 热力图网格 */}
-      <div className="overflow-x-auto pb-4">
+      <div className="overflow-x-auto pb-4 scrollbar-hide">
         <div className="inline-block min-w-full">
           {/* 月份标签 */}
           <div className="flex gap-[3px] mb-2 pl-6">
@@ -119,10 +125,10 @@ export const YearHeatmap: React.FC<Props> = ({ records, plans, instance, onCellC
           {/* 网格 */}
           <div className="flex gap-[3px]">
             {/* 周几标签（左侧） */}
-            <div className="flex flex-col gap-[3px] justify-around pr-2">
+            <div className="flex flex-col justify-between pr-2" style={{ height: `${7 * 11 + 6 * 3}px` }}>
               <div className="h-[11px] text-[10px] text-muted leading-[11px]">一</div>
-              <div className="h-[11px] text-[10px] text-muted leading-[11px] mt-[14px]">三</div>
-              <div className="h-[11px] text-[10px] text-muted leading-[11px] mt-[14px]">五</div>
+              <div className="h-[11px] text-[10px] text-muted leading-[11px]">三</div>
+              <div className="h-[11px] text-[10px] text-muted leading-[11px]">五</div>
             </div>
             
             {/* 53 列周格 */}
@@ -170,9 +176,15 @@ export const YearHeatmap: React.FC<Props> = ({ records, plans, instance, onCellC
       
       {/* 空状态 */}
       {totalCompletedDays === 0 && (
-        <div className="absolute inset-0 flex items-center justify-center bg-white/80 backdrop-blur-sm">
-          <div className="text-center text-muted">
-            <p className="text-sm">完成今天第一次训练，点亮第一格 🟩</p>
+        <div className="absolute inset-0 flex items-center justify-center bg-white/90 backdrop-blur-sm rounded-xl">
+          <div className="text-center">
+            <p className="text-sm text-text mb-3">完成今天第一次训练，点亮第一格 🟩</p>
+            <button
+              onClick={() => window.location.href = '/'}
+              className="px-4 py-2 bg-brand text-white rounded-xl hover:bg-brand-dark transition-colors"
+            >
+              去训练
+            </button>
           </div>
         </div>
       )}

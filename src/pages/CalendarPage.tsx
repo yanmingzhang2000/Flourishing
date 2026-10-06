@@ -423,16 +423,22 @@ export const CalendarPage: React.FC = () => {
         )}
 
         {/* Tab 切换 */}
-        <div className="mb-5">
-          <div className="bg-white rounded-2xl p-1 flex gap-1 shadow-sm">
+        <div className="mb-5 border-b border-subtle">
+          <div className="flex gap-6">
             {(['week', 'month', 'year'] as ViewType[]).map(v => (
               <button
                 key={v}
                 onClick={() => setView(v)}
-                className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-all
-                  ${view === v ? 'bg-brand text-white shadow-sm' : 'text-muted hover:text-text'}`}
+                className={`py-2 px-1 text-sm font-medium transition-colors relative ${
+                  view === v
+                    ? 'text-brand'
+                    : 'text-muted hover:text-text'
+                }`}
               >
                 {v === 'week' ? '周' : v === 'month' ? '月' : '年'}
+                {view === v && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand" />
+                )}
               </button>
             ))}
           </div>
@@ -466,11 +472,21 @@ export const CalendarPage: React.FC = () => {
                           
                           <span className="text-sm font-semibold text-text">
                             {(() => {
-                              const start = new Date(currentPlan.startDate);
+                              const start = new Date(viewWeekStartDate || currentPlan.startDate);
                               const end = new Date(start);
                               end.setDate(end.getDate() + 6);
-                              const formatDate = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-                              return `${formatDate(start)} ~ ${formatDate(end)}`;
+                              const formatDateRange = (startDate: Date, endDate: Date) => {
+                                const sm = startDate.getMonth() + 1;
+                                const sd = startDate.getDate();
+                                const em = endDate.getMonth() + 1;
+                                const ed = endDate.getDate();
+                                if (sm === em) {
+                                  return `${sm}月${sd}日 – ${ed}日`;
+                                } else {
+                                  return `${sm}月${sd}日 – ${em}月${ed}日`;
+                                }
+                              };
+                              return formatDateRange(start, end);
                             })()}
                           </span>
                           

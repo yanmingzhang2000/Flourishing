@@ -15,12 +15,22 @@
   --color-muted:        #6B7280;
   
   /* 热力图专用色阶（与交互按钮解耦） */
-  --color-heat-empty:   #eef2ee;  /* 灰白：未训练 */
+  --color-heat-empty:   #f3f4f6;  /* 纯中性灰：未训练 */
   --color-heat-1:       #b9dca9;  /* 浅绿：1次 */
   --color-heat-2:       #8cc084;  /* 中绿：2次 */
   --color-heat-3:       #5a9a48;  /* 深绿：3+次 */
   --color-todo:         #e67e22;  /* 橙色：待练/今日 */
   --color-today-ring:   #2d3436;  /* 深炭灰：年视图今日标记 */
+}
+
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 :root {

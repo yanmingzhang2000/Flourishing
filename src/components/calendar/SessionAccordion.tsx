@@ -4,7 +4,9 @@ interface SessionData {
   date: string;
   dayIndex: number;
   dayLabel: string;
-  projectName?: string;
+  projectName: string;
+  duration: string;
+  equipment: string;
   exerciseCount: number;
   status: 'todo' | 'completed';
   isToday: boolean;
@@ -27,7 +29,7 @@ export const SessionAccordion: React.FC<Props> = ({ selectedDayIndex, sessions, 
     );
   }
   
-  const { date, dayIndex, dayLabel, projectName, exerciseCount, status, isToday } = selectedSession;
+  const { date, dayIndex, dayLabel, projectName, duration, equipment, exerciseCount, status, isToday } = selectedSession;
   
   return (
     <div className="space-y-3">
@@ -50,8 +52,9 @@ export const SessionAccordion: React.FC<Props> = ({ selectedDayIndex, sessions, 
                 </span>
               )}
             </div>
+            <p className="text-sm font-medium text-text mb-1">{projectName}</p>
             <p className="text-xs text-muted">
-              {projectName && `${projectName} · `}{exerciseCount} 个动作
+              {duration} · {equipment} · {exerciseCount} 个动作
             </p>
           </div>
           

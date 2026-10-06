@@ -43,7 +43,7 @@ export const HeatCell: React.FC<Props> = ({ status, size = 'medium', onClick, ch
   
   return (
     <div
-      className={`${sizeClass} ${getBgClass()} ${todayRingClass} ${clickable} rounded-sm transition-transform flex items-center justify-center text-xs font-medium`}
+      className={`${sizeClass} ${getBgClass()} ${todayRingClass} ${clickable} rounded-[2px] transition-transform flex items-center justify-center text-xs font-medium`}
       onClick={onClick}
     >
       {children}

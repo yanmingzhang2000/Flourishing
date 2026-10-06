@@ -72,18 +72,33 @@ export const MonthView: React.FC<Props> = ({ year, month, records, plans, instan
   });
   const completedCount = monthRecords.filter(r => r.completed).length;
   
-  // 计算本月目标（本月内的训练日总数）
+  // 计算本月目标（本月内的训练日总数，含未来）
   const monthDays = calendarDays.filter(d => d.inMonth);
   let targetCount = 0;
+  
   monthDays.forEach(d => {
-    const status = getDayStatus(d.date, records, plans, instance);
-    if (status.type !== 'empty') {
-      // 有计划的日子（训练日或已完成）
-      const dateObj = new Date(d.date);
-      const today = new Date(formatLocalDate(new Date()));
-      if (dateObj <= today) {
-        targetCount++; // 只统计过去和今天
+    // 检查是否为训练日（不限制日期范围）
+    const isTrainingDay = plans.some(plan => {
+      const planDays = Array.isArray(plan.days) ? plan.days : JSON.parse(plan.days);
+      
+      // 遍历计划的每一天，检查是否匹配当前日期
+      for (let i = 0; i < 7; i++) {
+        const planDate = new Date(plan.startDate);
+        planDate.setDate(planDate.getDate() + i);
+        const planDateStr = formatLocalDate(planDate);
+        
+        if (planDateStr === d.date) {
+          const jsDay = planDate.getDay();
+          const isoDayIndex = jsDay === 0 ? 6 : jsDay - 1;
+          const matchedDay = planDays.find((day: any) => day.dayIndex === isoDayIndex);
+          return matchedDay && matchedDay.type === 'strength';
+        }
       }
+      return false;
+    });
+    
+    if (isTrainingDay) {
+      targetCount++;
     }
   });
   
@@ -142,7 +157,10 @@ export const MonthView: React.FC<Props> = ({ year, month, records, plans, instan
         <div className="flex-1 text-center">
           <h2 className="text-xl font-bold text-text">{year}年 {month}月</h2>
           <div className="flex items-center justify-center gap-4 text-xs text-muted mt-1">
-            <span>完成 <strong className="text-brand">{completedCount}</strong>/{targetCount} 次</span>
+            <span>
+              完成 <strong className="text-brand">{completedCount}</strong>
+              {targetCount > 0 && `/${targetCount}`} 次
+            </span>
             <span>最长连续 <strong className="text-brand">{maxStreak}</strong> 天</span>
           </div>
         </div>
@@ -164,35 +182,38 @@ export const MonthView: React.FC<Props> = ({ year, month, records, plans, instan
 
       {/* 日历格子 */}
       <div>
-        <div className="grid grid-cols-7 gap-1 mb-1">
+        <div className="grid grid-cols-7 gap-2 mb-1">
           {DAY_NAMES.map(n => (
             <div key={n} className="text-center text-[11px] font-medium text-muted py-1">{n}</div>
           ))}
         </div>
-        <div className="grid grid-cols-7 gap-1">
+        <div className="grid grid-cols-7 gap-2">
           {calendarDays.map((d, i) => {
             const status = getDayStatus(d.date, records, plans, instance);
             const isClickable = d.inMonth && (status.type === 'completed' || status.type === 'today-completed' || status.type === 'todo' || status.type === 'today-todo');
 
             return (
-              <div
-                key={i}
-                onClick={() => isClickable && handleDayClick(d.date)}
-                className={`relative ${!d.inMonth ? 'opacity-30' : ''}`}
-              >
-                <HeatCell
-                  status={status}
-                  size="medium"
-                  onClick={isClickable ? () => handleDayClick(d.date) : undefined}
-                >
-                  <span className={`text-xs font-semibold ${
-                    status.type === 'completed' || status.type === 'today-completed' ? 'text-white' :
-                    status.type.includes('today') ? 'text-todo' :
-                    d.inMonth ? 'text-text' : 'text-muted'
-                  }`}>
-                    {d.day}
-                  </span>
-                </HeatCell>
+              <div key={i} className="relative">
+                {d.inMonth ? (
+                  <HeatCell
+                    status={status}
+                    size="medium"
+                    onClick={isClickable ? () => handleDayClick(d.date) : undefined}
+                  >
+                    <span className={`text-xs font-semibold ${
+                      status.type === 'completed' || status.type === 'today-completed' ? 'text-white' :
+                      status.type.includes('today') ? 'text-todo' :
+                      'text-text'
+                    }`}>
+                      {d.day}
+                    </span>
+                  </HeatCell>
+                ) : (
+                  // 邻月：纯背景色 + 数字
+                  <div className="w-8 h-8 flex items-center justify-center bg-subtle/30 rounded-[2px]">
+                    <span className="text-xs text-muted/50">{d.day}</span>
+                  </div>
+                )}
               </div>
             );
           })}

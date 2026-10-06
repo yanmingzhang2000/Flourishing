@@ -94,12 +94,68 @@ export const WeekView: React.FC<Props> = ({ plan, records, instance, onDayClick 
   const sessions = plan.days
     .map((day, index) => {
       if (day.type === 'rest' || !isDateInRange(index)) return null;
+      
+      // 计算预计时长（从 exercises 累加，向上取整到 5 分钟）
+      const totalMinutes = day.exercises?.reduce((sum, ex) => {
+        // 根据 sets, reps, restBetweenSet 估算时长
+        // 假设每个 rep 需要 3 秒，加上组间休息
+        const workTime = (ex.sets * ex.reps * 3) / 60; // 分钟
+        const restTime = ((ex.sets - 1) * ex.restBetweenSet) / 60; // 分钟
+        return sum + workTime + restTime;
+      }, 0) || 0;
+      const roundedMinutes = Math.ceil(totalMinutes / 5) * 5; // 向上取整到 5 分钟
+      
+      // 聚合器械列表
+      const equipmentSet = new Set<string>();
+      day.exercises?.forEach(ex => {
+        if (ex.exercise.equipment && ex.exercise.equipment.length > 0) {
+          ex.exercise.equipment.forEach(eq => {
+            if (eq !== 'bodyweight') {
+              equipmentSet.add(eq);
+            }
+          });
+        }
+      });
+      
+      const equipmentList = Array.from(equipmentSet);
+      const hasBodyweight = day.exercises?.some(ex => 
+        !ex.exercise.equipment || 
+        ex.exercise.equipment.length === 0 || 
+        ex.exercise.equipment.includes('bodyweight')
+      );
+      
+      // 构建器械文本
+      let equipmentText = '';
+      if (equipmentList.length === 0 && hasBodyweight) {
+        equipmentText = '自重';
+      } else if (equipmentList.length > 0) {
+        // 器械映射到中文
+        const equipmentMap: Record<string, string> = {
+          'dumbbell': '哑铃',
+          'resistance_band': '弹力带',
+          'kettlebell': '壶铃',
+          'barbell': '杠铃',
+          'foam_roller': '泡沫轴',
+          'yoga_mat': '瑜伽垫',
+          'bodyweight': '自重'
+        };
+        const translatedEquipment = equipmentList.map(e => equipmentMap[e] || e);
+        equipmentText = translatedEquipment.join(' / ');
+        if (hasBodyweight) {
+          equipmentText += ' / 自重';
+        }
+      } else {
+        equipmentText = '自重';
+      }
+      
       const done = !!getRecord(index)?.completed;
       return {
         date: getDate(index),
         dayIndex: index,
         dayLabel: `周${DAY_LABELS[index]}`,
-        projectName: day.projectId ? PROJECT_NAME_MAP[day.projectId] : undefined,
+        projectName: day.projectId ? PROJECT_NAME_MAP[day.projectId] : '训练计划',
+        duration: `约 ${roundedMinutes} 分钟`,
+        equipment: equipmentText,
         exerciseCount: day.exercises?.length || 0,
         status: done ? 'completed' as const : 'todo' as const,
         isToday: isToday(index)
@@ -176,21 +232,11 @@ export const WeekView: React.FC<Props> = ({ plan, records, instance, onDayClick 
                     }`}>
                       {dateStr.slice(8)}
                     </span>
-                    <span className={`text-[10px] mt-0.5 ${
-                      !inRange ? 'text-transparent' :
-                      status.type === 'completed' || status.type === 'today-completed' ? 'text-white/80' : 
-                      isRest ? 'text-muted/50' : 'text-muted'
-                    }`}>
-                      {inRange ? (
-                        status.type === 'completed' || status.type === 'today-completed' ? '✓' : 
-                        isRest ? '休' : '练'
-                      ) : ''}
-                    </span>
+                    {(status.type === 'completed' || status.type === 'today-completed') && (
+                      <span className="text-[10px] mt-0.5 text-white/80">✓</span>
+                    )}
                   </div>
                 </HeatCell>
-                {isSelected && !isRest && inRange && (
-                  <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-brand" />
-                )}
               </button>
             );
           })}
