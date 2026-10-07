@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { storage } from '@/lib/storage';
 import { plansApi, recordsApi, userApi, projectInstancesApi, isLoggedIn } from '@/lib/api';
@@ -13,7 +13,7 @@ import { useCopilotContext } from '@/hooks/useCopilotContext';
 import { CopilotMobileCapsule } from '@/components/copilot/CopilotMobileCapsule';
 import { CopilotPeekCapsule } from '@/components/copilot/CopilotPeekCapsule';
 import { CopilotSidebarDesktop } from '@/components/copilot/CopilotSidebarDesktop';
-import { InsightFacts } from '@/lib/copilot/insightEngine';
+import { InsightFacts, generateHeroMessage } from '@/lib/copilot/insightEngine';
 
 const PROJECT_MAP = Object.fromEntries((projectsData as any[]).map(p => [p.id, p]));
 
@@ -24,7 +24,7 @@ export const CalendarPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   // instanceId 存在时为 V2 项目日历；不存在时为旧版全局日历（向后兼容）
   const { instanceId } = useParams<{ instanceId?: string }>();
-  const { pushInsight } = useCopilotContext();
+  const { pushInsight, isOpen, open } = useCopilotContext();
 
   const [view, setView] = useState<ViewType>(() => {
     const viewParam = searchParams.get('view') as ViewType | null;
@@ -116,6 +116,32 @@ export const CalendarPage: React.FC = () => {
     setViewYear(y);
     setViewMonth(m);
   };
+
+  // 计算规则引擎快照（单一数据源）
+  const ruleEngineSnapshot = useMemo(() => {
+    if (!currentPlan) return null;
+    
+    const completed = currentPlan.days.reduce((sum, day) => {
+      const dayRecord = records.find(r => {
+        const recordDate = new Date(r.date);
+        const planStart = new Date(currentPlan.startDate);
+        const daysDiff = Math.floor((recordDate.getTime() - planStart.getTime()) / (24 * 3600 * 1000));
+        return daysDiff >= 0 && daysDiff < 7 && recordDate.getDay() === day.dayIndex && r.completed;
+      });
+      return sum + (dayRecord ? 1 : 0);
+    }, 0);
+    
+    const target = currentPlan.days.filter(d => d.exercises.length > 0).length;
+    
+    return { completed, target, remaining: target - completed };
+  }, [currentPlan, records]);
+
+  // 从同一快照派生 weekProgress 和 heroMessage
+  const weekProgress = ruleEngineSnapshot || { completed: 0, target: 0 };
+  const heroMessage = useMemo(() => {
+    if (!ruleEngineSnapshot) return "开始你的训练计划 ✨";
+    return generateHeroMessage(ruleEngineSnapshot);
+  }, [ruleEngineSnapshot]);
 
   const handleWeekChange = (offset: number) => {
     if (!currentPlan) return;
@@ -518,8 +544,10 @@ export const CalendarPage: React.FC = () => {
       {/* 主内容区 - 1080px 容器 + 两列布局 */}
       <div className="max-w-[1080px] mx-auto px-8 pt-6">
         <div className="flex gap-6">
-          {/* 左侧主区 */}
-          <main className="flex-1 min-w-0">
+          {/* 左侧主区 - 收起时居中 */}
+          <main className={`flex-1 min-w-0 transition-all ${
+            !isOpen ? 'max-w-[840px] mx-auto' : ''
+          }`}>
             {/* Copilot 移动端顶部胶囊 */}
             <CopilotMobileCapsule />
             
@@ -681,10 +709,25 @@ export const CalendarPage: React.FC = () => {
 
           {/* 右侧 Copilot 抽屉（桌面端推挤式，移动端隐藏） */}
           <aside className="hidden lg:block w-[340px] flex-shrink-0">
-            <CopilotSidebarDesktop />
+            <CopilotSidebarDesktop 
+              weekProgress={weekProgress}
+              heroMessage={heroMessage}
+            />
           </aside>
         </div>
       </div>
+
+      {/* 右缘竖排重开按钮（收起时显示） */}
+      {!isOpen && (
+        <button
+          onClick={open}
+          className="hidden lg:block fixed right-0 top-1/2 -translate-y-1/2 bg-brand text-white px-2 py-6 rounded-l-lg shadow-lg hover:px-3 transition-all duration-200 z-40 text-sm"
+          style={{ writingMode: 'vertical-rl' }}
+          aria-label="打开教练寄语"
+        >
+          ‹ 教练寄语
+        </button>
+      )}
 
       {/* Copilot Peek 胶囊（桌面端） */}
       <CopilotPeekCapsule />

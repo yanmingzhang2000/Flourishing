@@ -22,6 +22,43 @@ export interface InsightMessage {
 }
 
 /**
+ * 违规词过滤（合规检查）
+ */
+const BANNED_WORDS = ['瘦', '减脂', '燃脂', '医疗', '治疗', '疾病'];
+
+function sanitizeMessage(text: string): string {
+  let cleaned = text;
+  BANNED_WORDS.forEach(word => {
+    cleaned = cleaned.replace(new RegExp(word, 'g'), '');
+  });
+  return cleaned;
+}
+
+/**
+ * 生成 Hero 展示态的大字寄语（确定性模板保底）
+ */
+export function generateHeroMessage(weekProgress: { completed: number; target: number }): string {
+  const { completed, target } = weekProgress;
+  const remaining = target - completed;
+
+  // 确定性模板（合规保底）
+  let message = '';
+  if (remaining <= 0) {
+    message = "本周达标，真棒 🎉";
+  } else if (remaining === 1) {
+    message = "再练一次就达标 💪";
+  } else if (completed === 0) {
+    message = "开始第一次训练 ✨";
+  } else if (completed >= Math.ceil(target / 2)) {
+    message = "继续保持节奏 🔥";
+  } else {
+    message = "继续，就很美 ✨";
+  }
+
+  return sanitizeMessage(message);
+}
+
+/**
  * 生成洞察消息
  */
 export function generateInsight(facts: InsightFacts, trigger: 'page_load' | 'view_switch' | 'workout_complete'): InsightMessage {

@@ -6,9 +6,16 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useCopilotContext } from '@/hooks/useCopilotContext';
 import { CopilotMessageBubble } from './CopilotMessageBubble';
 import { CopilotQuickActions } from './CopilotQuickActions';
+import { CopilotHeroCard } from './CopilotHeroCard';
 
-export const CopilotSidebarDesktop: React.FC = () => {
+interface Props {
+  weekProgress: { completed: number; target: number };
+  heroMessage: string;
+}
+
+export const CopilotSidebarDesktop: React.FC<Props> = ({ weekProgress, heroMessage }) => {
   const { isOpen, close, messages, markAllAsRead, sendMessage, isLoading } = useCopilotContext();
+  const [isExpanded, setIsExpanded] = useState(false); // Hero vs 聊天抽屉
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [inputValue, setInputValue] = useState('');
@@ -45,8 +52,28 @@ export const CopilotSidebarDesktop: React.FC = () => {
     }
   };
 
+  // 当 isOpen 从 false→true 时，重置为 Hero 展示态
+  useEffect(() => {
+    if (isOpen) {
+      setIsExpanded(false);
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
+  // Hero 展示态
+  if (!isExpanded) {
+    return (
+      <CopilotHeroCard
+        weekProgress={weekProgress}
+        heroMessage={heroMessage}
+        onExpand={() => setIsExpanded(true)}
+        onCollapse={close}
+      />
+    );
+  }
+
+  // 聊天抽屉态
   return (
     <div className="h-full bg-white rounded-2xl shadow-lg flex flex-col overflow-hidden sticky top-6">
       {/* 头部 */}
@@ -61,13 +88,11 @@ export const CopilotSidebarDesktop: React.FC = () => {
           </div>
         </div>
         <button
-          onClick={close}
-          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          aria-label="收起"
+          onClick={() => setIsExpanded(false)}
+          className="text-sm text-gray-400 hover:text-gray-600 transition-colors"
+          aria-label="收起抽屉"
         >
-          <svg className="w-5 h-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
+          收起 ›
         </button>
       </div>
 
