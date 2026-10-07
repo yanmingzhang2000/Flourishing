@@ -16,11 +16,60 @@ export const CopilotMessageBubble: React.FC<CopilotMessageBubbleProps> = ({ mess
   const isUser = message.role === 'user';
   const isAssistant = message.role === 'assistant';
   const isStreaming = isAssistant && message.content === '' && isLoading;
+  const isInsight = message.type === 'insight'; // 洞察消息
 
   const formatTime = (timestamp: string) => {
     const date = new Date(timestamp);
     return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
   };
+
+  // 洞察消息使用特殊样式
+  if (isInsight) {
+    return (
+      <div className="mb-3">
+        <div className="bg-gradient-to-r from-green-50 to-green-100 rounded-xl p-4 border border-green-200">
+          <div className="flex items-start gap-2 mb-2">
+            <span className="text-xl flex-shrink-0">📊</span>
+            <p className="text-sm text-gray-800 flex-1 whitespace-pre-line leading-relaxed">
+              {message.content}
+            </p>
+          </div>
+          
+          {/* CTA 按钮 */}
+          {message.actions && message.actions.length > 0 && (
+            <div className="mt-3">
+              {message.actions.map((action) => {
+                const isClicked = message.clickedActionId === action.id;
+                const shouldHide = message.clickedActionId && !isClicked;
+                
+                if (shouldHide) return null;
+                
+                return (
+                  <button
+                    key={action.id}
+                    onClick={() => !message.clickedActionId && executeAction(action.handler, sessionId || 'guest', message.id)}
+                    disabled={message.clickedActionId !== undefined}
+                    className={`w-full px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                      isClicked
+                        ? 'bg-[#7DC47A] text-white ring-2 ring-[#7DC47A] ring-offset-2'
+                        : 'bg-[#7DC47A] text-white hover:bg-[#6DB569]'
+                    } ${message.clickedActionId ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+                  >
+                    {action.label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          
+          {/* 时间戳 */}
+          <span className="text-xs text-gray-400 mt-2 block">
+            {formatTime(message.timestamp)}
+          </span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-3`}>

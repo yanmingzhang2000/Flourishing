@@ -9,6 +9,10 @@ import { MonthView } from '@/components/MonthView';
 import { YearView } from '@/components/YearView';
 import { getMonday, calculateStreak } from '@/lib/calendarUtils';
 import projectsData from '@/data/projects.json';
+import { useCopilotContext } from '@/hooks/useCopilotContext';
+import { CopilotMobileCapsule } from '@/components/copilot/CopilotMobileCapsule';
+import { CopilotPeekCapsule } from '@/components/copilot/CopilotPeekCapsule';
+import { InsightFacts } from '@/lib/copilot/insightEngine';
 
 const PROJECT_MAP = Object.fromEntries((projectsData as any[]).map(p => [p.id, p]));
 
@@ -19,6 +23,7 @@ export const CalendarPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   // instanceId 存在时为 V2 项目日历；不存在时为旧版全局日历（向后兼容）
   const { instanceId } = useParams<{ instanceId?: string }>();
+  const { pushInsight } = useCopilotContext();
 
   const [view, setView] = useState<ViewType>(() => {
     const viewParam = searchParams.get('view') as ViewType | null;
@@ -39,6 +44,72 @@ export const CalendarPage: React.FC = () => {
   const today = new Date();
   const [viewYear, setViewYear] = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth() + 1);
+
+  // 触发洞察消息
+  const triggerInsight = (trigger: 'page_load' | 'view_switch' | 'workout_complete') => {
+    if (!currentPlan && !records.length) return; // 数据未加载时跳过
+    
+    const todayStr = today.toISOString().split('T')[0];
+    const todayRecord = records.find(r => r.date === todayStr);
+    const todayStatus: 'todo' | 'completed' | 'rest' | 'future' = 
+      todayRecord?.completed ? 'completed' :
+      currentPlan?.days.some(d => d.dayIndex === today.getDay() && d.exercises.length > 0) ? 'todo' : 'rest';
+    
+    const facts: InsightFacts = {
+      view,
+      current_streak: stats.currentStreak,
+      today_status: todayStatus,
+    };
+    
+    // 根据视图补充进度数据
+    if (view === 'week' && currentPlan) {
+      const completed = currentPlan.days.reduce((sum, day) => {
+        const dayRecord = records.find(r => {
+          const recordDate = new Date(r.date);
+          const planStart = new Date(currentPlan.startDate);
+          const daysDiff = Math.floor((recordDate.getTime() - planStart.getTime()) / (24 * 3600 * 1000));
+          return daysDiff >= 0 && daysDiff < 7 && recordDate.getDay() === day.dayIndex && r.completed;
+        });
+        return sum + (dayRecord ? 1 : 0);
+      }, 0);
+      const target = currentPlan.days.filter(d => d.exercises.length > 0).length;
+      facts.week_progress = { completed, target, remaining: target - completed };
+    }
+    
+    if (view === 'month' && monthPlans.length > 0) {
+      const monthStart = new Date(viewYear, viewMonth - 1, 1);
+      const monthEnd = new Date(viewYear, viewMonth, 0);
+      const monthRecords = records.filter(r => {
+        const date = new Date(r.date);
+        return date >= monthStart && date <= monthEnd && r.completed;
+      });
+      const target = monthPlans.reduce((sum, plan) => 
+        sum + plan.days.filter(d => d.exercises.length > 0).length, 0
+      );
+      facts.month_progress = { completed: monthRecords.length, target, remaining: target - monthRecords.length };
+    }
+    
+    if (view === 'year' && yearPlans.length > 0) {
+      const yearStart = new Date(viewYear, 0, 1);
+      const yearEnd = new Date(viewYear, 11, 31);
+      const yearRecords = records.filter(r => {
+        const date = new Date(r.date);
+        return date >= yearStart && date <= yearEnd && r.completed;
+      });
+      
+      // 计算活跃周数
+      const activeWeeks = new Set(yearRecords.map(r => {
+        const date = new Date(r.date);
+        const weekStart = new Date(date);
+        weekStart.setDate(date.getDate() - (date.getDay() === 0 ? 6 : date.getDay() - 1));
+        return weekStart.toISOString().split('T')[0];
+      })).size;
+      
+      facts.year_stats = { total: yearRecords.length, activeWeeks, maxStreak: stats.currentStreak };
+    }
+    
+    pushInsight(facts, trigger);
+  };
 
   const handleMonthChange = (y: number, m: number) => {
     setViewYear(y);
@@ -265,6 +336,9 @@ export const CalendarPage: React.FC = () => {
           navigate('/');
         } finally {
           setLoading(false);
+          
+          // 🎯 触发洞察：页面加载完成
+          triggerInsight('page_load');
         }
       };
       loadData();
@@ -278,6 +352,9 @@ export const CalendarPage: React.FC = () => {
       setProfile(savedProfile);
       setStats({ totalWorkouts: savedRecords.filter(r => r.completed).length, currentStreak: calculateStreak(savedRecords) });
       setLoading(false);
+      
+      // 🎯 触发洞察：页面加载完成（离线模式）
+      triggerInsight('page_load');
     }
   }, [navigate, instanceId]);
 
@@ -337,12 +414,36 @@ export const CalendarPage: React.FC = () => {
     }
   }, [view, viewWeekStartDate]);
 
-  // 切换视图时重置周视图状态
+  // 切换视图时重置周视图状态并触发洞察
   useEffect(() => {
     if (view !== 'week') {
       setViewWeekStartDate(null);
     }
+    
+    // 🎯 触发洞察：切换视图
+    if (!loading) {
+      triggerInsight('view_switch');
+    }
   }, [view]);
+
+  // 监听训练记录变化，训练完成后触发洞察
+  useEffect(() => {
+    if (!loading && records.length > 0) {
+      // 检查最新记录是否刚完成（避免初始加载触发）
+      const latestCompleted = records.filter(r => r.completed).sort((a, b) => 
+        new Date(b.date).getTime() - new Date(a.date).getTime()
+      )[0];
+      
+      if (latestCompleted) {
+        const recentTime = new Date(latestCompleted.date).getTime();
+        const now = Date.now();
+        // 如果最新完成记录在24小时内，触发洞察
+        if (now - recentTime < 24 * 3600 * 1000) {
+          triggerInsight('workout_complete');
+        }
+      }
+    }
+  }, [records.length, loading]);
 
   if (loading || !profile) {
     return (
@@ -416,6 +517,9 @@ export const CalendarPage: React.FC = () => {
       {/* 主内容区 */}
       <div className="px-8 pt-6">
         <div className="max-w-4xl mx-auto">
+        {/* Copilot 移动端顶部胶囊 */}
+        <CopilotMobileCapsule />
+        
         {unavailable && (
           <div className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-center">
             <p className="font-semibold text-amber-800">{unavailable.display_message}</p>
@@ -571,6 +675,9 @@ export const CalendarPage: React.FC = () => {
         </div>
       </div>
       </div>
+
+      {/* Copilot Peek 胶囊（桌面端） */}
+      <CopilotPeekCapsule />
 
       <BottomNav />
     </div>

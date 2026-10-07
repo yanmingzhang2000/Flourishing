@@ -19,6 +19,18 @@ export const BottomNav: React.FC = () => {
       ),
     },
     {
+      key: 'calendar',
+      label: '日历',
+      path: '/calendar',
+      matchPaths: ['/calendar'],
+      icon: (active: boolean) => (
+        <svg viewBox="0 0 24 24" fill="none" className="w-6 h-6" stroke="currentColor" strokeWidth={active ? 2.5 : 2}>
+          <rect x="3" y="4" width="18" height="18" rx="2" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M16 2v4M8 2v4M3 10h18" strokeLinecap="round" />
+        </svg>
+      ),
+    },
+    {
       key: 'profile',
       label: '我的',
       path: '/profile',

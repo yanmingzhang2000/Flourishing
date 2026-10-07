@@ -6,6 +6,7 @@ import React, { createContext, useState, useEffect, ReactNode, useCallback } fro
 import { copilotClient } from '@/lib/copilot/client';
 import { CopilotEvent, CopilotAction } from '@/lib/copilot/types';
 import { isLoggedIn } from '@/lib/api';
+import { generateInsight, InsightFacts } from '@/lib/copilot/insightEngine';
 
 // ────────────────────────────────────────────────────────────────────────────
 // 类型定义
@@ -20,6 +21,8 @@ export interface CopilotMessage {
   read: boolean;
   clickedActionId?: string; // 标记哪个动作被点击
   isTest?: boolean; // 标记是否为测试消息
+  type?: 'chat' | 'insight'; // 消息类型：普通对话 or 洞察卡
+  summary?: string; // 洞察消息的摘要（用于 peek 胶囊）
 }
 
 interface CopilotContextValue {
@@ -28,6 +31,7 @@ interface CopilotContextValue {
   messages: CopilotMessage[];
   unreadCount: number;
   isLoading: boolean;
+  latestInsight: CopilotMessage | null; // 最新的洞察消息（用于 peek 胶囊）
 
   // 操作
   open: () => void;
@@ -37,6 +41,7 @@ interface CopilotContextValue {
   // 消息
   sendMessage: (content: string) => Promise<void>;
   triggerEvent: (event: CopilotEvent) => Promise<void>;
+  pushInsight: (facts: InsightFacts, trigger: 'page_load' | 'view_switch' | 'workout_complete') => void;
   markAllAsRead: () => void;
   
   // 反馈快捷方式
@@ -67,6 +72,9 @@ export const CopilotProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [isLoading, setIsLoading] = useState(false);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [feedbackSubmittedToday, setFeedbackSubmittedToday] = useState<string | null>(null); // 记录今天是否已提交反馈
+  const [latestInsight, setLatestInsight] = useState<CopilotMessage | null>(null); // 最新洞察消息
+  const [insightsSeen, setInsightsSeen] = useState<Set<string>>(new Set()); // 去重：记录已推送的洞察
+  const [todayInsightCount, setTodayInsightCount] = useState(0); // 今天推送的洞察数量
 
   // 从 localStorage 加载历史消息
   useEffect(() => {
@@ -76,6 +84,11 @@ export const CopilotProvider: React.FC<{ children: ReactNode }> = ({ children })
         if (history) {
           const parsed = JSON.parse(history);
           setMessages(parsed);
+          // 加载最新的洞察消息
+          const insights = parsed.filter((m: CopilotMessage) => m.type === 'insight');
+          if (insights.length > 0) {
+            setLatestInsight(insights[insights.length - 1]);
+          }
         }
         // 加载今日反馈状态
         const todayFeedback = localStorage.getItem('copilot_feedback_today');
@@ -87,6 +100,19 @@ export const CopilotProvider: React.FC<{ children: ReactNode }> = ({ children })
           } else {
             // 清除过期标记
             localStorage.removeItem('copilot_feedback_today');
+          }
+        }
+        // 加载今日洞察记录
+        const todayInsights = localStorage.getItem('copilot_insights_today');
+        if (todayInsights) {
+          const { date, seen, count } = JSON.parse(todayInsights);
+          const today = new Date().toISOString().split('T')[0];
+          if (date === today) {
+            setInsightsSeen(new Set(seen));
+            setTodayInsightCount(count);
+          } else {
+            // 清除过期标记
+            localStorage.removeItem('copilot_insights_today');
           }
         }
       } catch (error) {
@@ -387,16 +413,92 @@ export const CopilotProvider: React.FC<{ children: ReactNode }> = ({ children })
     setMessages(prev => prev.filter(m => !m.isTest));
   }, []);
 
+  /**
+   * 推送洞察消息
+   * 带去重和频率控制
+   */
+  const pushInsight = useCallback((facts: InsightFacts, trigger: 'page_load' | 'view_switch' | 'workout_complete') => {
+    // 去重：同一天同视图只推一次
+    const today = new Date().toISOString().split('T')[0];
+    const key = `${today}-${facts.view}`;
+    
+    if (insightsSeen.has(key)) {
+      console.log('[Copilot] Insight already pushed today for this view:', key);
+      return;
+    }
+
+    // 防骚扰：每天主动消息 ≤ 2 条
+    if (todayInsightCount >= 2) {
+      console.log('[Copilot] Daily insight limit reached:', todayInsightCount);
+      return;
+    }
+
+    // 生成洞察消息
+    const insight = generateInsight(facts, trigger);
+    
+    // 构建 CTA 动作
+    const actions: CopilotAction[] = [];
+    if (insight.cta && insight.ctaAction) {
+      actions.push({
+        id: insight.ctaAction,
+        label: insight.cta,
+        handler: insight.ctaAction,
+        style: 'primary',
+      });
+    }
+
+    // 添加消息
+    const message: CopilotMessage = {
+      id: Date.now(),
+      role: 'assistant',
+      content: insight.content,
+      timestamp: new Date().toISOString(),
+      actions: actions.length > 0 ? actions : undefined,
+      read: isOpen, // 如果抽屉已打开，标记为已读
+      type: 'insight',
+      summary: insight.summary,
+    };
+
+    setMessages(prev => {
+      const updated = [...prev, message];
+      localStorage.setItem('copilot_messages', JSON.stringify(updated));
+      return updated;
+    });
+
+    // 更新最新洞察
+    setLatestInsight(message);
+
+    // 更新去重记录
+    const newSeen = new Set(insightsSeen);
+    newSeen.add(key);
+    setInsightsSeen(newSeen);
+
+    // 更新今日计数
+    const newCount = todayInsightCount + 1;
+    setTodayInsightCount(newCount);
+
+    // 持久化今日洞察记录
+    localStorage.setItem('copilot_insights_today', JSON.stringify({
+      date: today,
+      seen: Array.from(newSeen),
+      count: newCount,
+    }));
+
+    console.log('[Copilot] Insight pushed:', insight.summary);
+  }, [insightsSeen, todayInsightCount, isOpen]);
+
   const value: CopilotContextValue = {
     isOpen,
     messages,
     unreadCount,
     isLoading,
+    latestInsight,
     open,
     close,
     toggle,
     sendMessage,
     triggerEvent,
+    pushInsight,
     markAllAsRead,
     submitFeedback,
     executeAction,
