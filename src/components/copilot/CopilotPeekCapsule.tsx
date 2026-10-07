@@ -76,7 +76,7 @@ export const CopilotPeekCapsule: React.FC = () => {
         }`}
         aria-label="打开 AI 教练"
       >
-        🤖
+        🐼
         {unreadCount > 0 && (
           <motion.span
             initial={{ scale: 0 }}

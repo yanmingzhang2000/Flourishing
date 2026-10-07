@@ -11,8 +11,8 @@ interface Props {
 export const HeatCell: React.FC<Props> = ({ status, size = 'medium', onClick, children }) => {
   const sizeClass = {
     small: 'w-[11px] h-[11px]',   // 年视图
-    medium: 'w-[52px] h-[52px]',   // 月视图
-    large: 'w-16 h-16'              // 周视图
+    medium: 'w-full h-full',       // 月视图（容器控制实际尺寸）
+    large: 'w-full h-full'         // 周视图（容器控制实际尺寸）
   }[size];
   
   // 背景色映射（静态类名，避免 JIT 扫描遗漏）

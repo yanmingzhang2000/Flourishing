@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { projectInstancesApi, userApi, plansApi } from '@/lib/api';
+import { projectInstancesApi, userApi, plansApi, recordsApi } from '@/lib/api';
 import { ProjectInstance } from '@/lib/types';
 import { BottomNav } from '@/components/BottomNav';
+import { calculateStreak } from '@/lib/calendarUtils';
 import projectsData from '@/data/projects.json';
 
 const PROJECT_MAP = Object.fromEntries((projectsData as any[]).map(p => [p.id, p]));
@@ -39,20 +40,26 @@ export const MyProjectsPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [todayTraining, setTodayTraining] = useState<{ instanceId: string; date: string; dayIndex: number; projectName: string; projectIcon: string; projectColor: string } | null>(null);
+  const [dynamicSubtitle, setDynamicSubtitle] = useState<string>('加油 💪');
 
   const load = async () => {
     try {
-      const [insts, prof] = await Promise.all([
+      const [insts, prof, records] = await Promise.all([
         projectInstancesApi.getAll(),
         userApi.getProfile(),
+        recordsApi.getAll().catch(() => []),
       ]);
       setInstances(insts);
       setProfile(prof);
       
+      // 生成动态副标
+      const today = new Date().toISOString().split('T')[0];
+      const todayRecord = records.find((r: any) => r.date === today);
+      const streak = calculateStreak(records);
+      
       // 获取今日训练（从第一个 active 项目）
       const activeInst = insts.find(i => i.status === 'active');
       if (activeInst) {
-        const today = new Date().toISOString().split('T')[0];
         try {
           const plan = await plansApi.getByDate(today);
           if (plan && plan.days) {
@@ -74,11 +81,39 @@ export const MyProjectsPage: React.FC = () => {
                 projectIcon: project?.icon || '💪',
                 projectColor: project?.color || '#7DC47A',
               });
+              
+              // 动态副标：今天有训练
+              if (!todayRecord?.completed) {
+                // 计算预计时长
+                const totalMinutes = todayPlan.exercises?.reduce((sum: number, ex: any) => {
+                  const workTime = (ex.sets * ex.reps * 3) / 60;
+                  const restTime = ((ex.sets - 1) * ex.restBetweenSet) / 60;
+                  return sum + workTime + restTime;
+                }, 0) || 0;
+                const roundedMinutes = Math.ceil(totalMinutes / 5) * 5;
+                setDynamicSubtitle(`今天有 1 项训练待练，${roundedMinutes} 分钟就能完成 ✨`);
+              } else {
+                setDynamicSubtitle(`今天的训练已完成，太棒了！🎉`);
+              }
+            } else {
+              // 今天休息日
+              if (streak > 0) {
+                setDynamicSubtitle(`已连续 ${streak} 天，今天休息，明天继续加油 💪`);
+              } else {
+                setDynamicSubtitle(`今天休息，明天开始新的训练节奏 💪`);
+              }
             }
           }
         } catch (err) {
           console.error('Failed to load today training:', err);
+          // 失败时用连续天数兜底
+          if (streak > 0) {
+            setDynamicSubtitle(`已连续 ${streak} 天，继续保持 🔥`);
+          }
         }
+      } else {
+        // 没有活跃项目
+        setDynamicSubtitle('开始你的第一个训练计划吧 🌟');
       }
     } catch {
       navigate('/auth');
@@ -130,7 +165,7 @@ export const MyProjectsPage: React.FC = () => {
           <div>
             <h1 className="text-2xl font-bold text-white">我的训练</h1>
             <p className="text-sm text-white/70 mt-0.5">
-              {profile?.display_name ? `${profile.display_name}，` : ''}加油 💪
+              {dynamicSubtitle}
             </p>
           </div>
           <button

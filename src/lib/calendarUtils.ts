@@ -1,4 +1,10 @@
 import { TrainingRecord, WeeklyPlan } from './types';
+import projectsData from '@/data/projects.json';
+
+// 项目名称映射表（projectId → 中文名），从 projects.json 静态构建
+const PROJECT_NAME_MAP: Record<string, string> = Object.fromEntries(
+  (projectsData as any[]).map(p => [p.id, p.name])
+);
 
 export type DayStatus = {
   type: 'completed' | 'todo' | 'today-todo' | 'today-completed' | 'empty';
@@ -175,4 +181,36 @@ export function calculateMaxStreak(records: TrainingRecord[]): number {
   }
   
   return maxStreak;
+}
+
+// 器械标签映射（完整枚举值 → 中文显示）
+export function equipmentLabel(key: string): string {
+  const equipmentMap: Record<string, string> = {
+    // 哑铃系列
+    'dumbbell_1kg_pair': '哑铃 1kg',
+    'dumbbell_1.5kg_pair': '哑铃 1.5kg',
+    'dumbbell_2kg_pair': '哑铃 2kg',
+    'dumbbell_2.5kg_pair': '哑铃 2.5kg',
+    'dumbbell_3kg_pair': '哑铃 3kg',
+    'dumbbell': '哑铃',
+    // 弹力带系列
+    'resistance_band': '弹力带',
+    'resistance_band_light': '弹力带（轻）',
+    'resistance_band_medium': '弹力带（中）',
+    'resistance_band_heavy': '弹力带（重）',
+    // 其他器械
+    'kettlebell': '壶铃',
+    'barbell': '杠铃',
+    'foam_roller': '泡沫轴',
+    'yoga_mat': '瑜伽垫',
+    'none': '自重',
+    'bodyweight': '自重'
+  };
+  
+  return equipmentMap[key] || '器械';
+}
+
+// 项目名称映射（projectId → 项目中文名）
+export function getProjectName(projectId: string): string {
+  return PROJECT_NAME_MAP[projectId] || '训练计划';
 }

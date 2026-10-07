@@ -1,27 +1,23 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { WeeklyPlan, TrainingRecord } from '@/lib/types';
-import { getDayStatus, calculateStreak, formatLocalDate } from '@/lib/calendarUtils';
+import { getDayStatus, calculateStreak, formatLocalDate, equipmentLabel, getProjectName } from '@/lib/calendarUtils';
 import { HeatCell } from '@/components/calendar/HeatCell';
 import { SessionAccordion } from '@/components/calendar/SessionAccordion';
-import projectsData from '@/data/projects.json';
 
 const DAY_LABELS = ['一', '二', '三', '四', '五', '六', '日'];
-
-// projectId → 项目名称的映射，供训练列表显示
-const PROJECT_NAME_MAP: Record<string, string> = Object.fromEntries(
-  (projectsData as any[]).map(p => [p.id, p.name])
-);
 
 interface Props {
   plan: WeeklyPlan;
   records: TrainingRecord[];
   instance?: { startDate: string; targetWeeks: number }; // 项目实例信息
+  /** 项目实例的 projectId，用于 session 卡标题映射（优先于 day.projectId） */
+  projectId?: string;
   /** V2：由外部提供跳转逻辑（携带 instanceId）；不传时使用内部默认路由 */
   onDayClick?: (date: string, dayIndex: number) => void;
 }
 
-export const WeekView: React.FC<Props> = ({ plan, records, instance, onDayClick }) => {
+export const WeekView: React.FC<Props> = ({ plan, records, instance, projectId, onDayClick }) => {
   const navigate = useNavigate();
 
   const goToDay = (date: string, dayIndex: number) => {
@@ -122,34 +118,12 @@ export const WeekView: React.FC<Props> = ({ plan, records, instance, onDayClick 
         ex.exercise.equipment.includes('bodyweight')
       );
       
-      // 构建器械文本
+      // 构建器械文本（使用共享工具函数）
       let equipmentText = '';
       if (equipmentList.length === 0 && hasBodyweight) {
         equipmentText = '自重';
       } else if (equipmentList.length > 0) {
-        // 器械映射到中文
-        const equipmentMap: Record<string, string> = {
-          // 哑铃系列
-          'dumbbell_1kg_pair': '哑铃 1kg',
-          'dumbbell_1.5kg_pair': '哑铃 1.5kg',
-          'dumbbell_2kg_pair': '哑铃 2kg',
-          'dumbbell_2.5kg_pair': '哑铃 2.5kg',
-          'dumbbell_3kg_pair': '哑铃 3kg',
-          'dumbbell': '哑铃',
-          // 弹力带系列
-          'resistance_band': '弹力带',
-          'resistance_band_light': '弹力带（轻）',
-          'resistance_band_medium': '弹力带（中）',
-          'resistance_band_heavy': '弹力带（重）',
-          // 其他器械
-          'kettlebell': '壶铃',
-          'barbell': '杠铃',
-          'foam_roller': '泡沫轴',
-          'yoga_mat': '瑜伽垫',
-          'none': '自重',
-          'bodyweight': '自重'
-        };
-        const translatedEquipment = equipmentList.map(e => equipmentMap[e] || e);
+        const translatedEquipment = equipmentList.map(e => equipmentLabel(e));
         equipmentText = translatedEquipment.join(' / ');
         if (hasBodyweight) {
           equipmentText += ' / 自重';
@@ -159,11 +133,15 @@ export const WeekView: React.FC<Props> = ({ plan, records, instance, onDayClick 
       }
       
       const done = !!getRecord(index)?.completed;
+      
+      // 优先使用传入的 projectId，兜底用 day.projectId
+      const finalProjectId = projectId || day.projectId;
+      
       return {
         date: getDate(index),
         dayIndex: index,
         dayLabel: `周${DAY_LABELS[index]}`,
-        projectName: day.projectId ? (PROJECT_NAME_MAP[day.projectId] || '训练计划') : '训练计划',
+        projectName: finalProjectId ? getProjectName(finalProjectId) : '训练计划',
         duration: `约 ${roundedMinutes} 分钟`,
         equipment: equipmentText,
         exerciseCount: day.exercises?.length || 0,
@@ -203,14 +181,14 @@ export const WeekView: React.FC<Props> = ({ plan, records, instance, onDayClick 
         </button>
       )}
 
-      {/* 本周格子 */}
-      <div className="max-w-[484px] mx-auto">
-        <div className="grid grid-cols-7 gap-1.5 mb-1">
+      {/* 本周格子 - 自适应填满主区 */}
+      <div className="w-full">
+        <div className="grid grid-cols-7 gap-2.5 mb-1">
           {DAY_LABELS.map(l => (
             <div key={l} className="text-center text-[11px] text-muted font-medium py-1">{l}</div>
           ))}
         </div>
-        <div className="grid grid-cols-7 gap-1.5">
+        <div className="grid grid-cols-7 gap-2.5">
           {plan.days.map((day, index) => {
             const dateStr = getDate(index);
             const inRange = isDateInRange(index);
@@ -227,7 +205,7 @@ export const WeekView: React.FC<Props> = ({ plan, records, instance, onDayClick 
                   }
                 }}
                 disabled={isRest || !inRange}
-                className={`relative ${(isRest || !inRange) ? 'cursor-default' : 'cursor-pointer'}`}
+                className={`relative aspect-square ${(isRest || !inRange) ? 'cursor-default' : 'cursor-pointer'}`}
               >
                 <HeatCell
                   status={status}
@@ -263,11 +241,15 @@ export const WeekView: React.FC<Props> = ({ plan, records, instance, onDayClick 
         />
       </div>
 
-      {/* 底部统计 */}
-      <div className="flex items-center justify-center gap-6 text-sm text-muted pt-2 border-t border-subtle">
+      {/* 底部统计 - 胶囊样式 */}
+      <div className="flex items-center justify-center gap-3 px-4 py-3 bg-subtle rounded-full text-sm text-muted mt-4">
+        <span className="flex items-center gap-1">
+          🔥 已连续 <strong className="text-brand">{streakDays}</strong> 天（截至昨天）
+        </span>
+        <span className="w-px h-4 bg-muted/30" />
         <span>本周 <strong className="text-brand">{completedCount}</strong>/{trainingDaysCount} 次</span>
+        <span className="w-px h-4 bg-muted/30" />
         <span>还差 <strong className="text-text">{remainingCount}</strong> 次</span>
-        <span>连续 <strong className="text-brand">{streakDays}</strong> 天</span>
       </div>
     </div>
   );

@@ -66,7 +66,13 @@ export const CopilotContext = createContext<CopilotContextValue | null>(null);
 // ────────────────────────────────────────────────────────────────────────────
 
 export const CopilotProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [isOpen, setIsOpen] = useState(false);
+  // 桌面端（>=1024px）默认展开抽屉
+  const [isOpen, setIsOpen] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth >= 1024;
+    }
+    return false;
+  });
   const [messages, setMessages] = useState<CopilotMessage[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);

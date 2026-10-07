@@ -66,11 +66,11 @@ function generateWeekInsight(
   if (remaining <= 0) {
     const templates = [
       {
-        content: `🎉 本周目标达成！你已完成 ${completed} 次训练，太棒了！\n\n${streak > 1 ? `连续 ${streak} 天训练，保持这个节奏！🔥` : '继续保持这个节奏！'}`,
+        content: `🎉 本周 ${completed} 次训练全达成！${streak > 1 ? `连续 ${streak} 天，保持节奏🔥` : '继续保持！'}`,
         summary: `🎉 本周 ${completed}/${target}，已达成！`,
       },
       {
-        content: `💪 本周 ${completed} 次训练全部完成！你的坚持让人佩服。\n\n${streak > 3 ? `已经连续 ${streak} 天了，势不可挡！🚀` : '继续加油！'}`,
+        content: `💪 本周训练完成！${streak > 3 ? `连续 ${streak} 天，势不可挡🚀` : '继续加油！'}`,
         summary: `💪 本周已完成 ${completed} 次`,
       },
     ];
@@ -81,13 +81,13 @@ function generateWeekInsight(
   if (todayStatus === 'todo') {
     const templates = [
       {
-        content: `本周已练 ${completed}/${target}，还差 ${remaining} 次 💪\n\n今天的训练准备好了，动起来不难！`,
+        content: `本周已练 ${completed}/${target}，还差 ${remaining} 次💪 今天动起来！`,
         summary: `本周 ${completed}/${target}，还差 ${remaining} 次`,
         cta: '开始今天训练',
         ctaAction: 'start_today_workout',
       },
       {
-        content: `这周完成 ${completed} 次训练，${remaining === 1 ? '再坚持一次就达标了' : `还有 ${remaining} 次等你完成`}！\n\n${streak > 0 ? `已经连续 ${streak} 天训练，别让记录断了～` : '今天开始新的连续记录！'}`,
+        content: `本周完成 ${completed} 次，${remaining === 1 ? '再练一次就达标！' : `还有 ${remaining} 次`}${streak > 0 ? ` 已连续 ${streak} 天～` : ''}`,
         summary: `本周 ${completed}/${target}`,
         cta: '开始训练',
         ctaAction: 'start_today_workout',
@@ -100,11 +100,11 @@ function generateWeekInsight(
   if (todayStatus === 'completed') {
     const templates = [
       {
-        content: `本周已练 ${completed}/${target}，${remaining === 0 ? '目标达成！🎉' : `还差 ${remaining} 次`}\n\n今天的训练已完成，感觉怎么样？`,
+        content: `本周 ${completed}/${target}，${remaining === 0 ? '目标达成🎉' : `还差 ${remaining} 次`} 今天已完成！`,
         summary: `本周 ${completed}/${target}`,
       },
       {
-        content: `今天训练完成！本周进度 ${completed}/${target}。\n\n${remaining > 0 ? `继续加油，还有 ${remaining} 次就达标了！💪` : '本周目标已完成，真棒！🎉'}`,
+        content: `今天训练完成！本周 ${completed}/${target}${remaining > 0 ? `，还有 ${remaining} 次💪` : '，目标达成🎉'}`,
         summary: `本周 ${completed}/${target}`,
       },
     ];
@@ -114,7 +114,7 @@ function generateWeekInsight(
   // 进行中 + 今天休息
   const templates = [
     {
-      content: `本周已练 ${completed}/${target}，还差 ${remaining} 次。\n\n今天是休息日，明天继续加油！💪`,
+      content: `本周 ${completed}/${target}，还差 ${remaining} 次 今天休息，明天继续💪`,
       summary: `本周 ${completed}/${target}`,
     },
   ];
@@ -133,7 +133,7 @@ function generateMonthInsight(
 
   if (remaining <= 0) {
     return {
-      content: `🎉 本月训练目标达成！完成 ${completed} 次训练，完成率 ${completionRate}%。\n\n你的坚持正在带来改变！`,
+      content: `🎉 本月目标达成！完成 ${completed} 次，${completionRate}% 你的坚持在带来改变！`,
       summary: `🎉 本月达成 ${completed} 次`,
     };
   }
@@ -141,7 +141,7 @@ function generateMonthInsight(
   if (todayStatus === 'todo') {
     const templates = [
       {
-        content: `本月已练 ${completed}/${target}，完成率 ${completionRate}%。\n\n今天继续保持节奏，每一次训练都是进步！💪`,
+        content: `本月 ${completed}/${target}，${completionRate}% 今天继续保持💪`,
         summary: `本月 ${completed}/${target}，${completionRate}%`,
         cta: '开始今天训练',
         ctaAction: 'start_today_workout',
@@ -151,7 +151,7 @@ function generateMonthInsight(
   }
 
   return {
-    content: `本月已练 ${completed}/${target}，完成率 ${completionRate}%。\n\n${remaining === 1 ? '再坚持一次就达标了！' : `还有 ${remaining} 次，继续加油！`}`,
+    content: `本月 ${completed}/${target}，${completionRate}% ${remaining === 1 ? '再练一次就达标！' : `还有 ${remaining} 次💪`}`,
     summary: `本月 ${completed}/${target}`,
   };
 }
@@ -164,20 +164,20 @@ function generateYearInsight(stats: { total: number; activeWeeks: number; maxStr
 
   if (total === 0) {
     return {
-      content: '📊 这是你的年度训练记录。\n\n开始第一次训练，点亮日历吧！🌟',
+      content: '📊 年度训练记录 开始第一次训练，点亮日历🌟',
       summary: '开始第一次训练 🌟',
     };
   }
 
   if (maxStreak >= 7) {
     return {
-      content: `📊 近一年训练概览\n\n✅ 完成 ${total} 次训练\n🔥 最长连续 ${maxStreak} 天\n📅 活跃 ${activeWeeks} 周\n\n你的坚持令人敬佩！继续保持！`,
+      content: `📊 近一年：${total} 次训练、最长 ${maxStreak} 天、活跃 ${activeWeeks} 周 你的坚持令人敬佩！`,
       summary: `年度 ${total} 次，最长 ${maxStreak} 天`,
     };
   }
 
   return {
-    content: `📊 近一年训练概览\n\n✅ 完成 ${total} 次训练\n📅 活跃 ${activeWeeks} 周\n🔥 最长连续 ${maxStreak} 天\n\n每一次训练都是对自己的投资！💪`,
+    content: `📊 近一年：${total} 次训练、${activeWeeks} 周活跃 每一次都是投资💪`,
     summary: `年度 ${total} 次训练`,
   };
 }
@@ -189,37 +189,37 @@ function generateMilestoneMessage(milestone: string, facts: InsightFacts): Insig
   switch (milestone) {
     case 'first_workout':
       return {
-        content: '🎉 恭喜完成第一次训练！\n\n万事开头难，你已经迈出了最重要的一步。坚持下去，改变就会发生！',
+        content: '🎉 完成第一次训练！迈出最重要一步，坚持下去改变会发生！',
         summary: '完成第一次训练 🎉',
       };
     
     case 'streak_7':
       return {
-        content: '🔥 连续 7 天训练达成！\n\n你的坚持让人敬佩。习惯的养成需要 21 天，继续加油！',
+        content: '🔥 连续 7 天达成！习惯养成需要 21 天，继续加油！',
         summary: '连续 7 天 🔥',
       };
     
     case 'streak_30':
       return {
-        content: '🏆 连续 30 天训练达成！\n\n这已经不是坚持，而是生活方式了。为你点赞！👏',
+        content: '🏆 连续 30 天达成！这已是生活方式，为你点赞👏',
         summary: '连续 30 天 🏆',
       };
     
     case 'target_achieved':
       return {
-        content: '🎯 本周目标达成！\n\n你说到做到，这份自律值得骄傲。下周继续保持！',
+        content: '🎯 本周目标达成！你说到做到，这份自律值得骄傲',
         summary: '本周目标达成 🎯',
       };
     
     case 'month_complete':
       return {
-        content: '🌟 本月训练计划全部完成！\n\n这个月的你，真的很棒。为自己鼓掌！👏',
+        content: '🌟 本月训练全部完成！这个月的你真的很棒👏',
         summary: '本月计划完成 🌟',
       };
     
     default:
       return {
-        content: '继续保持训练节奏，每一次努力都在积累！💪',
+        content: '继续保持训练节奏，每一次努力都在积累💪',
         summary: '继续保持 💪',
       };
   }

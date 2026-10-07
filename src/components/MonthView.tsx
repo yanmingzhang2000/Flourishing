@@ -140,8 +140,8 @@ export const MonthView: React.FC<Props> = ({ year, month, records, plans, instan
 
   return (
     <div className="space-y-4">
-      {/* 月份导航 + 网格容器 - 412px 居中 */}
-      <div className="max-w-[412px] mx-auto">
+      {/* 月份导航 + 网格容器 - 自适应填满主区 */}
+      <div className="w-full">
         {/* 月份标题 + 统计 */}
         <div className="flex items-center justify-between mb-4">
           <button
@@ -162,10 +162,10 @@ export const MonthView: React.FC<Props> = ({ year, month, records, plans, instan
           <h2 className="text-xl font-bold text-text">{year}年 {month}月</h2>
           <div className="flex items-center justify-center gap-4 text-xs text-muted mt-1">
             <span>
-              完成 <strong className="text-brand">{completedCount}</strong>
+              完成 <strong className="text-brand font-bold">{completedCount}</strong>
               {targetCount > 0 && `/${targetCount}`} 次
             </span>
-            <span>最长连续 <strong className="text-brand">{maxStreak}</strong> 天</span>
+            <span>最长连续 <strong className="text-brand font-bold">{maxStreak}</strong> 天</span>
           </div>
         </div>
         
@@ -184,7 +184,7 @@ export const MonthView: React.FC<Props> = ({ year, month, records, plans, instan
         </button>
       </div>
 
-      {/* 日历格子 */}
+      {/* 日历格子 - 自适应填满，单格上限 150px */}
       <div>
         <div className="grid grid-cols-7 gap-2 mb-1">
           {DAY_NAMES.map(n => (
@@ -197,7 +197,7 @@ export const MonthView: React.FC<Props> = ({ year, month, records, plans, instan
             const isClickable = d.inMonth && (status.type === 'completed' || status.type === 'today-completed' || status.type === 'todo' || status.type === 'today-todo');
 
             return (
-              <div key={i} className="relative">
+              <div key={i} className="relative aspect-square max-w-[150px] mx-auto">
                 {d.inMonth ? (
                   <HeatCell
                     status={status}
@@ -214,7 +214,7 @@ export const MonthView: React.FC<Props> = ({ year, month, records, plans, instan
                   </HeatCell>
                 ) : (
                   // 邻月：纯背景色 + 数字
-                  <div className="w-8 h-8 flex items-center justify-center bg-subtle/30 rounded-[2px]">
+                  <div className="w-full h-full flex items-center justify-center bg-subtle/30 rounded-[2px]">
                     <span className="text-xs text-muted/50">{d.day}</span>
                   </div>
                 )}

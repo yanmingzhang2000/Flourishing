@@ -10,18 +10,12 @@ export const CopilotQuickActions: React.FC = () => {
   const navigate = useNavigate();
   const { clearAllMessages } = useCopilotContext();
 
-  const actions = [
-    {
-      id: 'clear_history',
-      label: '清空所有历史',
-      icon: '🗑️',
-      onClick: () => {
-        if (confirm('确定要清空所有对话历史吗？此操作无法撤销。')) {
-          clearAllMessages();
-        }
-      },
-    },
-  ];
+  // 规格 3.3：移除"清空所有历史"快捷操作
+  const actions: any[] = [];
+
+  if (actions.length === 0) {
+    return null; // 没有快捷操作时不渲染
+  }
 
   return (
     <div className="border-t border-gray-100 p-4 bg-gray-50">

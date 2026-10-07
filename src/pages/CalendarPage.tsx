@@ -12,6 +12,7 @@ import projectsData from '@/data/projects.json';
 import { useCopilotContext } from '@/hooks/useCopilotContext';
 import { CopilotMobileCapsule } from '@/components/copilot/CopilotMobileCapsule';
 import { CopilotPeekCapsule } from '@/components/copilot/CopilotPeekCapsule';
+import { CopilotSidebarDesktop } from '@/components/copilot/CopilotSidebarDesktop';
 import { InsightFacts } from '@/lib/copilot/insightEngine';
 
 const PROJECT_MAP = Object.fromEntries((projectsData as any[]).map(p => [p.id, p]));
@@ -508,172 +509,181 @@ export const CalendarPage: React.FC = () => {
             </div>
             <div className="rounded-2xl p-4 bg-white/90 text-center">
               <div className="text-2xl font-bold text-brand">{stats.currentStreak}</div>
-              <div className="text-xs text-gray-500 mt-0.5">连续天数</div>
+              <div className="text-xs text-gray-500 mt-0.5">已连续天数</div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* 主内容区 */}
-      <div className="px-8 pt-6">
-        <div className="max-w-4xl mx-auto">
-        {/* Copilot 移动端顶部胶囊 */}
-        <CopilotMobileCapsule />
-        
-        {unavailable && (
-          <div className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-center">
-            <p className="font-semibold text-amber-800">{unavailable.display_message}</p>
-            <p className="mt-1 text-xs text-amber-700">当前条件下没有安全、合格的动作，请调整训练偏好后重试。</p>
-          </div>
-        )}
-
-        {/* Tab 切换 */}
-        <div className="mb-5 border-b border-subtle">
-          <div className="flex gap-6">
-            <button
-              onClick={() => setView('week')}
-              className={`py-2 px-1 text-sm font-medium transition-colors relative ${
-                view === 'week'
-                  ? 'text-brand'
-                  : 'text-muted hover:text-text'
-              }`}
-            >
-              周
-              {view === 'week' && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand" />
-              )}
-            </button>
-            <button
-              onClick={() => setView('month')}
-              className={`py-2 px-1 text-sm font-medium transition-colors relative ${
-                view === 'month'
-                  ? 'text-brand'
-                  : 'text-muted hover:text-text'
-              }`}
-            >
-              月
-              {view === 'month' && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand" />
-              )}
-            </button>
-            {!instanceId && (
-              <button
-                onClick={() => setView('year')}
-                className={`py-2 px-1 text-sm font-medium transition-colors relative ${
-                  view === 'year'
-                    ? 'text-brand'
-                    : 'text-muted hover:text-text'
-                }`}
-              >
-                年
-                {view === 'year' && (
-                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand" />
-                )}
-              </button>
+      {/* 主内容区 - 1080px 容器 + 两列布局 */}
+      <div className="max-w-[1080px] mx-auto px-8 pt-6">
+        <div className="flex gap-6">
+          {/* 左侧主区 */}
+          <main className="flex-1 min-w-0">
+            {/* Copilot 移动端顶部胶囊 */}
+            <CopilotMobileCapsule />
+            
+            {unavailable && (
+              <div className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-center">
+                <p className="font-semibold text-amber-800">{unavailable.display_message}</p>
+                <p className="mt-1 text-xs text-amber-700">当前条件下没有安全、合格的动作，请调整训练偏好后重试。</p>
+              </div>
             )}
-          </div>
-        </div>
 
-        {/* 视图内容 */}
-        <div>
-          {view === 'week' && (
-            currentPlan
-              ? <>
-                  {/* 周导航栏 - 484px 容器居中对齐 */}
-                  <div className="max-w-[484px] mx-auto mb-4">
-                    <div className="flex items-center justify-between">
-                    {(() => {
-                      const { canGoPrev, canGoNext } = getWeekNavigationBounds();
-                      return (
-                        <>
-                          <button
-                            onClick={() => handleWeekChange(-1)}
-                            disabled={!canGoPrev}
-                            className={`flex items-center gap-2 transition-colors ${
-                              canGoPrev 
-                                ? 'text-brand hover:text-brand-dark cursor-pointer' 
-                                : 'text-muted/30 cursor-not-allowed'
-                            }`}
-                          >
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-                            </svg>
-                            <span className="text-sm font-medium">上一周</span>
-                          </button>
-                          
-                          <span className="text-sm font-semibold text-text">
-                            {(() => {
-                              const start = new Date(viewWeekStartDate || currentPlan.startDate);
-                              const end = new Date(start);
-                              end.setDate(end.getDate() + 6);
-                              const formatDateRange = (startDate: Date, endDate: Date) => {
-                                const sm = startDate.getMonth() + 1;
-                                const sd = startDate.getDate();
-                                const em = endDate.getMonth() + 1;
-                                const ed = endDate.getDate();
-                                if (sm === em) {
-                                  return `${sm}月${sd}日 – ${ed}日`;
-                                } else {
-                                  return `${sm}月${sd}日 – ${em}月${ed}日`;
-                                }
-                              };
-                              return formatDateRange(start, end);
-                            })()}
-                          </span>
-                          
-                          <button
-                            onClick={() => handleWeekChange(1)}
-                            disabled={!canGoNext}
-                            className={`flex items-center gap-2 transition-colors ${
-                              canGoNext 
-                                ? 'text-brand hover:text-brand-dark cursor-pointer' 
-                                : 'text-muted/30 cursor-not-allowed'
-                            }`}
-                          >
-                            <span className="text-sm font-medium">下一周</span>
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                            </svg>
-                          </button>
-                        </>
-                      );
-                    })()}
+            {/* Tab 切换 */}
+            <div className="mb-5 border-b border-subtle">
+              <div className="flex gap-6">
+                <button
+                  onClick={() => setView('week')}
+                  className={`py-2 px-1 text-sm font-medium transition-colors relative ${
+                    view === 'week'
+                      ? 'text-brand'
+                      : 'text-muted hover:text-text'
+                  }`}
+                >
+                  周
+                  {view === 'week' && (
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand" />
+                  )}
+                </button>
+                <button
+                  onClick={() => setView('month')}
+                  className={`py-2 px-1 text-sm font-medium transition-colors relative ${
+                    view === 'month'
+                      ? 'text-brand'
+                      : 'text-muted hover:text-text'
+                  }`}
+                >
+                  月
+                  {view === 'month' && (
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand" />
+                  )}
+                </button>
+                {!instanceId && (
+                  <button
+                    onClick={() => setView('year')}
+                    className={`py-2 px-1 text-sm font-medium transition-colors relative ${
+                      view === 'year'
+                        ? 'text-brand'
+                        : 'text-muted hover:text-text'
+                    }`}
+                  >
+                    年
+                    {view === 'year' && (
+                      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand" />
+                    )}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* 视图内容 */}
+            <div>
+              {view === 'week' && (
+                currentPlan
+                  ? <>
+                      {/* 周导航栏 */}
+                      <div className="mb-4">
+                        <div className="flex items-center justify-between">
+                        {(() => {
+                          const { canGoPrev, canGoNext } = getWeekNavigationBounds();
+                          return (
+                            <>
+                              <button
+                                onClick={() => handleWeekChange(-1)}
+                                disabled={!canGoPrev}
+                                className={`flex items-center gap-2 transition-colors ${
+                                  canGoPrev 
+                                    ? 'text-brand hover:text-brand-dark cursor-pointer' 
+                                    : 'text-muted/30 cursor-not-allowed'
+                                }`}
+                              >
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                                </svg>
+                                <span className="text-base font-medium">上一周</span>
+                              </button>
+                              
+                              <span className="text-base font-bold text-text">
+                                {(() => {
+                                  const start = new Date(viewWeekStartDate || currentPlan.startDate);
+                                  const end = new Date(start);
+                                  end.setDate(end.getDate() + 6);
+                                  const formatDateRange = (startDate: Date, endDate: Date) => {
+                                    const sm = startDate.getMonth() + 1;
+                                    const sd = startDate.getDate();
+                                    const em = endDate.getMonth() + 1;
+                                    const ed = endDate.getDate();
+                                    if (sm === em) {
+                                      return `${sm}月${sd}日 – ${ed}日`;
+                                    } else {
+                                      return `${sm}月${sd}日 – ${em}月${ed}日`;
+                                    }
+                                  };
+                                  return formatDateRange(start, end);
+                                })()}
+                              </span>
+                              
+                              <button
+                                onClick={() => handleWeekChange(1)}
+                                disabled={!canGoNext}
+                                className={`flex items-center gap-2 transition-colors ${
+                                  canGoNext 
+                                    ? 'text-brand hover:text-brand-dark cursor-pointer' 
+                                    : 'text-muted/30 cursor-not-allowed'
+                                }`}
+                              >
+                                <span className="text-base font-medium">下一周</span>
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                                </svg>
+                              </button>
+                            </>
+                          );
+                        })()}
+                        </div>
+                      </div>
+                      
+                      <WeekView
+                        plan={currentPlan}
+                        records={records}
+                        instance={instance}
+                        projectId={instance?.projectId}
+                        onDayClick={(date, dayIndex) => navigate(workoutPath(date, dayIndex))}
+                      />
+                    </>
+                  : <div className="text-center text-muted py-10 text-sm bg-white rounded-2xl">
+                      {planLoading ? '正在生成训练计划…' : '暂无本周计划'}
                     </div>
-                  </div>
-                  
-                  <WeekView
-                    plan={currentPlan}
-                    records={records}
-                    instance={instance}
-                    onDayClick={(date, dayIndex) => navigate(workoutPath(date, dayIndex))}
-                  />
-                </>
-              : <div className="text-center text-muted py-10 text-sm bg-white rounded-2xl">
-                  {planLoading ? '正在生成训练计划…' : '暂无本周计划'}
-                </div>
-          )}
-          {view === 'month' && (
-            <MonthView
-              year={viewYear}
-              month={viewMonth}
-              records={records}
-              plans={monthPlans}
-              instance={instance}
-              onMonthChange={handleMonthChange}
-              onDayClick={handleDayClickFromMonthOrYear}
-            />
-          )}
-          {view === 'year' && !instanceId && (
-            <YearView 
-              year={viewYear} 
-              records={records} 
-              plans={yearPlans} 
-              instance={instance}
-              onDayClick={handleDayClickFromMonthOrYear}
-            />
-          )}
+              )}
+              {view === 'month' && (
+                <MonthView
+                  year={viewYear}
+                  month={viewMonth}
+                  records={records}
+                  plans={monthPlans}
+                  instance={instance}
+                  onMonthChange={handleMonthChange}
+                  onDayClick={handleDayClickFromMonthOrYear}
+                />
+              )}
+              {view === 'year' && !instanceId && (
+                <YearView 
+                  year={viewYear} 
+                  records={records} 
+                  plans={yearPlans} 
+                  instance={instance}
+                  onDayClick={handleDayClickFromMonthOrYear}
+                />
+              )}
+            </div>
+          </main>
+
+          {/* 右侧 Copilot 抽屉（桌面端推挤式，移动端隐藏） */}
+          <aside className="hidden lg:block w-[340px] flex-shrink-0">
+            <CopilotSidebarDesktop />
+          </aside>
         </div>
-      </div>
       </div>
 
       {/* Copilot Peek 胶囊（桌面端） */}
