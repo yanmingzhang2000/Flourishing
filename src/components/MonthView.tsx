@@ -68,13 +68,13 @@ export const MonthView: React.FC<Props> = ({ year, month, records, plans, instan
   // 计算本月统计
   const monthRecords = records.filter(r => {
     const recordDate = new Date(r.date);
-    return recordDate.getFullYear() === year && recordDate.getMonth() === month - 1;
+    return recordDate.getFullYear() === year && recordDate.getMonth() === month - 1 && r.completed && recordDate <= new Date();
   });
-  const completedCount = monthRecords.filter(r => r.completed).length;
+  const completedCount = monthRecords.length;
   
-  // 计算本月目标（本月内的训练日总数，含未来）
+  // 计算本月目标（本月内的训练日总数，去重）
   const monthDays = calendarDays.filter(d => d.inMonth);
-  let targetCount = 0;
+  const trainingDaysSet = new Set<string>();
   
   monthDays.forEach(d => {
     // 检查是否为训练日（不限制日期范围）
@@ -98,9 +98,11 @@ export const MonthView: React.FC<Props> = ({ year, month, records, plans, instan
     });
     
     if (isTrainingDay) {
-      targetCount++;
+      trainingDaysSet.add(d.date); // 使用 Set 去重
     }
   });
+  
+  const targetCount = trainingDaysSet.size;
   
   const maxStreak = calculateMaxStreak(records);
 

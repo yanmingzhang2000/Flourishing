@@ -63,18 +63,19 @@ export const WeekView: React.FC<Props> = ({ plan, records, instance, onDayClick 
     if (todayIndex >= 0) {
       const todayDay = plan.days[todayIndex];
       if (todayDay.type === 'strength' && isDateInRange(todayIndex)) {
-        return todayIndex; // 今天有训练，展开今天
+        return todayIndex; // 今天有训练，无论是否完成都展开今天
       }
     }
     
-    // 今天是休息日，找本周最近的未来待练日
+    // 今天是休息日或不在范围内，找本周最近的未来待练日（排除已完成）
     const today = new Date(formatLocalDate(new Date()));
     const futureDays = plan.days
       .map((day, i) => ({ day, index: i, date: new Date(getDate(i)) }))
       .filter(({ day, index, date }) => 
         day.type === 'strength' && 
         isDateInRange(index) && 
-        date > today
+        date > today &&
+        !getRecord(index)?.completed // 排除已完成的日期
       )
       .sort((a, b) => a.date.getTime() - b.date.getTime());
     
@@ -82,10 +83,7 @@ export const WeekView: React.FC<Props> = ({ plan, records, instance, onDayClick 
       return futureDays[0].index;
     }
     
-    // 兜底：展开今天或第一个训练日
-    if (todayIndex >= 0) return todayIndex;
-    const firstTrainingDay = plan.days.findIndex((day, i) => day.type === 'strength' && isDateInRange(i));
-    return firstTrainingDay >= 0 ? firstTrainingDay : null;
+    return null;
   };
 
   const [selectedDayIndex, setSelectedDayIndex] = useState<number | null>(getDefaultSelectedDay);
@@ -131,12 +129,24 @@ export const WeekView: React.FC<Props> = ({ plan, records, instance, onDayClick 
       } else if (equipmentList.length > 0) {
         // 器械映射到中文
         const equipmentMap: Record<string, string> = {
+          // 哑铃系列
+          'dumbbell_1kg_pair': '哑铃 1kg',
+          'dumbbell_1.5kg_pair': '哑铃 1.5kg',
+          'dumbbell_2kg_pair': '哑铃 2kg',
+          'dumbbell_2.5kg_pair': '哑铃 2.5kg',
+          'dumbbell_3kg_pair': '哑铃 3kg',
           'dumbbell': '哑铃',
+          // 弹力带系列
           'resistance_band': '弹力带',
+          'resistance_band_light': '弹力带（轻）',
+          'resistance_band_medium': '弹力带（中）',
+          'resistance_band_heavy': '弹力带（重）',
+          // 其他器械
           'kettlebell': '壶铃',
           'barbell': '杠铃',
           'foam_roller': '泡沫轴',
           'yoga_mat': '瑜伽垫',
+          'none': '自重',
           'bodyweight': '自重'
         };
         const translatedEquipment = equipmentList.map(e => equipmentMap[e] || e);
@@ -153,7 +163,7 @@ export const WeekView: React.FC<Props> = ({ plan, records, instance, onDayClick 
         date: getDate(index),
         dayIndex: index,
         dayLabel: `周${DAY_LABELS[index]}`,
-        projectName: day.projectId ? PROJECT_NAME_MAP[day.projectId] : '训练计划',
+        projectName: day.projectId ? (PROJECT_NAME_MAP[day.projectId] || '训练计划') : '训练计划',
         duration: `约 ${roundedMinutes} 分钟`,
         equipment: equipmentText,
         exerciseCount: day.exercises?.length || 0,

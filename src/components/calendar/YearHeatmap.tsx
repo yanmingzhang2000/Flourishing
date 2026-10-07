@@ -85,8 +85,8 @@ export const YearHeatmap: React.FC<Props> = ({ records, plans, instance, onCellC
   
   const monthLabels = getMonthLabels();
   
-  // 计算统计数据
-  const totalCompletedDays = records.filter(r => r.completed).length;
+  // 计算统计数据（排除未来日期的记录，避免数据污染导致统计失真）
+  const totalCompletedDays = records.filter(r => r.completed && new Date(r.date) <= endDate).length;
   
   const handleMouseEnter = (e: React.MouseEvent, dateStr: string, status: any) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -235,9 +235,9 @@ export const YearHeatmap: React.FC<Props> = ({ records, plans, instance, onCellC
   
   function calculateMaxStreak(): number {
     if (records.length === 0) return 0;
-    
+
     const completedDates = records
-      .filter(r => r.completed)
+      .filter(r => r.completed && new Date(r.date) <= endDate)
       .map(r => r.date)
       .sort();
     
@@ -265,7 +265,7 @@ export const YearHeatmap: React.FC<Props> = ({ records, plans, instance, onCellC
   function calculateActiveWeeks(): number {
     const weekSet = new Set<string>();
     records
-      .filter(r => r.completed)
+      .filter(r => r.completed && new Date(r.date) <= endDate)
       .forEach(r => {
         const date = new Date(r.date);
         const monday = new Date(date);

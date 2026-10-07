@@ -23,9 +23,10 @@ export const HeatCell: React.FC<Props> = ({ status, size = 'medium', onClick, ch
         const level = Math.min(status.completedCount, 3);
         return level === 1 ? 'bg-heat-1' : level === 2 ? 'bg-heat-2' : 'bg-heat-3';
       case 'todo':
-        // 年视图用纯背景色，周/月视图用边框
-        return size === 'small' ? 'bg-todo/30' : 'bg-white border border-todo';
+        // 年视图用纯背景色，周/月视图用浅色细边框
+        return size === 'small' ? 'bg-todo/30' : 'bg-white border border-todo/50';
       case 'today-todo':
+        // 年视图用中等背景色，周/月视图用浅橙底+粗边框
         return size === 'small' ? 'bg-todo/50' : 'bg-todo/10 border-2 border-todo';
       case 'empty':
       default:

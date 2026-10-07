@@ -426,22 +426,47 @@ export const CalendarPage: React.FC = () => {
         {/* Tab 切换 */}
         <div className="mb-5 border-b border-subtle">
           <div className="flex gap-6">
-            {(['week', 'month', 'year'] as ViewType[]).map(v => (
+            <button
+              onClick={() => setView('week')}
+              className={`py-2 px-1 text-sm font-medium transition-colors relative ${
+                view === 'week'
+                  ? 'text-brand'
+                  : 'text-muted hover:text-text'
+              }`}
+            >
+              周
+              {view === 'week' && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand" />
+              )}
+            </button>
+            <button
+              onClick={() => setView('month')}
+              className={`py-2 px-1 text-sm font-medium transition-colors relative ${
+                view === 'month'
+                  ? 'text-brand'
+                  : 'text-muted hover:text-text'
+              }`}
+            >
+              月
+              {view === 'month' && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand" />
+              )}
+            </button>
+            {!instanceId && (
               <button
-                key={v}
-                onClick={() => setView(v)}
+                onClick={() => setView('year')}
                 className={`py-2 px-1 text-sm font-medium transition-colors relative ${
-                  view === v
+                  view === 'year'
                     ? 'text-brand'
                     : 'text-muted hover:text-text'
                 }`}
               >
-                {v === 'week' ? '周' : v === 'month' ? '月' : '年'}
-                {view === v && (
+                年
+                {view === 'year' && (
                   <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand" />
                 )}
               </button>
-            ))}
+            )}
           </div>
         </div>
 
@@ -534,7 +559,7 @@ export const CalendarPage: React.FC = () => {
               onDayClick={handleDayClickFromMonthOrYear}
             />
           )}
-          {view === 'year' && (
+          {view === 'year' && !instanceId && (
             <YearView 
               year={viewYear} 
               records={records} 
