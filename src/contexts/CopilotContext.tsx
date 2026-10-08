@@ -7,6 +7,7 @@ import { copilotClient } from '@/lib/copilot/client';
 import { CopilotEvent, CopilotAction } from '@/lib/copilot/types';
 import { isLoggedIn } from '@/lib/api';
 import { generateInsight, InsightFacts } from '@/lib/copilot/insightEngine';
+import { RuleEngineSnapshot } from '@/lib/ruleEngine/snapshot';
 
 // ────────────────────────────────────────────────────────────────────────────
 // 类型定义
@@ -26,28 +27,36 @@ export interface CopilotMessage {
 }
 
 interface CopilotContextValue {
-  // 状态
+  // ── 展示状态 ────────────────────────────────────────────────────────────────
+  // isOpen: 侧边栏/抽屉展开状态（桌面 sidebar 展开 / 移动抽屉弹起）
   isOpen: boolean;
+  
+  // ── 消息数据 ────────────────────────────────────────────────────────────────
   messages: CopilotMessage[];
   unreadCount: number;
   isLoading: boolean;
   latestInsight: CopilotMessage | null; // 最新的洞察消息（用于 peek 胶囊）
 
-  // 操作
+  // ── 展示控制 ────────────────────────────────────────────────────────────────
   open: () => void;
   close: () => void;
   toggle: () => void;
   
-  // 消息
+  // ── 消息操作 ────────────────────────────────────────────────────────────────
   sendMessage: (content: string) => Promise<void>;
   triggerEvent: (event: CopilotEvent) => Promise<void>;
-  pushInsight: (facts: InsightFacts, trigger: 'page_load' | 'view_switch' | 'workout_complete') => void;
+  pushInsight: (
+    snapshot: RuleEngineSnapshot, 
+    view: 'week' | 'month' | 'year',
+    todayStatus: 'todo' | 'completed' | 'rest' | 'future',
+    trigger: 'page_load' | 'view_switch' | 'workout_complete'
+  ) => void;
   markAllAsRead: () => void;
   
-  // 反馈快捷方式
+  // ── 反馈快捷方式 ────────────────────────────────────────────────────────────
   submitFeedback: (feedback: 'too_easy' | 'just_right' | 'too_hard', eventData?: any) => Promise<void>;
   
-  // 动作执行
+  // ── 动作执行 ────────────────────────────────────────────────────────────────
   executeAction: (actionId: string, sessionId: string, messageId: number) => Promise<void>;
   
   // 历史管理
@@ -66,7 +75,11 @@ export const CopilotContext = createContext<CopilotContextValue | null>(null);
 // ────────────────────────────────────────────────────────────────────────────
 
 export const CopilotProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  // 桌面端（>=1024px）默认展开抽屉
+  // ── 展示状态 ────────────────────────────────────────────────────────────────
+  // isOpen 语义：
+  // - CalendarPage 桌面端: 控制页面级 SidebarDesktop 展开/收起
+  // - CalendarPage 移动端: 控制全局覆盖抽屉弹起（CopilotSidebar）
+  // - 其他页面：控制全局 Copilot 组件展开（CopilotSidebar 桌面侧边栏 / 移动抽屉）
   const [isOpen, setIsOpen] = useState(() => {
     if (typeof window !== 'undefined') {
       return window.innerWidth >= 1024;
@@ -423,10 +436,15 @@ export const CopilotProvider: React.FC<{ children: ReactNode }> = ({ children })
    * 推送洞察消息
    * 带去重和频率控制
    */
-  const pushInsight = useCallback((facts: InsightFacts, trigger: 'page_load' | 'view_switch' | 'workout_complete') => {
+  const pushInsight = useCallback((
+    snapshot: RuleEngineSnapshot,
+    view: 'week' | 'month' | 'year',
+    todayStatus: 'todo' | 'completed' | 'rest' | 'future',
+    trigger: 'page_load' | 'view_switch' | 'workout_complete'
+  ) => {
     // 去重：同一天同视图只推一次
     const today = new Date().toISOString().split('T')[0];
-    const key = `${today}-${facts.view}`;
+    const key = `${today}-${view}`;
     
     if (insightsSeen.has(key)) {
       console.log('[Copilot] Insight already pushed today for this view:', key);
@@ -438,6 +456,13 @@ export const CopilotProvider: React.FC<{ children: ReactNode }> = ({ children })
       console.log('[Copilot] Daily insight limit reached:', todayInsightCount);
       return;
     }
+
+    // 构造 InsightFacts
+    const facts: InsightFacts = {
+      snapshot,
+      view,
+      today_status: todayStatus,
+    };
 
     // 生成洞察消息
     const insight = generateInsight(facts, trigger);

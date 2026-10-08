@@ -11,9 +11,9 @@ import { getMonday, calculateStreak } from '@/lib/calendarUtils';
 import projectsData from '@/data/projects.json';
 import { useCopilotContext } from '@/hooks/useCopilotContext';
 import { CopilotMobileCapsule } from '@/components/copilot/CopilotMobileCapsule';
-import { CopilotPeekCapsule } from '@/components/copilot/CopilotPeekCapsule';
 import { CopilotSidebarDesktop } from '@/components/copilot/CopilotSidebarDesktop';
-import { InsightFacts, generateHeroMessage } from '@/lib/copilot/insightEngine';
+import { generateHeroMessage } from '@/lib/copilot/insightEngine';
+import { computeSnapshot } from '@/lib/ruleEngine/snapshot';
 
 const PROJECT_MAP = Object.fromEntries((projectsData as any[]).map(p => [p.id, p]));
 
@@ -48,7 +48,7 @@ export const CalendarPage: React.FC = () => {
 
   // 触发洞察消息
   const triggerInsight = (trigger: 'page_load' | 'view_switch' | 'workout_complete') => {
-    if (!currentPlan && !records.length) return; // 数据未加载时跳过
+    if (!ruleEngineSnapshot) return; // 快照未就绪时跳过
     
     const todayStr = today.toISOString().split('T')[0];
     const todayRecord = records.find(r => r.date === todayStr);
@@ -56,60 +56,7 @@ export const CalendarPage: React.FC = () => {
       todayRecord?.completed ? 'completed' :
       currentPlan?.days.some(d => d.dayIndex === today.getDay() && d.exercises.length > 0) ? 'todo' : 'rest';
     
-    const facts: InsightFacts = {
-      view,
-      current_streak: stats.currentStreak,
-      today_status: todayStatus,
-    };
-    
-    // 根据视图补充进度数据
-    if (view === 'week' && currentPlan) {
-      const completed = currentPlan.days.reduce((sum, day) => {
-        const dayRecord = records.find(r => {
-          const recordDate = new Date(r.date);
-          const planStart = new Date(currentPlan.startDate);
-          const daysDiff = Math.floor((recordDate.getTime() - planStart.getTime()) / (24 * 3600 * 1000));
-          return daysDiff >= 0 && daysDiff < 7 && recordDate.getDay() === day.dayIndex && r.completed;
-        });
-        return sum + (dayRecord ? 1 : 0);
-      }, 0);
-      const target = currentPlan.days.filter(d => d.exercises.length > 0).length;
-      facts.week_progress = { completed, target, remaining: target - completed };
-    }
-    
-    if (view === 'month' && monthPlans.length > 0) {
-      const monthStart = new Date(viewYear, viewMonth - 1, 1);
-      const monthEnd = new Date(viewYear, viewMonth, 0);
-      const monthRecords = records.filter(r => {
-        const date = new Date(r.date);
-        return date >= monthStart && date <= monthEnd && r.completed;
-      });
-      const target = monthPlans.reduce((sum, plan) => 
-        sum + plan.days.filter(d => d.exercises.length > 0).length, 0
-      );
-      facts.month_progress = { completed: monthRecords.length, target, remaining: target - monthRecords.length };
-    }
-    
-    if (view === 'year' && yearPlans.length > 0) {
-      const yearStart = new Date(viewYear, 0, 1);
-      const yearEnd = new Date(viewYear, 11, 31);
-      const yearRecords = records.filter(r => {
-        const date = new Date(r.date);
-        return date >= yearStart && date <= yearEnd && r.completed;
-      });
-      
-      // 计算活跃周数
-      const activeWeeks = new Set(yearRecords.map(r => {
-        const date = new Date(r.date);
-        const weekStart = new Date(date);
-        weekStart.setDate(date.getDate() - (date.getDay() === 0 ? 6 : date.getDay() - 1));
-        return weekStart.toISOString().split('T')[0];
-      })).size;
-      
-      facts.year_stats = { total: yearRecords.length, activeWeeks, maxStreak: stats.currentStreak };
-    }
-    
-    pushInsight(facts, trigger);
+    pushInsight(ruleEngineSnapshot, view, todayStatus, trigger);
   };
 
   const handleMonthChange = (y: number, m: number) => {
@@ -121,26 +68,21 @@ export const CalendarPage: React.FC = () => {
   const ruleEngineSnapshot = useMemo(() => {
     if (!currentPlan) return null;
     
-    const completed = currentPlan.days.reduce((sum, day) => {
-      const dayRecord = records.find(r => {
-        const recordDate = new Date(r.date);
-        const planStart = new Date(currentPlan.startDate);
-        const daysDiff = Math.floor((recordDate.getTime() - planStart.getTime()) / (24 * 3600 * 1000));
-        return daysDiff >= 0 && daysDiff < 7 && recordDate.getDay() === day.dayIndex && r.completed;
-      });
-      return sum + (dayRecord ? 1 : 0);
-    }, 0);
-    
-    const target = currentPlan.days.filter(d => d.exercises.length > 0).length;
-    
-    return { completed, target, remaining: target - completed };
-  }, [currentPlan, records]);
+    return computeSnapshot({
+      records,
+      weekPlan: currentPlan,
+      monthPlans,
+      yearPlans,
+      asOf: today,
+      projectId: instance?.projectId,
+    });
+  }, [currentPlan, records, monthPlans, yearPlans, today, instance?.projectId]);
 
   // 从同一快照派生 weekProgress 和 heroMessage
-  const weekProgress = ruleEngineSnapshot || { completed: 0, target: 0 };
+  const weekProgress = ruleEngineSnapshot?.week || { completed: 0, target: 0 };
   const heroMessage = useMemo(() => {
     if (!ruleEngineSnapshot) return "开始你的训练计划 ✨";
-    return generateHeroMessage(ruleEngineSnapshot);
+    return generateHeroMessage(ruleEngineSnapshot.week);
   }, [ruleEngineSnapshot]);
 
   const handleWeekChange = (offset: number) => {
@@ -534,7 +476,9 @@ export const CalendarPage: React.FC = () => {
               <div className="text-xs text-gray-500 mt-0.5">累计完成</div>
             </div>
             <div className="rounded-2xl p-4 bg-white/90 text-center">
-              <div className="text-2xl font-bold text-brand">{stats.currentStreak}</div>
+              <div className="text-2xl font-bold text-brand">
+                {ruleEngineSnapshot?.streakIncludingToday ?? stats.currentStreak}
+              </div>
               <div className="text-xs text-gray-500 mt-0.5">已连续天数</div>
             </div>
           </div>
@@ -611,7 +555,7 @@ export const CalendarPage: React.FC = () => {
                 currentPlan
                   ? <>
                       {/* 周导航栏 */}
-                      <div className="mb-4">
+                      <div className="mb-5">
                         <div className="flex items-center justify-between">
                         {(() => {
                           const { canGoPrev, canGoNext } = getWeekNavigationBounds();
@@ -626,13 +570,13 @@ export const CalendarPage: React.FC = () => {
                                     : 'text-muted/30 cursor-not-allowed'
                                 }`}
                               >
-                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                                   <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
                                 </svg>
                                 <span className="text-base font-medium">上一周</span>
                               </button>
                               
-                              <span className="text-base font-bold text-text">
+                              <span className="text-lg font-bold text-text">
                                 {(() => {
                                   const start = new Date(viewWeekStartDate || currentPlan.startDate);
                                   const end = new Date(start);
@@ -662,7 +606,7 @@ export const CalendarPage: React.FC = () => {
                                 }`}
                               >
                                 <span className="text-base font-medium">下一周</span>
-                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                                 </svg>
                               </button>
@@ -677,6 +621,7 @@ export const CalendarPage: React.FC = () => {
                         records={records}
                         instance={instance}
                         projectId={instance?.projectId}
+                        streakThroughYesterday={ruleEngineSnapshot?.streakThroughYesterday}
                         onDayClick={(date, dayIndex) => navigate(workoutPath(date, dayIndex))}
                       />
                     </>
@@ -728,9 +673,6 @@ export const CalendarPage: React.FC = () => {
           ‹ 教练寄语
         </button>
       )}
-
-      {/* Copilot Peek 胶囊（桌面端） */}
-      <CopilotPeekCapsule />
 
       <BottomNav />
     </div>

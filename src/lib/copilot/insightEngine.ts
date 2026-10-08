@@ -4,12 +4,11 @@
  * 根据用户训练数据生成洞察文案
  */
 
+import { RuleEngineSnapshot } from '@/lib/ruleEngine/snapshot';
+
 export interface InsightFacts {
+  snapshot: RuleEngineSnapshot;
   view: 'week' | 'month' | 'year';
-  week_progress?: { completed: number; target: number; remaining: number };
-  month_progress?: { completed: number; target: number; remaining: number };
-  year_stats?: { total: number; activeWeeks: number; maxStreak: number };
-  current_streak: number;
   today_status: 'todo' | 'completed' | 'rest' | 'future';
   milestone?: 'first_workout' | 'streak_7' | 'streak_30' | 'target_achieved' | 'month_complete';
 }
@@ -62,7 +61,7 @@ export function generateHeroMessage(weekProgress: { completed: number; target: n
  * 生成洞察消息
  */
 export function generateInsight(facts: InsightFacts, trigger: 'page_load' | 'view_switch' | 'workout_complete'): InsightMessage {
-  const { view, week_progress, month_progress, year_stats, current_streak, today_status, milestone } = facts;
+  const { snapshot, view, today_status, milestone } = facts;
 
   // 处理里程碑
   if (milestone) {
@@ -70,16 +69,16 @@ export function generateInsight(facts: InsightFacts, trigger: 'page_load' | 'vie
   }
 
   // 根据视图生成消息
-  if (view === 'week' && week_progress) {
-    return generateWeekInsight(week_progress, today_status, current_streak);
+  if (view === 'week') {
+    return generateWeekInsight(snapshot.week, today_status, snapshot.streakIncludingToday);
   }
 
-  if (view === 'month' && month_progress) {
-    return generateMonthInsight(month_progress, today_status);
+  if (view === 'month') {
+    return generateMonthInsight(snapshot.month, today_status);
   }
 
-  if (view === 'year' && year_stats) {
-    return generateYearInsight(year_stats);
+  if (view === 'year') {
+    return generateYearInsight(snapshot.year, snapshot.yearTotalSessions || 0);
   }
 
   // 默认消息
@@ -196,26 +195,29 @@ function generateMonthInsight(
 /**
  * 生成年视图洞察
  */
-function generateYearInsight(stats: { total: number; activeWeeks: number; maxStreak: number }): InsightMessage {
-  const { total, activeWeeks, maxStreak } = stats;
+function generateYearInsight(
+  progress: { completed: number; target: number; remaining: number },
+  totalSessions: number
+): InsightMessage {
+  const { completed, target } = progress;
 
-  if (total === 0) {
+  if (completed === 0) {
     return {
       content: '📊 年度训练记录 开始第一次训练，点亮日历🌟',
       summary: '开始第一次训练 🌟',
     };
   }
 
-  if (maxStreak >= 7) {
+  if (completed >= 50) {
     return {
-      content: `📊 近一年：${total} 次训练、最长 ${maxStreak} 天、活跃 ${activeWeeks} 周 你的坚持令人敬佩！`,
-      summary: `年度 ${total} 次，最长 ${maxStreak} 天`,
+      content: `📊 本年：${completed} 次训练 你的坚持令人敬佩！`,
+      summary: `年度 ${completed} 次训练`,
     };
   }
 
   return {
-    content: `📊 近一年：${total} 次训练、${activeWeeks} 周活跃 每一次都是投资💪`,
-    summary: `年度 ${total} 次训练`,
+    content: `📊 本年：${completed} 次训练 每一次都是投资💪`,
+    summary: `年度 ${completed} 次训练`,
   };
 }
 
