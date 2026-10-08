@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { projectInstancesApi, userApi, plansApi, recordsApi } from '@/lib/api';
 import { ProjectInstance } from '@/lib/types';
-import { BottomNav } from '@/components/BottomNav';
 import { calculateStreak } from '@/lib/calendarUtils';
 import projectsData from '@/data/projects.json';
 
@@ -79,7 +78,7 @@ export const MyProjectsPage: React.FC = () => {
                 dayIndex: todayIsoDay,
                 projectName: project?.name || '训练',
                 projectIcon: project?.icon || '💪',
-                projectColor: project?.color || '#7DC47A',
+                projectColor: project?.color || 'var(--color-brand)',
               });
               
               // 动态副标：今天有训练
@@ -158,9 +157,10 @@ export const MyProjectsPage: React.FC = () => {
   const completedInstances = instances.filter(i => i.status === 'completed');
 
   return (
-    <div className="min-h-screen bg-surface pb-28">
+    <div className="app-shell__content">
       {/* Header */}
-      <div className="bg-brand px-5 pt-12 pb-5">
+      <div className="bg-brand pt-12 pb-5">
+        <div className="app-container">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-white">我的训练</h1>
@@ -182,10 +182,10 @@ export const MyProjectsPage: React.FC = () => {
         </div>
       </div>
 
-      <div className="px-5 pt-5 space-y-3 max-w-4xl mx-auto">
+      <div className="app-container pt-5 space-y-3">
         {/* 今日训练快捷入口 */}
         {todayTraining && (
-          <div className="bg-gradient-to-br from-[#7DC47A] to-[#6DB569] rounded-2xl p-5 shadow-lg mb-4">
+          <div className="bg-gradient-to-br from-[var(--color-brand)] to-[var(--color-brand-dark)] rounded-2xl p-5 shadow-lg mb-4">
             <div className="flex items-center gap-3 mb-3">
               <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center text-2xl">
                 {todayTraining.projectIcon}
@@ -200,7 +200,7 @@ export const MyProjectsPage: React.FC = () => {
             </div>
             <button
               onClick={() => navigate(`/workout/${todayTraining.instanceId}/${todayTraining.date}/${todayTraining.dayIndex}`)}
-              className="w-full py-3 rounded-xl bg-white text-[#7DC47A] font-bold text-sm hover:bg-white/90 transition-all flex items-center justify-center gap-2 shadow-md"
+              className="w-full py-3 rounded-xl bg-white text-[var(--color-brand)] font-bold text-sm hover:bg-white/90 transition-all flex items-center justify-center gap-2 shadow-md"
             >
               <span>🔥</span>
               <span>开始训练</span>
@@ -264,7 +264,7 @@ export const MyProjectsPage: React.FC = () => {
                       {Math.round((inst.currentWeek / inst.targetWeeks) * 100)}%
                     </span>
                   </div>
-                  <ProgressBar current={inst.currentWeek} total={inst.targetWeeks} color="#7DC47A" />
+                  <ProgressBar current={inst.currentWeek} total={inst.targetWeeks} color="var(--color-brand)" />
                 </div>
 
                 {/* 操作按钮 */}
@@ -344,8 +344,6 @@ export const MyProjectsPage: React.FC = () => {
           </div>
         )}
       </div>
-
-      <BottomNav />
     </div>
   );
 };

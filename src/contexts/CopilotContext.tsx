@@ -80,12 +80,7 @@ export const CopilotProvider: React.FC<{ children: ReactNode }> = ({ children })
   // - CalendarPage 桌面端: 控制页面级 SidebarDesktop 展开/收起
   // - CalendarPage 移动端: 控制全局覆盖抽屉弹起（CopilotSidebar）
   // - 其他页面：控制全局 Copilot 组件展开（CopilotSidebar 桌面侧边栏 / 移动抽屉）
-  const [isOpen, setIsOpen] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return window.innerWidth >= 1024;
-    }
-    return false;
-  });
+  const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<CopilotMessage[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
@@ -94,6 +89,15 @@ export const CopilotProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [latestInsight, setLatestInsight] = useState<CopilotMessage | null>(null); // 最新洞察消息
   const [insightsSeen, setInsightsSeen] = useState<Set<string>>(new Set()); // 去重：记录已推送的洞察
   const [todayInsightCount, setTodayInsightCount] = useState(0); // 今天推送的洞察数量
+
+  // 跨断点同步展示状态
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(min-width: 1024px)');
+    const syncInitialState = () => setIsOpen(mediaQuery.matches);
+    syncInitialState();
+    mediaQuery.addEventListener('change', syncInitialState);
+    return () => mediaQuery.removeEventListener('change', syncInitialState);
+  }, []);
 
   // 从 localStorage 加载历史消息
   useEffect(() => {

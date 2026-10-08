@@ -14,8 +14,7 @@ import { ProfilePage } from '@/pages/ProfilePage';
 import { isLoggedIn } from '@/lib/api';
 import { storage } from '@/lib/storage';
 import { CopilotProvider } from '@/contexts/CopilotContext';
-import { CopilotSidebar } from '@/components/copilot/CopilotSidebar';
-import { CopilotFloatingButton } from '@/components/copilot/CopilotFloatingButton';
+import { AppShell } from '@/components/layout/AppShell';
 import { setupIndexedDB } from '@/lib/indexedDB';
 import { offlineQueue } from '@/lib/offlineQueue';
 
@@ -71,37 +70,37 @@ function App() {
 
           {/* 首页：我的训练列表 */}
           <Route path="/" element={
-            <RequireAuth><RequireOnboarding><MyProjectsPage /></RequireOnboarding></RequireAuth>
+            <RequireAuth><RequireOnboarding><AppShell><MyProjectsPage /></AppShell></RequireOnboarding></RequireAuth>
           } />
 
           {/* 项目浏览 */}
           <Route path="/projects" element={
-            <RequireAuth><ProjectsPage /></RequireAuth>
+            <RequireAuth><AppShell><ProjectsPage /></AppShell></RequireAuth>
           } />
 
           {/* 项目启动配置（projectId = 项目类型 ID，如 tricep_tone） */}
           <Route path="/projects/:projectId/start" element={
-            <RequireAuth><ProjectStartPage /></RequireAuth>
+            <RequireAuth><AppShell><ProjectStartPage /></AppShell></RequireAuth>
           } />
 
           {/* V2 项目日历（instanceId = 数据库实例 ID，数字） */}
           <Route path="/projects/:instanceId/calendar" element={
-            <RequireAuth><CalendarPage /></RequireAuth>
+            <RequireAuth><AppShell><CalendarPage /></AppShell></RequireAuth>
           } />
 
           {/* V2 训练页（带 instanceId） */}
           <Route path="/workout/:instanceId/:date/:dayIndex" element={
-            <RequireAuth><DayWorkoutPage /></RequireAuth>
+            <RequireAuth><AppShell><DayWorkoutPage /></AppShell></RequireAuth>
           } />
 
           {/* 旧版全局日历（向后兼容游客 / 旧链接） */}
           <Route path="/calendar" element={
-            <RequireAuth><CalendarPage /></RequireAuth>
+            <RequireAuth><AppShell><CalendarPage /></AppShell></RequireAuth>
           } />
 
           {/* 旧版训练页（无 instanceId，向后兼容） */}
           <Route path="/workout/:date/:dayIndex" element={
-            <RequireAuth><DayWorkoutPage /></RequireAuth>
+            <RequireAuth><AppShell><DayWorkoutPage /></AppShell></RequireAuth>
           } />
 
           {/* 旧版引导链接 */}
@@ -109,21 +108,17 @@ function App() {
 
           {/* 动作详情 */}
           <Route path="/exercise/:exerciseId" element={
-            <RequireAuth><ExerciseDetailPage /></RequireAuth>
+            <RequireAuth><AppShell><ExerciseDetailPage /></AppShell></RequireAuth>
           } />
 
           {/* 个人页 */}
           <Route path="/profile" element={
-            <RequireAuth><ProfilePage /></RequireAuth>
+            <RequireAuth><AppShell><ProfilePage /></AppShell></RequireAuth>
           } />
 
           {/* 兜底 */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-        
-        {/* Copilot 全局组件 */}
-        <CopilotSidebar />
-        <CopilotFloatingButton />
         
         {/* Toast 通知 */}
         <Toaster position="top-center" richColors />

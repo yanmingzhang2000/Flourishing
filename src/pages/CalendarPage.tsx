@@ -3,7 +3,6 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { storage } from '@/lib/storage';
 import { plansApi, recordsApi, userApi, projectInstancesApi, isLoggedIn } from '@/lib/api';
 import { WeeklyPlan, PlanSnapshot, TrainingRecord, StructuredUnavailableResult } from '@/lib/types';
-import { BottomNav } from '@/components/BottomNav';
 import { WeekView } from '@/components/WeekView';
 import { MonthView } from '@/components/MonthView';
 import { YearView } from '@/components/YearView';
@@ -325,7 +324,7 @@ export const CalendarPage: React.FC = () => {
       // 🎯 触发洞察：页面加载完成（离线模式）
       triggerInsight('page_load');
     }
-  }, [navigate, instanceId]);
+  }, [navigate, instanceId, triggerInsight]);
 
   // 月视图：加载该月所有计划，缺失时批量生成（实例日历按项目生成）
   useEffect(() => {
@@ -363,7 +362,7 @@ export const CalendarPage: React.FC = () => {
         }
       });
     }
-  }, [view, viewYear, viewMonth, instance?.projectId, instance?.startDate, instance?.targetWeeks]);
+  }, [view, viewYear, viewMonth, instance, instance?.projectId, instance?.startDate, instance?.targetWeeks]);
 
   // 年视图：加载该年所有计划
   useEffect(() => {
@@ -372,7 +371,7 @@ export const CalendarPage: React.FC = () => {
         setYearPlans(plans);
       });
     }
-  }, [view, viewYear]);
+  }, [view, viewYear, instanceId]);
 
   // 周视图：按日期加载指定周的计划
   useEffect(() => {
@@ -381,7 +380,7 @@ export const CalendarPage: React.FC = () => {
         if (plan) setCurrentPlan(plan);
       });
     }
-  }, [view, viewWeekStartDate]);
+  }, [view, viewWeekStartDate, instanceId]);
 
   // 切换视图时重置周视图状态并触发洞察
   useEffect(() => {
@@ -393,7 +392,7 @@ export const CalendarPage: React.FC = () => {
     if (!loading) {
       triggerInsight('view_switch');
     }
-  }, [view]);
+  }, [view, loading, triggerInsight]);
 
   // 监听训练记录变化，训练完成后触发洞察
   useEffect(() => {
@@ -412,7 +411,7 @@ export const CalendarPage: React.FC = () => {
         }
       }
     }
-  }, [records.length, loading]);
+  }, [records.length, loading, triggerInsight]);
 
   if (loading || !profile) {
     return (
@@ -422,7 +421,7 @@ export const CalendarPage: React.FC = () => {
     );
   }
 
-  const projectColor = instance ? (PROJECT_MAP[instance.projectId]?.color ?? '#7DC47A') : '#7DC47A';
+  const projectColor = instance ? (PROJECT_MAP[instance.projectId]?.color ?? 'var(--color-brand)') : 'var(--color-brand)';
   const projectName = instance ? (PROJECT_MAP[instance.projectId]?.name ?? '训练日历') : null;
 
   const workoutPath = (date: string, dayIndex: number) =>
@@ -431,10 +430,10 @@ export const CalendarPage: React.FC = () => {
       : `/workout/${date}/${dayIndex}`;
 
   return (
-    <div className="min-h-screen bg-subtle pb-24">
+    <div className="app-shell__content bg-subtle">
       {/* Header */}
-      <div className="bg-brand px-8 pt-8 pb-6">
-        <div className="max-w-4xl mx-auto">
+      <div className="bg-brand pt-8 pb-6">
+        <div className="app-container">
           <div className="flex items-center gap-3">
             {instanceId && (
               <button
@@ -485,13 +484,11 @@ export const CalendarPage: React.FC = () => {
         </div>
       </div>
 
-      {/* 主内容区 - 1080px 容器 + 两列布局 */}
-      <div className="max-w-[1080px] mx-auto px-8 pt-6">
-        <div className="flex gap-6">
-          {/* 左侧主区 - 收起时居中 */}
-          <main className={`flex-1 min-w-0 transition-all ${
-            !isOpen ? 'max-w-[840px] mx-auto' : ''
-          }`}>
+      {/* 主内容区 - 容器 + 两列布局 */}
+      <div className="app-container pt-6">
+        <div className={`${isOpen ? 'calendar-layout calendar-layout--with-copilot' : 'calendar-layout'} gap-6`}>
+          {/* 左侧主区 */}
+          <main className="calendar-layout__main">
             {/* Copilot 移动端顶部胶囊 */}
             <CopilotMobileCapsule />
             
@@ -653,12 +650,14 @@ export const CalendarPage: React.FC = () => {
           </main>
 
           {/* 右侧 Copilot 抽屉（桌面端推挤式，移动端隐藏） */}
-          <aside className="hidden lg:block w-[340px] flex-shrink-0">
-            <CopilotSidebarDesktop 
-              weekProgress={weekProgress}
-              heroMessage={heroMessage}
-            />
-          </aside>
+          {isOpen && (
+            <aside className="calendar-copilot-panel">
+              <CopilotSidebarDesktop 
+                weekProgress={weekProgress}
+                heroMessage={heroMessage}
+              />
+            </aside>
+          )}
         </div>
       </div>
 
@@ -673,8 +672,6 @@ export const CalendarPage: React.FC = () => {
           ‹ 教练寄语
         </button>
       )}
-
-      <BottomNav />
     </div>
   );
 };

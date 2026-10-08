@@ -1,26 +1,184 @@
 @import "tailwindcss";
 
 @theme {
-  --color-brand:        #7DC47A;
-  --color-brand-dark:   #6DB569;
-  --color-brand-light:  #7DC47A1A;
-  --color-accent:       #F59E0B;
+  --breakpoint-sm: 40rem;  /* 640px */
+  --breakpoint-md: 48rem;  /* 768px */
+  --breakpoint-lg: 64rem;  /* 1024px */
+  --breakpoint-xl: 80rem;  /* 1280px */
+  --spacing: 0.25rem;
+
+  --color-brand: #7DC47A;
+  --color-brand-dark: #6DB569;
+  --color-brand-light: #7DC47A1A;
+  --color-accent: #F59E0B;
   --color-accent-light: #F59E0B1A;
-  --color-ice:          #DCF0FB;
-  --color-ice-light:    #EEF7FD;
-  --color-bg:           #ffffff;
-  --color-surface:      #ffffff;
-  --color-subtle:       #F9FAFB;
-  --color-text:         #1F2937;
-  --color-muted:        #6B7280;
-  
-  /* 热力图专用色阶（与交互按钮解耦） */
-  --color-heat-empty:   #f3f4f6;  /* 纯中性灰：未训练 */
-  --color-heat-1:       #b9dca9;  /* 浅绿：1次 */
-  --color-heat-2:       #8cc084;  /* 中绿：2次 */
-  --color-heat-3:       #5a9a48;  /* 深绿：3+次 */
-  --color-todo:         #e67e22;  /* 橙色：待练/今日 */
-  --color-today-ring:   #2d3436;  /* 深炭灰：年视图今日标记 */
+  --color-ice: #DCF0FB;
+  --color-ice-light: #EEF7FD;
+  --color-bg: #ffffff;
+  --color-surface: #ffffff;
+  --color-subtle: #F9FAFB;
+  --color-text: #1F2937;
+  --color-muted: #6B7280;
+  --color-heat-empty: #f3f4f6;
+  --color-heat-1: #b9dca9;
+  --color-heat-2: #8cc084;
+  --color-heat-3: #5a9a48;
+  --color-todo: #e67e22;
+  --color-today-ring: #2d3436;
+}
+
+:root {
+  --app-container-max: 67.5rem; /* 1080px */
+  --app-gutter-compact: 1rem; /* 16px */
+  --app-gutter-wide: 1.5rem; /* 24px */
+  --nav-height: 3.5rem;
+  --bottom-nav-height: 4.5rem;
+  --copilot-sidebar-compact-width: 17.5rem; /* 280px */
+  --copilot-sidebar-wide-width: 21.25rem; /* 340px */
+  --background: var(--color-bg);
+  --foreground: var(--color-text);
+  --primary: var(--color-brand);
+  --accent: var(--color-accent);
+  --surface: var(--color-surface);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+button, input, textarea, select {
+  font: inherit;
+}
+
+@layer components {
+  .app-container {
+    width: 100%;
+    max-width: var(--app-container-max);
+    margin-inline: auto;
+    padding-inline: var(--app-gutter-compact);
+  }
+
+  .app-shell {
+    min-height: 100dvh;
+    padding-bottom: var(--bottom-nav-height);
+  }
+
+  .app-shell__content {
+    min-width: 0;
+  }
+
+  .app-shell__copilot-entry {
+    padding-top: 0.75rem;
+  }
+
+  .app-top-nav {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    min-height: var(--nav-height);
+    border-bottom: 1px solid color-mix(in srgb, var(--color-muted) 20%, transparent);
+    background: color-mix(in srgb, var(--color-surface) 95%, transparent);
+    backdrop-filter: blur(12px);
+  }
+
+  .app-top-nav__content {
+    min-height: var(--nav-height);
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .app-top-nav__brand {
+    flex: 0 0 auto;
+    min-height: 2.75rem;
+    padding-inline: 0.5rem;
+    color: var(--color-brand-dark);
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .app-top-nav__links {
+    display: flex;
+    flex: 1 1 auto;
+    gap: 0.25rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .app-top-nav__links::-webkit-scrollbar {
+    display: none;
+  }
+
+  .app-top-nav__link {
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+    padding-inline: 0.75rem;
+    border-radius: 0.75rem;
+    color: var(--color-muted);
+    font-size: 0.875rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .app-top-nav__link:hover,
+  .app-top-nav__link--active {
+    color: var(--color-brand-dark);
+    background: var(--color-brand-light);
+  }
+
+  .calendar-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.5rem;
+    align-items: start;
+  }
+
+  .calendar-layout--with-copilot {
+    grid-template-columns: minmax(0, 1fr) var(--copilot-sidebar-compact-width);
+  }
+
+  .calendar-layout__main {
+    min-width: 0;
+  }
+
+  .calendar-copilot-panel {
+    min-height: 20rem;
+  }
+
+  .copilot-hero-title {
+    background: linear-gradient(135deg, var(--color-brand) 0%, var(--color-accent) 100%);
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+    filter: drop-shadow(0 0.5rem 0.5rem color-mix(in srgb, var(--color-brand) 30%, transparent));
+  }
+}
+
+@media (min-width: 48rem) {
+  .app-container {
+    padding-inline: var(--app-gutter-wide);
+  }
+}
+
+@media (min-width: 64rem) and (max-width: 79.999rem) {
+  .calendar-layout--with-copilot {
+    grid-template-columns: minmax(0, 1fr) var(--copilot-sidebar-compact-width);
+  }
+}
+
+@media (min-width: 80rem) {
+  .calendar-layout--with-copilot {
+    grid-template-columns: minmax(0, 1fr) var(--copilot-sidebar-wide-width);
+  }
 }
 
 @layer utilities {
@@ -31,21 +189,4 @@
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
-}
-
-:root {
-  --background: #ffffff;
-  --foreground: #1F2937;
-  --primary:    #7DC47A;
-  --accent:     #F59E0B;
-  --surface:    #ffffff;
-}
-
-body {
-  margin: 0;
-  min-height: 100vh;
-  background-color: var(--background);
-  color: var(--foreground);
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
-  -webkit-font-smoothing: antialiased;
 }

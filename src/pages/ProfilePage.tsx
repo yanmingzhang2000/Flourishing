@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BottomNav } from '@/components/BottomNav';
 import { userApi, recordsApi, clearToken } from '@/lib/api';
 
 export const ProfilePage: React.FC = () => {
@@ -34,10 +33,10 @@ export const ProfilePage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-subtle pb-28">
+    <div className="app-shell__content">
       {/* Hero 区：品牌绿背景，头像 + 昵称 + stats */}
-      <div className="bg-brand px-8 pt-8 pb-6">
-        <div className="max-w-3xl mx-auto">
+      <div className="bg-brand pt-8 pb-6">
+        <div className="app-container">
           {/* 头像 + 昵称行 */}
           <div className="flex items-center justify-between mb-5">
             <div className="flex items-center gap-4">
@@ -90,7 +89,7 @@ export const ProfilePage: React.FC = () => {
       </div>
 
       {/* 内容区 */}
-      <div className="max-w-3xl mx-auto px-8 pt-6">
+      <div className="app-container pt-6">
         {/* 身体信息摘要 */}
         {(profile?.height || profile?.weight) && (
           <div className="bg-white rounded-2xl p-5 mb-4 shadow-sm">
@@ -169,8 +168,6 @@ export const ProfilePage: React.FC = () => {
           </button>
         </div>
       </div>
-
-      <BottomNav />
     </div>
   );
 };

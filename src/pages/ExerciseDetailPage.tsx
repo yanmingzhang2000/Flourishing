@@ -148,7 +148,7 @@ export const ExerciseDetailPage: React.FC = () => {
   };
 
   return (
-    <div className="h-screen flex flex-col bg-[#DCF0FB]">
+    <div className="h-screen flex flex-col bg-[var(--color-ice)]">
       {/* 顶部导航栏 */}
       <div className="h-14 bg-white border-b border-gray-200 flex items-center px-4 flex-shrink-0">
         <button onClick={() => navigate(-1)} className="p-2 rounded-lg hover:bg-gray-100 mr-3" aria-label="返回">
