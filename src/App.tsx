@@ -68,53 +68,40 @@ function App() {
             <RequireAuth><SettingsPage /></RequireAuth>
           } />
 
-          {/* 首页：我的训练列表 */}
-          <Route path="/" element={
-            <RequireAuth><RequireOnboarding><AppShell><MyProjectsPage /></AppShell></RequireOnboarding></RequireAuth>
-          } />
+          {/* 需要 AppShell 布局的登录页面 */}
+          <Route element={<RequireAuth><AppShell /></RequireAuth>}>
+            {/* 首页：我的训练列表 */}
+            <Route path="/" element={
+              <RequireOnboarding><MyProjectsPage /></RequireOnboarding>
+            } />
 
-          {/* 项目浏览 */}
-          <Route path="/projects" element={
-            <RequireAuth><AppShell><ProjectsPage /></AppShell></RequireAuth>
-          } />
+            {/* 项目浏览 */}
+            <Route path="/projects" element={<ProjectsPage />} />
 
-          {/* 项目启动配置（projectId = 项目类型 ID，如 tricep_tone） */}
-          <Route path="/projects/:projectId/start" element={
-            <RequireAuth><AppShell><ProjectStartPage /></AppShell></RequireAuth>
-          } />
+            {/* 项目启动配置（projectId = 项目类型 ID，如 tricep_tone） */}
+            <Route path="/projects/:projectId/start" element={<ProjectStartPage />} />
 
-          {/* V2 项目日历（instanceId = 数据库实例 ID，数字） */}
-          <Route path="/projects/:instanceId/calendar" element={
-            <RequireAuth><AppShell><CalendarPage /></AppShell></RequireAuth>
-          } />
+            {/* V2 项目日历（instanceId = 数据库实例 ID，数字） */}
+            <Route path="/projects/:instanceId/calendar" element={<CalendarPage />} />
 
-          {/* V2 训练页（带 instanceId） */}
-          <Route path="/workout/:instanceId/:date/:dayIndex" element={
-            <RequireAuth><AppShell><DayWorkoutPage /></AppShell></RequireAuth>
-          } />
+            {/* V2 训练页（带 instanceId） */}
+            <Route path="/workout/:instanceId/:date/:dayIndex" element={<DayWorkoutPage />} />
 
-          {/* 旧版全局日历（向后兼容游客 / 旧链接） */}
-          <Route path="/calendar" element={
-            <RequireAuth><AppShell><CalendarPage /></AppShell></RequireAuth>
-          } />
+            {/* 旧版全局日历（向后兼容游客 / 旧链接） */}
+            <Route path="/calendar" element={<CalendarPage />} />
 
-          {/* 旧版训练页（无 instanceId，向后兼容） */}
-          <Route path="/workout/:date/:dayIndex" element={
-            <RequireAuth><AppShell><DayWorkoutPage /></AppShell></RequireAuth>
-          } />
+            {/* 旧版训练页（无 instanceId，向后兼容） */}
+            <Route path="/workout/:date/:dayIndex" element={<DayWorkoutPage />} />
+
+            {/* 动作详情 */}
+            <Route path="/exercise/:exerciseId" element={<ExerciseDetailPage />} />
+
+            {/* 个人页 */}
+            <Route path="/profile" element={<ProfilePage />} />
+          </Route>
 
           {/* 旧版引导链接 */}
           <Route path="/intake" element={<Navigate to="/onboarding" replace />} />
-
-          {/* 动作详情 */}
-          <Route path="/exercise/:exerciseId" element={
-            <RequireAuth><AppShell><ExerciseDetailPage /></AppShell></RequireAuth>
-          } />
-
-          {/* 个人页 */}
-          <Route path="/profile" element={
-            <RequireAuth><AppShell><ProfilePage /></AppShell></RequireAuth>
-          } />
 
           {/* 兜底 */}
           <Route path="*" element={<Navigate to="/" replace />} />

@@ -180,6 +180,7 @@ export const MyProjectsPage: React.FC = () => {
             </svg>
           </button>
         </div>
+        </div>
       </div>
 
       <div className="app-container pt-5 space-y-3">

@@ -15,9 +15,11 @@ interface Props {
   projectId?: string;
   /** V2：由外部提供跳转逻辑（携带 instanceId）；不传时使用内部默认路由 */
   onDayClick?: (date: string, dayIndex: number) => void;
+  /** 外部（ruleEngineSnapshot）提供的截至昨天连续天数；不传时内部计算 */
+  streakThroughYesterday?: number;
 }
 
-export const WeekView: React.FC<Props> = ({ plan, records, instance, projectId, onDayClick }) => {
+export const WeekView: React.FC<Props> = ({ plan, records, instance, projectId, onDayClick, streakThroughYesterday }) => {
   const navigate = useNavigate();
 
   const goToDay = (date: string, dayIndex: number) => {
@@ -155,7 +157,7 @@ export const WeekView: React.FC<Props> = ({ plan, records, instance, projectId, 
   const trainingDaysCount = plan.days.filter((d, i) => d.type === 'strength' && isDateInRange(i)).length;
   const completedCount = sessions.filter(s => s.status === 'completed').length;
   const remainingCount = trainingDaysCount - completedCount;
-  const streakDays = calculateStreak(records);
+  const streakDays = streakThroughYesterday ?? calculateStreak(records);
 
   const todayIndex = plan.days.findIndex((_, i) => isToday(i));
   const todayDay = todayIndex >= 0 ? plan.days[todayIndex] : null;
