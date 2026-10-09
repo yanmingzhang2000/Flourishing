@@ -52,13 +52,14 @@ export const CopilotSidebar: React.FC = () => {
     <AnimatePresence>
       {isOpen && (
         <>
-          {/* 遮罩（全屏覆盖，桌面端半透明） */}
+          {/* 遮罩（覆盖顶部导航栏下方区域，桌面端半透明） */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={close}
-            className="fixed inset-0 bg-black/50 md:bg-black/20 z-40"
+            className="fixed inset-x-0 bottom-0 bg-black/50 md:bg-black/20 z-40"
+            style={{ top: 'var(--nav-height)' }}
           />
           
           {/* 侧边栏 */}
