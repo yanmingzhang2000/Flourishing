@@ -1,0 +1,58 @@
+[
+  {
+    "exerciseId": "fb_bodyweight_squat",
+    "name": "居家深蹲（基础版）",
+    "nameEn": "Bodyweight Squat Basic",
+    "muscleGroup": {
+      "primary": ["股四头肌", "臀大肌"],
+      "secondary": ["腘绳肌"]
+    },
+    "difficulty": 2,
+    "equipment": ["bodyweight", "mat_6mm"],
+    "function": { "primary": "激活", "secondary": "紧致" },
+    "category": "strength",
+    "targetProjects": ["full_body_basic", "hip_thigh_tone"],
+    "contraindications": ["knee_pain", "meniscus", "lower_back"],
+    "alternativeExerciseIds": [],
+    "restSeconds": 45,
+    "steps": [
+      "双脚与肩同宽，脚尖微外展",
+      "屈髋先动，下蹲至舒适深度",
+      "脚跟发力站起，做 12-15 次"
+    ],
+    "tips": ["膝盖朝脚尖方向，不内扣", "背挺直，核心收紧"],
+    "warning": "膝痛或半月板损伤者减小深度并咨询医生",
+    "media": {
+      "coverImage": "/images/exercises/fb_bodyweight_squat_cover.jpg",
+      "video": null
+    }
+  },
+  {
+    "exerciseId": "neck_side_stretch",
+    "name": "颈部侧拉伸",
+    "nameEn": "Neck Side Stretch",
+    "muscleGroup": {
+      "primary": ["斜方肌上束"],
+      "secondary": []
+    },
+    "difficulty": 1,
+    "equipment": ["bodyweight"],
+    "function": { "primary": "放松", "secondary": "改善体态" },
+    "category": "stretch",
+    "targetProjects": ["trap_relax"],
+    "contraindications": ["neck_pain"],
+    "alternativeExerciseIds": [],
+    "restSeconds": 30,
+    "steps": [
+      "坐姿或站姿，脊柱挺直",
+      "右手垂于体侧，左耳轻靠向左肩",
+      "右肩下沉，保持 20 秒换边"
+    ],
+    "tips": ["不耸肩，力度以微拉伸感为准", "不憋气，呼吸自然"],
+    "warning": "颈部有放射性疼痛或眩晕时停止并就医",
+    "media": {
+      "coverImage": "/images/exercises/neck_side_stretch_cover.jpg",
+      "video": null
+    }
+  }
+]

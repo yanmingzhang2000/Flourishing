@@ -1,0 +1,23 @@
+{
+  "name": "flourish-ai",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "packageManager": "pnpm@10.34.6",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "pnpm -r run build",
+    "typecheck": "pnpm -r run typecheck",
+    "test": "pnpm -r run test",
+    "test:e2e": "playwright test --pass-with-no-tests",
+    "dev:web": "pnpm --filter @flourish/web dev",
+    "dev:server": "pnpm --filter @flourish/server dev",
+    "db:generate": "pnpm --filter @flourish/server db:generate",
+    "db:migrate": "pnpm --filter @flourish/server db:migrate"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.50.0"
+  }
+}
