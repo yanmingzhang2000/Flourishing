@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { storage } from '@/lib/storage';
 import { plansApi, recordsApi, userApi, projectInstancesApi, isLoggedIn } from '@/lib/api';
@@ -41,12 +41,18 @@ export const CalendarPage: React.FC = () => {
   const [unavailable, setUnavailable] = useState<StructuredUnavailableResult | null>(null);
   const [viewWeekStartDate, setViewWeekStartDate] = useState<string | null>(null);
 
+  // 用于去重 ensureCompleteProjectPlans 调用的标记（每个 instanceId 只执行一次）
+  const ensuredInstancesRef = useRef<Set<string>>(new Set());
+
   const today = new Date();
   const [viewYear, setViewYear] = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth() + 1);
 
-  // 触发洞察消息
-  const triggerInsight = (trigger: 'page_load' | 'view_switch' | 'workout_complete') => {
+  // 用 ref 持有 triggerInsight 的最新实现，避免每次渲染创建新引用
+  const triggerInsightRef = useRef<(trigger: 'page_load' | 'view_switch' | 'workout_complete') => void>();
+  
+  // 每次渲染更新 ref，捕获最新闭包（ruleEngineSnapshot、records、currentPlan、view）
+  triggerInsightRef.current = (trigger: 'page_load' | 'view_switch' | 'workout_complete') => {
     if (!ruleEngineSnapshot) return; // 快照未就绪时跳过
     
     const todayStr = today.toISOString().split('T')[0];
@@ -177,15 +183,12 @@ export const CalendarPage: React.FC = () => {
   const ensureMonthPlan = async (year: number, month: number, projectId: string) => {
     try {
       const plans = await plansApi.getMonth(year, month);
-      console.log(`[自动生成] ${year}-${month} 已有 ${plans.length} 周计划`);
       
       if (plans.length === 0) {
-        console.log(`[自动生成] 开始生成 ${year}-${month} 的计划...`);
-        const result = await plansApi.generateMonth(year, month, [projectId]);
-        console.log(`[自动生成] 生成 ${year}-${month} 完成:`, result);
+        await plansApi.generateMonth(year, month, [projectId]);
       }
     } catch (error) {
-      console.error(`[自动生成] 生成 ${year}-${month} 计划失败:`, error);
+      console.error(`生成 ${year}-${month} 计划失败:`, error);
     }
   };
 
@@ -193,21 +196,14 @@ export const CalendarPage: React.FC = () => {
   const ensureCompleteProjectPlans = async (projectInstance: any) => {
     if (!projectInstance) return;
     
-    console.log('[渐进式加载] 开始检查项目计划...', {
-      startDate: projectInstance.startDate,
-      targetWeeks: projectInstance.targetWeeks,
-    });
-    
     const now = new Date();
     const currentMonth = { year: now.getFullYear(), month: now.getMonth() + 1 };
     
     // 🟢 首屏：立即生成当前月计划（阻塞）
-    console.log('[渐进式加载] 首屏加载当前月:', currentMonth);
     await ensureMonthPlan(currentMonth.year, currentMonth.month, projectInstance.projectId);
     
     // 🟡 后台：2秒后异步预加载下个月和后续月份（不阻塞UI）
-    setTimeout(async () => {
-      console.log('[渐进式加载] 后台预加载开始...');
+    const timer = setTimeout(async () => {
       const months = getProjectMonths(projectInstance.startDate, projectInstance.targetWeeks);
       
       for (const { year, month } of months) {
@@ -216,15 +212,16 @@ export const CalendarPage: React.FC = () => {
         
         await ensureMonthPlan(year, month, projectInstance.projectId);
       }
-      
-      console.log('[渐进式加载] 后台预加载完成');
     }, 2000);
     
-    console.log('[渐进式加载] 首屏加载完成');
+    // 返回 cleanup 函数，用于 effect cleanup 时取消 setTimeout
+    return () => clearTimeout(timer);
   };
 
   useEffect(() => {
     if (isLoggedIn()) {
+      let cancelled = false; // 用于 cleanup 时取消异步结果的写入
+      
       const loadData = async () => {
         try {
           const [planRes, recordsRes, profileRes, statsRes] = await Promise.all([
@@ -233,6 +230,8 @@ export const CalendarPage: React.FC = () => {
             userApi.getProfile(),
             recordsApi.getStats(),
           ]);
+
+          if (cancelled) return; // 已卸载或 instanceId 变化，忽略结果
 
           // onboarding 未完成时跳引导
           if (!profileRes || !profileRes.experience) {
@@ -247,6 +246,8 @@ export const CalendarPage: React.FC = () => {
           // ── V2：有 instanceId 时独立加载该项目的计划 ──────────────────────
           if (instanceId) {
             const instances = await projectInstancesApi.getAll();
+            if (cancelled) return;
+            
             const inst = instances.find((i: any) => String(i.id) === instanceId);
             if (!inst) { navigate('/'); return; }
 
@@ -261,22 +262,33 @@ export const CalendarPage: React.FC = () => {
               projectInstancesApi.update(inst.id, { currentWeek: computedWeek }).catch(() => {});
             }
 
-            // 确保项目的所有月份都有完整的计划
-            await ensureCompleteProjectPlans(updatedInst);
+            // 确保项目的所有月份都有完整的计划（去重：每个实例只执行一次）
+            const instanceKey = String(inst.id);
+            if (!ensuredInstancesRef.current.has(instanceKey)) {
+              ensuredInstancesRef.current.add(instanceKey);
+              const cleanup = await ensureCompleteProjectPlans(updatedInst);
+              if (cancelled && cleanup) {
+                cleanup(); // 如果已取消，立即清理 setTimeout
+                return;
+              }
+            }
+            if (cancelled) return;
 
             // 按 projectId 生成计划（不写入 profile.selected_projects）
             if (!planRes) {
               setPlanLoading(true);
               try {
                 const genResult = await plansApi.generateForProject([inst.projectId]);
+                if (cancelled) return;
+                
                 if (genResult.outcome === 'temporarily_unavailable') {
                   setUnavailable(genResult);
                   return;
                 }
                 const fresh = await plansApi.getCurrent();
-                setCurrentPlan(fresh);
+                if (!cancelled) setCurrentPlan(fresh);
               } finally {
-                setPlanLoading(false);
+                if (!cancelled) setPlanLoading(false);
               }
             } else {
               setCurrentPlan(planRes);
@@ -290,26 +302,30 @@ export const CalendarPage: React.FC = () => {
             setPlanLoading(true);
             try {
               const genResult = await plansApi.generate();
+              if (cancelled) return;
+              
               if (genResult.outcome === 'temporarily_unavailable') {
                 setUnavailable(genResult);
                 return;
               }
               const fresh = await plansApi.getCurrent();
-              setCurrentPlan(fresh);
+              if (!cancelled) setCurrentPlan(fresh);
             } finally {
-              setPlanLoading(false);
+              if (!cancelled) setPlanLoading(false);
             }
           }
         } catch {
-          navigate('/');
+          if (!cancelled) navigate('/');
         } finally {
-          setLoading(false);
-          
-          // 🎯 触发洞察：页面加载完成
-          triggerInsight('page_load');
+          if (!cancelled) setLoading(false);
         }
       };
+      
       loadData();
+      
+      return () => {
+        cancelled = true;
+      };
     } else {
       const savedPlan = storage.getWeeklyPlan();
       const savedRecords = storage.getTrainingRecords();
@@ -320,11 +336,8 @@ export const CalendarPage: React.FC = () => {
       setProfile(savedProfile);
       setStats({ totalWorkouts: savedRecords.filter(r => r.completed).length, currentStreak: calculateStreak(savedRecords) });
       setLoading(false);
-      
-      // 🎯 触发洞察：页面加载完成（离线模式）
-      triggerInsight('page_load');
     }
-  }, [navigate, instanceId, triggerInsight]);
+  }, [navigate, instanceId]);
 
   // 月视图：加载该月所有计划，缺失时批量生成（实例日历按项目生成）
   useEffect(() => {
@@ -362,7 +375,7 @@ export const CalendarPage: React.FC = () => {
         }
       });
     }
-  }, [view, viewYear, viewMonth, instance, instance?.projectId, instance?.startDate, instance?.targetWeeks]);
+  }, [view, viewYear, viewMonth, instance?.projectId, instance?.startDate, instance?.targetWeeks]);
 
   // 年视图：加载该年所有计划
   useEffect(() => {
@@ -389,14 +402,14 @@ export const CalendarPage: React.FC = () => {
     }
     
     // 🎯 触发洞察：切换视图
-    if (!loading) {
-      triggerInsight('view_switch');
+    if (!loading && triggerInsightRef.current) {
+      triggerInsightRef.current('view_switch');
     }
-  }, [view, loading, triggerInsight]);
+  }, [view, loading]);
 
   // 监听训练记录变化，训练完成后触发洞察
   useEffect(() => {
-    if (!loading && records.length > 0) {
+    if (!loading && records.length > 0 && triggerInsightRef.current) {
       // 检查最新记录是否刚完成（避免初始加载触发）
       const latestCompleted = records.filter(r => r.completed).sort((a, b) => 
         new Date(b.date).getTime() - new Date(a.date).getTime()
@@ -407,11 +420,24 @@ export const CalendarPage: React.FC = () => {
         const now = Date.now();
         // 如果最新完成记录在24小时内，触发洞察
         if (now - recentTime < 24 * 3600 * 1000) {
-          triggerInsight('workout_complete');
+          triggerInsightRef.current('workout_complete');
         }
       }
     }
-  }, [records.length, loading, triggerInsight]);
+  }, [records.length, loading]);
+
+  // 补充：page_load 洞察的独立触发（等待数据和快照就绪）
+  const pageLoadFiredRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (loading || !ruleEngineSnapshot || !triggerInsightRef.current) return;
+    
+    // 使用 instanceId 作为去重键（无 instanceId 时用 'global'）
+    const key = instanceId ?? 'global';
+    if (pageLoadFiredRef.current === key) return;
+    
+    pageLoadFiredRef.current = key;
+    triggerInsightRef.current('page_load');
+  }, [loading, ruleEngineSnapshot, instanceId]);
 
   if (loading || !profile) {
     return (
