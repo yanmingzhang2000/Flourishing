@@ -1,4 +1,8 @@
-import { todayPlanResponseSchema, generatePlanResponseSchema } from '@flourish/contracts';
+import {
+  authSessionSchema,
+  todayPlanResponseSchema,
+  generatePlanResponseSchema,
+} from '@flourish/contracts';
 import type { Server } from 'node:http';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -12,6 +16,8 @@ let baseUrl: string;
 let runMigrations: (typeof import('../../db/migrate'))['runMigrations'];
 let seedDemoData: (typeof import('../../db/seed'))['seedDemoData'];
 let closeDb: (typeof import('../../db'))['closeDb'];
+
+let uniqueCounter = 0;
 
 beforeAll(async () => {
   process.env['DATABASE_PATH'] = tmpDb;
@@ -43,8 +49,36 @@ afterAll(async () => {
   fs.rmSync(`${tmpDb}-shm`, { force: true });
 });
 
-async function fetchToday() {
-  const res = await fetch(`${baseUrl}/api/plans/today`);
+/** Register a fresh user (gets default profile) and return its bearer token. */
+async function registerUser(): Promise<string> {
+  uniqueCounter += 1;
+  const email = `plans-${process.pid}-${Date.now()}-${uniqueCounter}@flourish.local`;
+  const res = await fetch(`${baseUrl}/api/auth/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password: 'password-123' }),
+  });
+  expect(res.status).toBe(201);
+  const body = (await res.json()) as { data: unknown };
+  return authSessionSchema.parse(body.data).token;
+}
+
+/** Login as the seeded demo user (seedDemoData must have run first). */
+async function loginDemo(): Promise<string> {
+  const res = await fetch(`${baseUrl}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: 'demo@flourish.local', password: 'demo1234' }),
+  });
+  expect(res.status).toBe(200);
+  const body = (await res.json()) as { data: unknown };
+  return authSessionSchema.parse(body.data).token;
+}
+
+async function fetchToday(token?: string) {
+  const res = await fetch(`${baseUrl}/api/plans/today`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
   expect(res.status).toBe(200);
   const body = (await res.json()) as { success: boolean; data: unknown };
   expect(body.success).toBe(true);
@@ -59,16 +93,24 @@ function localToday(): string {
 }
 
 describe('GET /api/plans/today', () => {
-  it('returns empty payload before seeding', async () => {
+  it('returns empty payload for guests (no session)', async () => {
     const data = await fetchToday();
     expect(data.plan).toBeNull();
     expect(data.today).toBeNull();
     expect(data.weekProgress).toBeNull();
   });
 
-  it('returns seeded plan with consistent week progress after seeding', async () => {
+  it('returns 401 for an invalid token (never downgrades to guest data)', async () => {
+    const res = await fetch(`${baseUrl}/api/plans/today`, {
+      headers: { Authorization: 'Bearer garbage-token' },
+    });
+    expect(res.status).toBe(401);
+  });
+
+  it('returns seeded plan with consistent week progress for the demo session', async () => {
     await seedDemoData();
-    const data = await fetchToday();
+    const token = await loginDemo();
+    const data = await fetchToday(token);
 
     expect(data.plan).not.toBeNull();
     expect(data.today).not.toBeNull();
@@ -87,10 +129,24 @@ describe('GET /api/plans/today', () => {
 });
 
 describe('POST /api/plans/generate', () => {
-  it('generates a plan for the seeded demo user (profile already exists from seedDemoData)', async () => {
+  it('requires authentication (401 without token)', async () => {
     const res = await fetch(`${baseUrl}/api/plans/generate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        startDate: '2026-01-05',
+        targetProjects: ['full_body_basic'],
+        trainingDays: ['monday'],
+      }),
+    });
+    expect(res.status).toBe(401);
+  });
+
+  it('generates a plan for the authenticated user (profile from registration)', async () => {
+    const token = await registerUser();
+    const res = await fetch(`${baseUrl}/api/plans/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({
         startDate: '2026-01-05', // Monday
         targetProjects: ['full_body_basic'],
@@ -117,12 +173,16 @@ describe('POST /api/plans/generate', () => {
       // full_body_basic (25min) + 5min warmup = 30min
       expect(day.estimatedDurationMinutes).toBe(30);
     }
+
+    // Plan belongs to the requesting user (not a shared demo account)
+    expect(data.plan.userId.length).toBeGreaterThan(0);
   });
 
   it('rejects invalid input (missing targetProjects)', async () => {
+    const token = await registerUser();
     const res = await fetch(`${baseUrl}/api/plans/generate`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({
         startDate: '2026-01-05',
         trainingDays: ['monday'],
@@ -135,9 +195,10 @@ describe('POST /api/plans/generate', () => {
   });
 
   it('rejects invalid trainingDays enum value', async () => {
+    const token = await registerUser();
     const res = await fetch(`${baseUrl}/api/plans/generate`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({
         startDate: '2026-01-05',
         targetProjects: ['full_body_basic'],
@@ -149,9 +210,10 @@ describe('POST /api/plans/generate', () => {
   });
 
   it('auto-adjusts consecutive training days per the 48h recovery rule (SAFE-02a)', async () => {
+    const token = await registerUser();
     const res = await fetch(`${baseUrl}/api/plans/generate`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({
         startDate: '2026-01-05', // Monday
         targetProjects: ['full_body_basic'],

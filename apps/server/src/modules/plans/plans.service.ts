@@ -11,11 +11,12 @@
 
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
-import type {
-  ExerciseSnapshot,
-  GeneratePlanInput,
-  PlanDay,
-  WeeklyPlan,
+import {
+  DEFAULT_AVAILABLE_EQUIPMENT,
+  type ExerciseSnapshot,
+  type GeneratePlanInput,
+  type PlanDay,
+  type WeeklyPlan,
 } from '@flourish/contracts';
 import { exercises, generator } from '@flourish/training-domain';
 import { eq } from 'drizzle-orm';
@@ -128,9 +129,9 @@ export function generatePlan(userId: string, input: GeneratePlanInput): WeeklyPl
   // Map injury strings to training-domain format (already stored as JSON in DB)
   const injuryTags = profile.injuries || [];
 
-  // TODO: Add availableEquipment field to userProfiles schema (Task 5).
-  // For now, default to bodyweight exercises (zero-equipment barrier to entry).
-  const availableEquipment = ['bodyweight'];
+  // Null = legacy row predating the column → contract default
+  // (bodyweight + mat, see DEFAULT_AVAILABLE_EQUIPMENT).
+  const availableEquipment = profile.availableEquipment ?? [...DEFAULT_AVAILABLE_EQUIPMENT];
 
   // Call training-domain generator
   const result = generator.generatePlanDays({

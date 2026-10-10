@@ -12,9 +12,8 @@ import { Router, type Request, type Response } from 'express';
 import { getDb } from '../../db';
 import { trainingRecords, users, weeklyPlans } from '../../db/schema';
 import { AppError } from '../../shared/errors';
+import { optionalAuth, requireAuth, requireUserId } from '../../shared/security';
 import { generatePlan } from './plans.service';
-
-const DEMO_USER_ID = '00000000-0000-4000-8000-000000000001';
 
 function pad(n: number): string {
   return String(n).padStart(2, '0');
@@ -42,11 +41,10 @@ const plansRouter = Router();
  * POST /api/plans/generate
  * 生成一周训练计划
  *
- * 权限：任务2临时口径，固定生成demo用户计划（认证接入后改为当前会话用户）
+ * 权限：requireAuth — 计划必须归属当前会话用户（04-SAFETY §4）。
  */
-plansRouter.post('/generate', (req: Request, res: Response) => {
-  // 任务 2 临时口径：无认证体系，固定生成演示用户计划。
-  const userId = DEMO_USER_ID;
+plansRouter.post('/generate', requireAuth, (req: Request, res: Response) => {
+  const userId = requireUserId(req);
 
   // 解析并验证输入
   const input = generatePlanInputSchema.safeParse(req.body);
@@ -75,11 +73,17 @@ plansRouter.post('/generate', (req: Request, res: Response) => {
   }
 });
 
-plansRouter.get('/today', (_req: Request, res: Response) => {
+plansRouter.get('/today', optionalAuth, (req: Request, res: Response) => {
+  // Guest read path (04-SAFETY §5: 游客与登录态遵循相同安全规则):
+  // no session → empty payload, never someone else's plan.
+  if (!req.auth) {
+    res.json({ success: true, data: emptyResponse });
+    return;
+  }
+  const userId = requireUserId(req);
   const db = getDb();
 
-  // 任务 2 临时口径：无认证体系，固定读取演示用户；认证接入后替换为当前会话用户。
-  const user = db.select().from(users).where(eq(users.id, DEMO_USER_ID)).get();
+  const user = db.select().from(users).where(eq(users.id, userId)).get();
   if (!user) {
     res.json({ success: true, data: emptyResponse });
     return;
@@ -88,7 +92,7 @@ plansRouter.get('/today', (_req: Request, res: Response) => {
   const activePlans = db
     .select()
     .from(weeklyPlans)
-    .where(and(eq(weeklyPlans.userId, DEMO_USER_ID), eq(weeklyPlans.status, 'active')))
+    .where(and(eq(weeklyPlans.userId, userId), eq(weeklyPlans.status, 'active')))
     .orderBy(desc(weeklyPlans.startDate))
     .all();
 
@@ -124,7 +128,7 @@ plansRouter.get('/today', (_req: Request, res: Response) => {
     .from(trainingRecords)
     .where(
       and(
-        eq(trainingRecords.userId, DEMO_USER_ID),
+        eq(trainingRecords.userId, userId),
         eq(trainingRecords.completed, true),
         gte(trainingRecords.date, planRow.startDate),
         lte(trainingRecords.date, weekEnd),

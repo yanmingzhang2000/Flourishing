@@ -34,6 +34,20 @@ export const requireAuth: RequestHandler = (req, _res, next) => {
   }
 };
 
+/**
+ * Optional authentication: sets `req.auth` when a valid Bearer token is
+ * present; leaves it unset when the Authorization header is absent
+ * (guest read path). A present-but-invalid token still 401s — a broken
+ * token must not silently downgrade to guest data.
+ */
+export const optionalAuth: RequestHandler = (req, res, next) => {
+  if (!req.header('authorization')) {
+    next();
+    return;
+  }
+  requireAuth(req, res, next);
+};
+
 export function requireUserId(req: Request): string {
   if (!req.auth) {
     throw new UnauthorizedError();

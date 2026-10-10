@@ -24,6 +24,9 @@ export const userProfiles = sqliteTable('user_profiles', {
   targetMinutesPerSession: integer('target_minutes_per_session'),
   targetSessionsPerWeek: integer('target_sessions_per_week'),
   injuries: text('injuries', { mode: 'json' }).$type<string[]>().notNull(),
+  // Nullable: legacy rows predate this column. Readers resolve null →
+  // DEFAULT_AVAILABLE_EQUIPMENT (packages/contracts) so old data keeps working.
+  availableEquipment: text('available_equipment', { mode: 'json' }).$type<string[]>(),
   createdAt: integer('created_at').notNull(),
   updatedAt: integer('updated_at').notNull(),
 });
