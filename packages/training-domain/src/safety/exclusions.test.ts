@@ -51,6 +51,10 @@ describe('mapInjuryOptionsToTags', () => {
     expect(mapInjuryOptionsToTags(['不存在的选项'])).toEqual([]);
   });
 
+  it('ignores Object prototype keys without throwing (hasOwnProperty guard)', () => {
+    expect(mapInjuryOptionsToTags(['constructor', 'toString', '__proto__'])).toEqual([]);
+  });
+
   it('every mapped tag is part of the documented controlled vocabulary', () => {
     const allMapped = Object.values(INJURY_OPTION_TAG_MAP).flat();
     for (const tag of allMapped) {

@@ -18,7 +18,7 @@ import {
   type PlanDay,
   type WeeklyPlan,
 } from '@flourish/contracts';
-import { exercises, generator } from '@flourish/training-domain';
+import { exercises, generator, safety } from '@flourish/training-domain';
 import { eq } from 'drizzle-orm';
 import { getDb } from '../../db';
 import { userProfiles, weeklyPlans } from '../../db/schema';
@@ -126,8 +126,12 @@ export function generatePlan(userId: string, input: GeneratePlanInput): WeeklyPl
   // Load exercise library
   const library = getExerciseLibrary();
 
-  // Map injury strings to training-domain format (already stored as JSON in DB)
-  const injuryTags = profile.injuries || [];
+  // Profile stores user-facing injury options (肩/肘/腕/腰/膝/颈). The
+  // generator needs internal contraindication tags (knee_pain, ...).
+  // Mapping lives ONLY in training-domain/safety/contraindication-rules
+  // (single source of truth, SAFE-01a). Skipping this mapping made the
+  // contraindication filter silently never match — fixed here.
+  const injuryTags = safety.mapInjuryOptionsToTags(profile.injuries || []);
 
   // Null = legacy row predating the column → contract default
   // (bodyweight + mat, see DEFAULT_AVAILABLE_EQUIPMENT).

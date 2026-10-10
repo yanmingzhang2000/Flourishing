@@ -1,4 +1,5 @@
-import { index, integer, real, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { index, integer, real, sqliteTable, text, unique } from 'drizzle-orm/sqlite-core';
+import type { SessionExercise } from '@flourish/contracts';
 
 export const users = sqliteTable(
   'users',
@@ -67,6 +68,32 @@ export const trainingRecords = sqliteTable(
   (t) => [
     index('training_records_user_created_idx').on(t.userId, t.createdAt),
     index('training_records_user_completed_created_idx').on(t.userId, t.completed, t.createdAt),
+  ],
+);
+
+export const workoutSessions = sqliteTable(
+  'workout_sessions',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    weekPlanId: text('week_plan_id')
+      .notNull()
+      .references(() => weeklyPlans.id, { onDelete: 'cascade' }),
+    date: text('date').notNull(),
+    status: text('status').notNull(),
+    exercises: text('exercises', { mode: 'json' }).$type<SessionExercise[]>().notNull(),
+    startedAt: text('started_at'),
+    completedAt: text('completed_at'),
+    createdAt: integer('created_at').notNull(),
+    updatedAt: integer('updated_at').notNull(),
+  },
+  (t) => [
+    index('workout_sessions_user_date_idx').on(t.userId, t.date),
+    // At most one session per plan-day: enforces refresh/retry idempotency
+    // at the DB level (duplicate create → constraint → return existing).
+    unique('workout_sessions_user_plan_date_unique').on(t.userId, t.weekPlanId, t.date),
   ],
 );
 

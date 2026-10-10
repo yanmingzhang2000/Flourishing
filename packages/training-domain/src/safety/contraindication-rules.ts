@@ -54,7 +54,12 @@ export type InjuryOption = keyof typeof INJURY_OPTION_TAG_MAP;
 export function mapInjuryOptionsToTags(userOptions: readonly string[]): string[] {
   const tags = new Set<string>();
   for (const option of userOptions) {
-    const mapped = INJURY_OPTION_TAG_MAP[option];
+    // hasOwnProperty guard: prototype keys ('constructor', 'toString', ...)
+    // must behave like any unknown option (ignored, never throws) — the
+    // "never throws" contract in this docblock must hold for all inputs.
+    const mapped = Object.prototype.hasOwnProperty.call(INJURY_OPTION_TAG_MAP, option)
+      ? INJURY_OPTION_TAG_MAP[option]
+      : undefined;
     if (mapped) {
       for (const tag of mapped) tags.add(tag);
     }

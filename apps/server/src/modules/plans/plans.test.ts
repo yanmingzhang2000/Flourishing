@@ -3,6 +3,7 @@ import {
   todayPlanResponseSchema,
   generatePlanResponseSchema,
 } from '@flourish/contracts';
+import { safety } from '@flourish/training-domain';
 import type { Server } from 'node:http';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -16,6 +17,7 @@ let baseUrl: string;
 let runMigrations: (typeof import('../../db/migrate'))['runMigrations'];
 let seedDemoData: (typeof import('../../db/seed'))['seedDemoData'];
 let closeDb: (typeof import('../../db'))['closeDb'];
+let loadLibrary: (typeof import('../exercises'))['loadExerciseLibrary'];
 
 let uniqueCounter = 0;
 
@@ -24,6 +26,7 @@ beforeAll(async () => {
   ({ runMigrations } = await import('../../db/migrate'));
   ({ seedDemoData } = await import('../../db/seed'));
   ({ closeDb } = await import('../../db'));
+  ({ loadExerciseLibrary: loadLibrary } = await import('../exercises'));
   const { createApp } = await import('../../app');
 
   runMigrations();
@@ -229,5 +232,52 @@ describe('POST /api/plans/generate', () => {
     const dates = data.plan.days.map((d) => d.date);
     expect(dates).toContain('2026-01-05');
     expect(dates).not.toContain('2026-01-06');
+  });
+
+  it('SAFE-01 regression: profile injury option "膝" actually excludes knee-contraindicated exercises from the generated plan', async () => {
+    const token = await registerUser();
+
+    // Set the user-facing injury option (膝) on the profile
+    const putRes = await fetch(`${baseUrl}/api/users/me/profile`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ injuries: ['膝'] }),
+    });
+    expect(putRes.status).toBe(200);
+
+    const res = await fetch(`${baseUrl}/api/plans/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        startDate: '2026-01-05',
+        targetProjects: ['full_body_basic'],
+        trainingDays: ['monday', 'wednesday', 'friday'],
+      }),
+    });
+    expect(res.status).toBe(201);
+    const body = (await res.json()) as { success: boolean; data: unknown };
+    const data = generatePlanResponseSchema.parse(body.data);
+    expect(data.plan.days.length).toBeGreaterThan(0);
+
+    // Oracle: knee option maps to these contraindication tags
+    const kneeTags = safety.mapInjuryOptionsToTags(['膝']);
+    expect(kneeTags.length).toBeGreaterThan(0);
+
+    const library = loadLibrary();
+    const libById = new Map(library.exercises.map((e) => [e.exerciseId, e]));
+
+    for (const day of data.plan.days) {
+      for (const exercise of day.exercises) {
+        const lib = libById.get(exercise.exerciseId);
+        expect(lib, `exercise ${exercise.exerciseId} must exist in library`).toBeDefined();
+        // The bug this guards against: profile stored '膝' but the generator
+        // filtered on internal tags without mapping, so nothing was excluded.
+        const hits = lib!.contraindications.filter((t) => kneeTags.includes(t));
+        expect(
+          hits,
+          `${exercise.exerciseId} (${exercise.name}) must not be knee-contraindicated, got tags ${JSON.stringify(hits)}`,
+        ).toEqual([]);
+      }
+    }
   });
 });
