@@ -46,7 +46,7 @@ const router = createBrowserRouter([
         element: (
           <div className="py-16 text-center">
             <p className="text-sm text-muted">404 · 页面不存在</p>
-            <Link to="/" className="mt-3 inline-block text-sm font-medium text-primary hover:underline">
+            <Link to="/" className="mt-3 inline-block text-sm font-medium text-brand-ink hover:underline">
               返回今日训练
             </Link>
           </div>

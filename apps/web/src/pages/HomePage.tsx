@@ -94,7 +94,7 @@ export function HomePage() {
         </p>
         <Link
           to="/calendar"
-          className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+          className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-brand-ink hover:underline"
         >
           <CalendarDays size={15} aria-hidden />
           查看本周安排
@@ -110,7 +110,7 @@ export function HomePage() {
         </p>
         <Link
           to="/training"
-          className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+          className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-brand-ink hover:underline"
         >
           <CalendarDays size={15} aria-hidden />
           去我的训练

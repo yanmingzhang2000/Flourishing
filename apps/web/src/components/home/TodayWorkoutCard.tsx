@@ -41,7 +41,7 @@ export function TodayWorkoutCard({ day, exerciseMap }: TodayWorkoutCardProps) {
     <article className="overflow-hidden rounded-xl border border-border bg-surface shadow-soft">
       <header className="border-b border-border px-5 py-4 sm:px-6">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-md bg-primary-soft px-2 py-0.5 text-xs font-medium text-primary">
+          <span className="rounded-md bg-primary-soft px-2 py-0.5 text-xs font-medium text-brand-ink">
             今日训练
           </span>
           <span className="text-xs text-muted">{day.date}</span>
@@ -52,7 +52,7 @@ export function TodayWorkoutCard({ day, exerciseMap }: TodayWorkoutCardProps) {
         </div>
         {reason && (
           <p className="mt-3 text-sm leading-relaxed text-foreground/80">
-            <span className="font-medium text-primary">推荐理由：</span>
+            <span className="font-medium text-brand-ink">推荐理由：</span>
             {reason}
           </p>
         )}
@@ -72,7 +72,7 @@ export function TodayWorkoutCard({ day, exerciseMap }: TodayWorkoutCardProps) {
                   className="h-14 w-14 shrink-0 rounded-md object-cover sm:h-16 sm:w-16"
                 />
               ) : (
-                <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-md bg-primary-soft text-lg font-medium text-primary sm:h-16 sm:w-16">
+                <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-md bg-primary-soft text-lg font-medium text-brand-ink sm:h-16 sm:w-16">
                   {snap.name.slice(0, 1)}
                 </span>
               )}
@@ -99,7 +99,7 @@ export function TodayWorkoutCard({ day, exerciseMap }: TodayWorkoutCardProps) {
       <footer className="border-t border-border px-5 py-4 sm:px-6">
         <Link
           to="/workout/today"
-          className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-primary px-6 text-base font-medium text-white transition-colors hover:bg-primary-hover"
+          className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-primary px-6 text-base font-medium text-foreground transition-colors hover:bg-primary-hover"
         >
           <Dumbbell size={18} aria-hidden />
           开始今天的训练

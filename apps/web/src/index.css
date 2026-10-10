@@ -5,23 +5,24 @@
     "Noto Sans SC", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial,
     sans-serif;
 
-  --color-background: #faf7f2;
-  --color-surface: #ffffff;
-  --color-foreground: #2f2b27;
-  --color-muted: #7d766c;
-  --color-border: #ebe5dc;
-  --color-primary: #5b7a56;
-  --color-primary-hover: #4e6b4a;
-  --color-primary-soft: #e7efe5;
-  --color-accent: #a8683f;
-  --color-accent-soft: #f6ede4;
+  --color-background: #f8f6f0;
+  --color-surface: #e8eee3;
+  --color-foreground: #303d32;
+  --color-muted: #4f5e51;
+  --color-border: #d3decd;
+  --color-primary: #78b978;
+  --color-primary-hover: #66a966;
+  --color-primary-soft: #d5e6d1;
+  --color-brand-ink: #3e6b3e;
+  --color-accent: #8f5b2c;
+  --color-accent-soft: #f5ece1;
   --color-danger: #a14a37;
 
   --radius-md: 10px;
   --radius-lg: 14px;
   --radius-xl: 18px;
 
-  --shadow-soft: 0 1px 2px rgba(47, 43, 39, 0.05), 0 6px 20px rgba(47, 43, 39, 0.06);
+  --shadow-soft: 0 1px 2px rgba(48, 61, 50, 0.05), 0 6px 20px rgba(48, 61, 50, 0.07);
 }
 
 body {
@@ -38,6 +39,6 @@ body {
 }
 
 :focus-visible {
-  outline: 2px solid var(--color-primary);
+  outline: 2px solid var(--color-brand-ink);
   outline-offset: 2px;
 }

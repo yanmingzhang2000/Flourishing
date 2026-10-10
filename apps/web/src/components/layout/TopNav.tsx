@@ -13,7 +13,7 @@ export function TopNav() {
     <header className="sticky top-0 z-40 border-b border-border bg-background/90 backdrop-blur">
       <div className="mx-auto flex h-16 w-full max-w-6xl items-center gap-2 px-4 sm:gap-4 sm:px-6 lg:px-8">
         <a href="/" className="flex shrink-0 items-center gap-2">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-soft">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-foreground">
             <Leaf size={18} aria-hidden />
           </span>
           <span className="hidden text-base font-semibold tracking-wide sm:inline">Flourish AI</span>
@@ -29,8 +29,8 @@ export function TopNav() {
                 [
                   'shrink-0 rounded-md px-2.5 py-1.5 text-sm transition-colors sm:px-3',
                   isActive
-                    ? 'bg-primary-soft font-medium text-primary'
-                    : 'text-muted hover:bg-accent-soft hover:text-foreground',
+                    ? 'bg-primary-soft font-medium text-brand-ink'
+                    : 'text-muted hover:bg-border/60 hover:text-foreground',
                 ].join(' ')
               }
             >

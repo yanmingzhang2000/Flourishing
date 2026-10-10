@@ -38,7 +38,7 @@ export function WeekProgressCard({ progress }: WeekProgressCardProps) {
             className={[
               'flex items-center gap-1 rounded-md border px-2 py-1 text-xs',
               day.completed
-                ? 'border-primary bg-primary-soft text-primary'
+                ? 'border-primary bg-primary-soft text-brand-ink'
                 : day.isToday
                   ? 'border-accent bg-accent-soft text-accent'
                   : 'border-border text-muted',
