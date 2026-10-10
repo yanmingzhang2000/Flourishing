@@ -1,4 +1,4 @@
-import { todayPlanResponseSchema } from '@flourish/contracts';
+import { todayPlanResponseSchema, generatePlanResponseSchema } from '@flourish/contracts';
 import type { Server } from 'node:http';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -83,5 +83,89 @@ describe('GET /api/plans/today', () => {
     expect(progress?.completed).toBeLessThanOrEqual(progress?.scheduled ?? 0);
     expect(progress?.days.length).toBe(progress?.scheduled);
     expect(progress?.days.some((day) => day.isToday)).toBe(true);
+  });
+});
+
+describe('POST /api/plans/generate', () => {
+  it('generates a plan for the seeded demo user (profile already exists from seedDemoData)', async () => {
+    const res = await fetch(`${baseUrl}/api/plans/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        startDate: '2026-01-05', // Monday
+        targetProjects: ['full_body_basic'],
+        trainingDays: ['monday', 'wednesday', 'friday'],
+      }),
+    });
+
+    if (res.status !== 201) {
+      const errorBody = await res.text();
+      console.error(`Expected 201, got ${res.status}. Response: ${errorBody}`);
+    }
+
+    expect(res.status).toBe(201);
+    const body = (await res.json()) as { success: boolean; data: unknown };
+    expect(body.success).toBe(true);
+
+    const data = generatePlanResponseSchema.parse(body.data);
+    expect(data.plan.days.length).toBeGreaterThan(0);
+    expect(data.plan.status).toBe('active');
+    expect(data.plan.startDate).toBe('2026-01-05');
+
+    for (const day of data.plan.days) {
+      expect(day.exercises.length).toBeGreaterThan(0);
+      // full_body_basic (25min) + 5min warmup = 30min
+      expect(day.estimatedDurationMinutes).toBe(30);
+    }
+  });
+
+  it('rejects invalid input (missing targetProjects)', async () => {
+    const res = await fetch(`${baseUrl}/api/plans/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        startDate: '2026-01-05',
+        trainingDays: ['monday'],
+      }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { success: boolean; error?: { code: string } };
+    expect(body.success).toBe(false);
+  });
+
+  it('rejects invalid trainingDays enum value', async () => {
+    const res = await fetch(`${baseUrl}/api/plans/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        startDate: '2026-01-05',
+        targetProjects: ['full_body_basic'],
+        trainingDays: ['notaday'],
+      }),
+    });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('auto-adjusts consecutive training days per the 48h recovery rule (SAFE-02a)', async () => {
+    const res = await fetch(`${baseUrl}/api/plans/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        startDate: '2026-01-05', // Monday
+        targetProjects: ['full_body_basic'],
+        trainingDays: ['monday', 'tuesday'], // consecutive — Tuesday should be demoted
+      }),
+    });
+
+    expect(res.status).toBe(201);
+    const body = (await res.json()) as { success: boolean; data: unknown };
+    const data = generatePlanResponseSchema.parse(body.data);
+
+    // Only Monday should have an actual training day in the plan
+    const dates = data.plan.days.map((d) => d.date);
+    expect(dates).toContain('2026-01-05');
+    expect(dates).not.toContain('2026-01-06');
   });
 });

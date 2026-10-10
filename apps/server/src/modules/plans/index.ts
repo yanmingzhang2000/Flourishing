@@ -1,14 +1,18 @@
 import {
   todayPlanResponseSchema,
   planDaySchema,
+  generatePlanInputSchema,
+  generatePlanResponseSchema,
   type TodayPlanResponse,
   type WeeklyPlan,
+  type GeneratePlanInput,
 } from '@flourish/contracts';
 import { and, desc, eq, gte, lte } from 'drizzle-orm';
 import { Router, type Request, type Response } from 'express';
 import { getDb } from '../../db';
 import { trainingRecords, users, weeklyPlans } from '../../db/schema';
 import { AppError } from '../../shared/errors';
+import { generatePlan } from './plans.service';
 
 const DEMO_USER_ID = '00000000-0000-4000-8000-000000000001';
 
@@ -33,6 +37,43 @@ function addDaysIso(iso: string, days: number): string {
 const emptyResponse: TodayPlanResponse = { plan: null, today: null, weekProgress: null };
 
 const plansRouter = Router();
+
+/**
+ * POST /api/plans/generate
+ * 生成一周训练计划
+ *
+ * 权限：任务2临时口径，固定生成demo用户计划（认证接入后改为当前会话用户）
+ */
+plansRouter.post('/generate', (req: Request, res: Response) => {
+  // 任务 2 临时口径：无认证体系，固定生成演示用户计划。
+  const userId = DEMO_USER_ID;
+
+  // 解析并验证输入
+  const input = generatePlanInputSchema.safeParse(req.body);
+  if (!input.success) {
+    throw new AppError(400, 'invalid_input', `Invalid request body: ${input.error.message}`);
+  }
+
+  try {
+    const plan = generatePlan(userId, input.data);
+    const response = generatePlanResponseSchema.parse({
+      plan,
+      libraryVersion: plan.libraryVersion,
+    });
+    res.status(201).json({ success: true, data: response });
+  } catch (error) {
+    if (error instanceof AppError) {
+      throw error;
+    }
+    // Log internal errors for debugging (structured JSON, matching seed.ts pattern)
+    console.error(JSON.stringify({
+      level: 'error',
+      msg: 'plan_generation_failed',
+      error: error instanceof Error ? error.message : String(error),
+    }));
+    throw new AppError(500, 'plan_generation_failed', `Failed to generate plan: ${error instanceof Error ? error.message : String(error)}`);
+  }
+});
 
 plansRouter.get('/today', (_req: Request, res: Response) => {
   const db = getDb();
