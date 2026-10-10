@@ -20,3 +20,5 @@ export function adjustDifficulty(
   if (feedback === 'too_easy') return clampDifficulty(current + 1);
   return current;
 }
+
+export * from './progression';
