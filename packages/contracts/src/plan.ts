@@ -1,6 +1,17 @@
 import { z } from 'zod';
 import { idSchema, isoDateSchema } from './common';
 
+export const targetProjectSchema = z.enum([
+  'tricep_tone',
+  'hip_thigh_tone',
+  'lower_abs_tone',
+  'trap_relax',
+  'round_shoulder_fix',
+  'full_body_basic',
+]);
+
+export const trainingDaySchema = z.enum(['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']);
+
 export const exerciseSnapshotSchema = z.object({
   exerciseId: z.string().min(1).max(128),
   name: z.string().min(1).max(120),
@@ -34,6 +45,14 @@ export const weeklyPlanSchema = z.object({
 
 export const generatePlanInputSchema = z.object({
   startDate: isoDateSchema,
+  targetProjects: z.array(targetProjectSchema).min(1).max(6),
+  trainingDays: z.array(trainingDaySchema).min(1).max(7),
+  targetMinutesPerSession: z.number().int().min(5).max(180).optional(),
+});
+
+export const generatePlanResponseSchema = z.object({
+  plan: weeklyPlanSchema,
+  libraryVersion: z.string().min(1).max(64),
 });
 
 export const weekProgressDaySchema = z.object({
@@ -60,6 +79,9 @@ export type PlanDay = z.infer<typeof planDaySchema>;
 export type PlanStatus = z.infer<typeof planStatusSchema>;
 export type WeeklyPlan = z.infer<typeof weeklyPlanSchema>;
 export type GeneratePlanInput = z.infer<typeof generatePlanInputSchema>;
+export type GeneratePlanResponse = z.infer<typeof generatePlanResponseSchema>;
 export type WeekProgressDay = z.infer<typeof weekProgressDaySchema>;
 export type WeekProgress = z.infer<typeof weekProgressSchema>;
 export type TodayPlanResponse = z.infer<typeof todayPlanResponseSchema>;
+export type TargetProject = z.infer<typeof targetProjectSchema>;
+export type TrainingDay = z.infer<typeof trainingDaySchema>;
