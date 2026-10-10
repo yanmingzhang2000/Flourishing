@@ -9,7 +9,9 @@
     "types": ["vite/client", "node"],
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@flourish/contracts": ["../../packages/contracts/src"],
+      "@flourish/training-domain": ["../../packages/training-domain/src"]
     }
   },
   "include": ["src", "vite.config.ts"]
