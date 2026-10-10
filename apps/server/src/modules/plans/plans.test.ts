@@ -2,6 +2,7 @@ import {
   authSessionSchema,
   todayPlanResponseSchema,
   generatePlanResponseSchema,
+  workoutSessionSchema,
 } from '@flourish/contracts';
 import { safety } from '@flourish/training-domain';
 import type { Server } from 'node:http';
@@ -279,5 +280,100 @@ describe('POST /api/plans/generate', () => {
         ).toEqual([]);
       }
     }
+  });
+
+  it('E2E #3: feedback "太难" → next plan adjusts a single variable with an explanation', async () => {
+    const token = await registerUser();
+    const authHeaders = {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    };
+
+    // Beginner tier so the ladder expectations are fixed (sets 3, reps 8-12)
+    const putProfile = await fetch(`${baseUrl}/api/users/me/profile`, {
+      method: 'PUT',
+      headers: authHeaders,
+      body: JSON.stringify({ experienceLevel: 'beginner' }),
+    });
+    expect(putProfile.status).toBe(200);
+
+    const generate = async () => {
+      const res = await fetch(`${baseUrl}/api/plans/generate`, {
+        method: 'POST',
+        headers: authHeaders,
+        body: JSON.stringify({
+          startDate: localToday(), // must cover today so /plans/today sees it
+          targetProjects: ['full_body_basic'],
+          trainingDays: ['monday', 'wednesday', 'friday'],
+        }),
+      });
+      expect(res.status).toBe(201);
+      const body = (await res.json()) as { success: boolean; data: unknown };
+      return generatePlanResponseSchema.parse(body.data).plan;
+    };
+
+    // 1) Baseline: no feedback yet → no adjustment, experience baseline volume
+    const baseline = await generate();
+    expect(baseline.adjustment).toBeUndefined();
+    const baselineFirst = baseline.days[0]!.exercises[0]!;
+    expect(baselineFirst.reps).toBe('8-12');
+    expect(baselineFirst.sets).toBe(3);
+
+    // 2) Complete a real session with directional feedback (E2E #3 input)
+    const startRes = await fetch(`${baseUrl}/api/workouts/sessions`, {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({ weekPlanId: baseline.id, date: baseline.days[0]!.date }),
+    });
+    expect(startRes.status).toBe(201);
+    const session = workoutSessionSchema.parse(((await startRes.json()) as { data: unknown }).data);
+
+    const completeRes = await fetch(
+      `${baseUrl}/api/workouts/sessions/${session.id}/complete`,
+      {
+        method: 'POST',
+        headers: authHeaders,
+        body: JSON.stringify({ durationMinutes: 30, feedback: 'too_hard' }),
+      },
+    );
+    expect(completeRes.status).toBe(200);
+
+    // 3) Regenerate → the rule engine adjusts exactly one variable, explainably
+    const adjusted = await generate();
+    expect(adjusted.adjustment).toBeDefined();
+    expect(adjusted.adjustment!.feedback).toBe('too_hard');
+    expect(adjusted.adjustment!.variable).toBe('reps');
+    expect(adjusted.adjustment!.explanation).toContain('太难');
+
+    const adjustedFirst = adjusted.days[0]!.exercises[0]!;
+    expect(adjustedFirst.reps).toBe('6-10'); // 8-12 − 2 (SAFE-03c priority 1)
+    expect(adjustedFirst.sets).toBe(3); // untouched — single variable rule
+    expect(adjusted.days.length).toBe(baseline.days.length);
+
+    // 4) The explanation is visible where the user looks (/plans/today)
+    const today = await fetchToday(token);
+    expect(today.plan?.id).toBe(adjusted.id); // newest generation wins
+    expect(today.plan?.adjustment?.explanation).toContain('太难');
+    expect(today.plan?.adjustment?.variable).toBe('reps');
+
+    // 5) A user without any feedback never gets a phantom adjustment
+    const otherToken = await registerUser();
+    const otherRes = await fetch(`${baseUrl}/api/plans/generate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${otherToken}`,
+      },
+      body: JSON.stringify({
+        startDate: '2026-01-05',
+        targetProjects: ['full_body_basic'],
+        trainingDays: ['monday'],
+      }),
+    });
+    expect(otherRes.status).toBe(201);
+    const otherPlan = generatePlanResponseSchema.parse(
+      ((await otherRes.json()) as { data: unknown }).data,
+    ).plan;
+    expect(otherPlan.adjustment).toBeUndefined();
   });
 });

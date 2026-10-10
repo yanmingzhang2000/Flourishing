@@ -1,0 +1,1 @@
+ALTER TABLE `weekly_plans` ADD `adjustment` text;

@@ -1,4 +1,5 @@
 import path from 'node:path';
+import type { Exercise } from '@flourish/contracts';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { loadExerciseLibrary, resetCache } from '../exercises/loader';
 import { generatePlanDays } from './plan-generator';
@@ -208,5 +209,232 @@ describe('generatePlanDays (Phase 7 end-to-end integration)', () => {
     const tuesday = result.fullWeekSchedule.find((d) => d.weekday === 'tuesday')!;
     expect(tuesday.isTrainingDay).toBe(false);
     expect(tuesday.recoveryReason).toBeDefined();
+  });
+});
+
+describe('generatePlanDays feedback adjustment (SAFE-03b/c, E2E #3)', () => {
+  beforeEach(() => {
+    resetCache();
+  });
+
+  const library = loadExerciseLibrary(CANONICAL_PATH);
+
+  const baseInput = {
+    exercisePool: library.exercises,
+    startDate: MONDAY_START,
+    trainingDays: ['monday', 'wednesday', 'friday'] as const,
+    targetProjects: ['full_body_basic'],
+    availableEquipment: ['bodyweight'],
+    injuryTags: [] as string[],
+    experienceLevel: 'beginner' as const,
+  };
+
+  it('no feedback → fresh baseline, no adjustment decision', () => {
+    const result = generatePlanDays(baseInput);
+    expect(result.adjustment).toBeNull();
+    for (const day of result.trainingDays) {
+      for (const planned of day.exercises) {
+        expect(planned.reps).toBe('8-12');
+        expect(planned.sets).toBe(3);
+      }
+    }
+  });
+
+  it('too_easy → reps +2 on every exercise, single variable (SAFE-03b)', () => {
+    const result = generatePlanDays({
+      ...baseInput,
+      adjustment: { feedback: 'too_easy', previousVolume: null },
+    });
+
+    expect(result.adjustment).not.toBeNull();
+    expect(result.adjustment!.feedback).toBe('too_easy');
+    expect(result.adjustment!.variable).toBe('reps');
+    expect(result.adjustment!.repsDelta).toBe(2);
+    expect(result.adjustment!.setsDelta).toBe(0);
+    expect(result.adjustment!.explanation).toContain('太轻松');
+    expect(result.adjustment!.explanation).toContain('8-12 → 10-14');
+
+    for (const day of result.trainingDays) {
+      for (const planned of day.exercises) {
+        expect(planned.reps).toBe('10-14'); // changed
+        expect(planned.sets).toBe(3); // untouched (single variable)
+      }
+    }
+    expect(result.trainingDays).toHaveLength(3);
+  });
+
+  it('too_hard → reps −2 on every exercise, single variable (SAFE-03c)', () => {
+    const result = generatePlanDays({
+      ...baseInput,
+      adjustment: { feedback: 'too_hard', previousVolume: null },
+    });
+
+    expect(result.adjustment!.variable).toBe('reps');
+    expect(result.adjustment!.repsDelta).toBe(-2);
+    expect(result.adjustment!.explanation).toContain('太难');
+
+    for (const day of result.trainingDays) {
+      for (const planned of day.exercises) {
+        expect(planned.reps).toBe('6-10');
+        expect(planned.sets).toBe(3);
+      }
+    }
+  });
+
+  it('progression accumulates on the previous plan volume (not reset each generation)', () => {
+    const result = generatePlanDays({
+      ...baseInput,
+      adjustment: { feedback: 'too_easy', previousVolume: { reps: '10-14', sets: 3 } },
+    });
+
+    expect(result.adjustment!.variable).toBe('reps');
+    expect(result.adjustment!.explanation).toContain('10-14 → 12-16');
+
+    for (const day of result.trainingDays) {
+      for (const planned of day.exercises) {
+        expect(planned.reps).toBe('12-16');
+      }
+    }
+  });
+
+  it('just_right keeps the previous level unchanged (no reset, no decision)', () => {
+    const result = generatePlanDays({
+      ...baseInput,
+      adjustment: { feedback: 'just_right', previousVolume: { reps: '10-14', sets: 4 } },
+    });
+
+    expect(result.adjustment).toBeNull();
+    for (const day of result.trainingDays) {
+      for (const planned of day.exercises) {
+        expect(planned.reps).toBe('10-14');
+        expect(planned.sets).toBe(4);
+      }
+    }
+  });
+
+  it('ladder falls through to sets when previous volume is at the reps bound', () => {
+    const result = generatePlanDays({
+      ...baseInput,
+      adjustment: {
+        feedback: 'too_easy',
+        previousVolume: { reps: '24-25', sets: 3 },
+      },
+    });
+
+    expect(result.adjustment!.variable).toBe('sets');
+    expect(result.adjustment!.setsDelta).toBe(1);
+
+    for (const day of result.trainingDays) {
+      for (const planned of day.exercises) {
+        expect(planned.sets).toBe(4);
+        expect(planned.reps).toBe('24-25'); // previous level retained
+      }
+    }
+  });
+
+  it('ladder step 3: difficulty bias applies when volume is exhausted (换高级动作)', () => {
+    // Synthetic pool guaranteeing beginner headroom: picked mains contain
+    // D1 entries (target D2 exists) inside the beginner ceiling.
+    const make = (id: string, category: Exercise['category'], difficulty: number): Exercise => ({
+      exerciseId: id,
+      name: id,
+      nameEn: id,
+      muscleGroup: { primary: ['chest'], secondary: [] },
+      difficulty,
+      equipment: ['bodyweight'],
+      function: { primary: 'strength', secondary: 'general' },
+      category,
+      targetProjects: ['full_body_basic'],
+      contraindications: [],
+      alternativeExerciseIds: [],
+      restSeconds: 40,
+      steps: ['step'],
+      tips: ['tip'],
+      warning: 'warning',
+    });
+    const pool = [
+      ...['w1', 'w2', 'w3', 'w4'].map((id) => make(id, 'warmup', 1)),
+      make('m1', 'strength', 1),
+      make('m2', 'strength', 1),
+      make('m3', 'strength', 1),
+      make('m4', 'strength', 2),
+      make('m5', 'strength', 2),
+      make('m6', 'strength', 2),
+      make('m7', 'strength', 2),
+      ...['s1', 's2', 's3', 's4'].map((id) => make(id, 'stretch', 1)),
+    ];
+
+    const baseline = generatePlanDays({ ...baseInput, exercisePool: pool });
+    const result = generatePlanDays({
+      ...baseInput,
+      exercisePool: pool,
+      adjustment: {
+        feedback: 'too_easy',
+        previousVolume: { reps: '24-25', sets: 5 },
+      },
+    });
+
+    expect(result.adjustment!.variable).toBe('difficulty');
+    expect(result.adjustment!.explanation).toContain('提升一级');
+
+    // Single variable: volume untouched, duration formula unchanged
+    for (const day of result.trainingDays) {
+      for (const planned of day.exercises) {
+        expect(planned.reps).toBe('24-25');
+        expect(planned.sets).toBe(5);
+        expect(planned.exercise.difficulty).toBeLessThanOrEqual(2); // SAFE-03a ceiling
+      }
+      const baselineDay = baseline.trainingDays.find((d) => d.date === day.date)!;
+      expect(day.estimatedDurationMinutes).toBe(baselineDay.estimatedDurationMinutes);
+    }
+  });
+
+  it('ladder exhausted → decision none, previous level kept (fail-safe)', () => {
+    // Synthetic pool: every strength exercise sits at D2 (the beginner
+    // ceiling), so step 3 has no headroom and the ladder must stop.
+    const make = (id: string, category: Exercise['category'], difficulty: number): Exercise => ({
+      exerciseId: id,
+      name: id,
+      nameEn: id,
+      muscleGroup: { primary: ['chest'], secondary: [] },
+      difficulty,
+      equipment: ['bodyweight'],
+      function: { primary: 'strength', secondary: 'general' },
+      category,
+      targetProjects: ['full_body_basic'],
+      contraindications: [],
+      alternativeExerciseIds: [],
+      restSeconds: 40,
+      steps: ['step'],
+      tips: ['tip'],
+      warning: 'warning',
+    });
+    const pool = [
+      ...['w1', 'w2', 'w3', 'w4'].map((id) => make(id, 'warmup', 1)),
+      ...['m1', 'm2', 'm3', 'm4', 'm5', 'm6', 'm7', 'm8'].map((id) => make(id, 'strength', 2)),
+      ...['s1', 's2', 's3', 's4'].map((id) => make(id, 'stretch', 1)),
+    ];
+
+    const result = generatePlanDays({
+      ...baseInput,
+      exercisePool: pool,
+      adjustment: {
+        feedback: 'too_easy',
+        previousVolume: { reps: '24-25', sets: 5 },
+      },
+    });
+
+    expect(result.adjustment).not.toBeNull();
+    expect(result.adjustment!.variable).toBe('none');
+    expect(result.adjustment!.explanation).toContain('安全边界');
+
+    // Previous level retained, plan still valid
+    expect(result.trainingDays.length).toBeGreaterThan(0);
+    for (const day of result.trainingDays) {
+      for (const planned of day.exercises) {
+        expect(planned.reps).toBe('24-25');
+        expect(planned.sets).toBe(5);
+      }
+    }
   });
 });

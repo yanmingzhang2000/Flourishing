@@ -1,4 +1,5 @@
 import path from 'node:path';
+import type { Exercise } from '@flourish/contracts';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { loadExerciseLibrary, resetCache } from '../exercises/loader';
 import { planDay } from './planner';
@@ -139,5 +140,123 @@ describe('planDay (SAFE-04 single-day assembly)', () => {
 
     // 20 + 15 + 15 + 5 (warmup) = 55min
     expect(result.estimatedDurationMinutes).toBe(55);
+  });
+});
+
+describe('planDay difficultyBias (SAFE-03b/c ladder step 3: 换高级/简单动作)', () => {
+  beforeEach(() => {
+    resetCache();
+  });
+
+  function makeExercise(
+    id: string,
+    category: Exercise['category'],
+    difficulty: number,
+  ): Exercise {
+    return {
+      exerciseId: id,
+      name: id,
+      nameEn: id,
+      muscleGroup: { primary: ['chest'], secondary: [] },
+      difficulty,
+      equipment: ['bodyweight'],
+      function: { primary: 'strength', secondary: 'general' },
+      category,
+      targetProjects: ['full_body_basic'],
+      contraindications: [],
+      alternativeExerciseIds: [],
+      restSeconds: 40,
+      steps: ['step'],
+      tips: ['tip'],
+      warning: 'warning',
+    };
+  }
+
+  // 30min bucket picks midpoint counts: warmup 3, main 6, stretch 3.
+  // Main pool order = array order, so 6× D1 fill the picks and 3× D2
+  // remain as swap targets for a +1 bias.
+  const pool = [
+    ...['w1', 'w2', 'w3', 'w4'].map((id) => makeExercise(id, 'warmup', 1)),
+    ...['m1', 'm2', 'm3', 'm4', 'm5', 'm6'].map((id) => makeExercise(id, 'strength', 1)),
+    ...['m7', 'm8', 'm9'].map((id) => makeExercise(id, 'strength', 2)),
+    ...['s1', 's2', 's3', 's4'].map((id) => makeExercise(id, 'stretch', 1)),
+  ];
+
+  const baseInput = {
+    exercisePool: pool,
+    targetProjects: ['full_body_basic'],
+    availableEquipment: ['bodyweight'],
+    injuryTags: [],
+    experienceLevel: 'beginner' as const,
+  };
+
+  it('+1 bias swaps main exercises up exactly one difficulty level (deterministically)', () => {
+    const base = planDay(baseInput);
+    const biased = planDay({ ...baseInput, difficultyBias: 1 });
+
+    expect(biased.main).toHaveLength(base.main.length);
+
+    // Exactly one level up, never more; unswapped exercises stay put
+    base.main.forEach((original, index) => {
+      const swapped = biased.main[index]!;
+      expect([original.exercise.difficulty, original.exercise.difficulty + 1]).toContain(
+        swapped.exercise.difficulty,
+      );
+      if (swapped.exercise.exerciseId !== original.exercise.exerciseId) {
+        expect(swapped.exercise.difficulty).toBe(original.exercise.difficulty + 1);
+      }
+    });
+
+    // With 6× D1 picked and 3× D2 available as targets, swaps must occur
+    const swappedIds = base.main
+      .filter((original, index) => biased.main[index]!.exercise.exerciseId !== original.exercise.exerciseId)
+      .map((original) => original.exercise.exerciseId);
+    expect(swappedIds.length).toBeGreaterThanOrEqual(1);
+
+    // Warmup/stretch untouched (bias targets main training only)
+    expect(biased.warmup.map((p) => p.exercise.exerciseId)).toEqual(
+      base.warmup.map((p) => p.exercise.exerciseId),
+    );
+    expect(biased.stretch.map((p) => p.exercise.exerciseId)).toEqual(
+      base.stretch.map((p) => p.exercise.exerciseId),
+    );
+
+    // Single-variable rule: volume metadata is unchanged by a difficulty bias
+    for (const planned of [...biased.warmup, ...biased.main, ...biased.stretch]) {
+      expect(planned.sets).toBe(3);
+      expect(planned.reps).toBe('8-12');
+    }
+
+    // Determinism: identical input → identical selection
+    const again = planDay({ ...baseInput, difficultyBias: 1 });
+    expect(again.main.map((p) => p.exercise.exerciseId)).toEqual(
+      biased.main.map((p) => p.exercise.exerciseId),
+    );
+  });
+
+  it('-1 bias never drops below difficulty 1', () => {
+    const biased = planDay({ ...baseInput, difficultyBias: -1 });
+    for (const planned of biased.main) {
+      expect(planned.exercise.difficulty).toBeGreaterThanOrEqual(1);
+    }
+    // Picked mains are already D1 → nothing can move down
+    const base = planDay(baseInput);
+    expect(biased.main.map((p) => p.exercise.exerciseId)).toEqual(
+      base.main.map((p) => p.exercise.exerciseId),
+    );
+  });
+
+  it('+1 bias respects the experience ceiling (beginner must stay ≤ D2)', () => {
+    // All picked mains are D2 → target D3 exceeds the beginner range
+    const highPool = [
+      ...['w1', 'w2', 'w3', 'w4'].map((id) => makeExercise(id, 'warmup', 1)),
+      ...['m1', 'm2', 'm3', 'm4', 'm5', 'm6'].map((id) => makeExercise(id, 'strength', 2)),
+      ...['m7', 'm8'].map((id) => makeExercise(id, 'strength', 3)),
+      ...['s1', 's2', 's3', 's4'].map((id) => makeExercise(id, 'stretch', 1)),
+    ];
+    const biased = planDay({ ...baseInput, exercisePool: highPool, difficultyBias: 1 });
+    for (const planned of biased.main) {
+      expect(planned.exercise.difficulty).toBeLessThanOrEqual(2);
+    }
   });
 });

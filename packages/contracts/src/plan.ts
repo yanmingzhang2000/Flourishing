@@ -33,6 +33,17 @@ export const planDaySchema = z.object({
 
 export const planStatusSchema = z.enum(['active', 'completed', 'superseded']);
 
+/**
+ * Feedback-driven adjustment persisted with the plan (决议 8 / E2E #3).
+ * Exactly one variable was changed; `explanation` is the user-facing,
+ * deterministic description of that change.
+ */
+export const planAdjustmentSchema = z.object({
+  feedback: z.enum(['too_easy', 'too_hard']),
+  variable: z.enum(['reps', 'sets', 'difficulty', 'none']),
+  explanation: z.string().min(1).max(300),
+});
+
 export const weeklyPlanSchema = z.object({
   id: idSchema,
   userId: idSchema,
@@ -41,6 +52,8 @@ export const weeklyPlanSchema = z.object({
   days: z.array(planDaySchema).min(1).max(7),
   libraryVersion: z.string().min(1).max(64),
   createdAt: z.iso.datetime(),
+  /** Absent when there was no directional feedback for this generation */
+  adjustment: planAdjustmentSchema.optional(),
 });
 
 export const generatePlanInputSchema = z.object({
@@ -78,6 +91,7 @@ export type ExerciseSnapshot = z.infer<typeof exerciseSnapshotSchema>;
 export type PlanDay = z.infer<typeof planDaySchema>;
 export type PlanStatus = z.infer<typeof planStatusSchema>;
 export type WeeklyPlan = z.infer<typeof weeklyPlanSchema>;
+export type PlanAdjustment = z.infer<typeof planAdjustmentSchema>;
 export type GeneratePlanInput = z.infer<typeof generatePlanInputSchema>;
 export type GeneratePlanResponse = z.infer<typeof generatePlanResponseSchema>;
 export type WeekProgressDay = z.infer<typeof weekProgressDaySchema>;

@@ -51,6 +51,13 @@ export interface PlanDayInput {
   injuryTags: readonly string[];
   /** User's declared experience level (null if not set) */
   experienceLevel: ExperienceLevel | null;
+  /**
+   * Feedback-driven difficulty bias (SAFE-03b/c step 3: 换高级/简单动作).
+   * When set, each main exercise is deterministically swapped for a
+   * same-category candidate one difficulty level higher/lower, staying
+   * inside the experience range. Warmup/stretch are untouched.
+   */
+  difficultyBias?: 1 | -1;
 }
 
 /**
@@ -90,6 +97,36 @@ function toPlannedExercise(
     reps: `${range.minReps}-${range.maxReps}`,
     restSeconds: range.restSeconds,
   };
+}
+
+/**
+ * Deterministically swap main exercises one difficulty level up/down
+ * (SAFE-03b/c ladder step 3). Each picked exercise tries to move to a
+ * same-category, not-yet-picked candidate at the target difficulty,
+ * clamped to the experience range; if no candidate exists the original
+ * is kept (progression never forces an out-of-range exercise).
+ */
+function applyDifficultyBias(
+  main: readonly Exercise[],
+  pool: readonly Exercise[],
+  experienceLevel: ExperienceLevel | null,
+  bias: 1 | -1,
+): Exercise[] {
+  const range = getDifficultyRange(experienceLevel);
+  const minDifficulty = range ? range.minDifficulty : 1;
+  const maxDifficulty = range ? range.maxDifficulty : 5;
+
+  const pickedIds = new Set(main.map((ex) => ex.exerciseId));
+  return main.map((exercise) => {
+    const target = exercise.difficulty + bias;
+    if (target < minDifficulty || target > maxDifficulty) return exercise;
+    const alternative = pool.find(
+      (candidate) => candidate.difficulty === target && !pickedIds.has(candidate.exerciseId),
+    );
+    if (!alternative) return exercise;
+    pickedIds.add(alternative.exerciseId);
+    return alternative;
+  });
 }
 
 /**
@@ -138,10 +175,16 @@ export function planDay(input: PlanDayInput): DayPlanResult {
     );
   }
 
-  // Step 7: attach sets/reps/rest from experience level
+  // Step 7: attach sets/reps/rest from experience level (SAFE-03a),
+  // with optional feedback-driven difficulty bias on main exercises.
+  const mainSelected =
+    input.difficultyBias !== undefined
+      ? applyDifficultyBias(mainPicked, mainPool, experienceLevel, input.difficultyBias)
+      : mainPicked;
+
   return {
     warmup: warmupPicked.map((ex) => toPlannedExercise(ex, experienceLevel)),
-    main: mainPicked.map((ex) => toPlannedExercise(ex, experienceLevel)),
+    main: mainSelected.map((ex) => toPlannedExercise(ex, experienceLevel)),
     stretch: stretchPicked.map((ex) => toPlannedExercise(ex, experienceLevel)),
     estimatedDurationMinutes,
   };

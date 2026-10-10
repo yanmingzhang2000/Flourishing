@@ -1,5 +1,5 @@
 import { index, integer, real, sqliteTable, text, unique } from 'drizzle-orm/sqlite-core';
-import type { SessionExercise } from '@flourish/contracts';
+import type { PlanAdjustment, SessionExercise } from '@flourish/contracts';
 
 export const users = sqliteTable(
   'users',
@@ -43,6 +43,9 @@ export const weeklyPlans = sqliteTable(
     status: text('status').notNull(),
     days: text('days', { mode: 'json' }).$type<unknown[]>().notNull(),
     libraryVersion: text('library_version').notNull(),
+    // Feedback-driven adjustment (决议 8, E2E #3). Nullable: plans without
+    // directional feedback / rows predating this column.
+    adjustment: text('adjustment', { mode: 'json' }).$type<PlanAdjustment | null>(),
     createdAt: integer('created_at').notNull(),
   },
   (t) => [index('weekly_plans_user_start_date_idx').on(t.userId, t.startDate)],

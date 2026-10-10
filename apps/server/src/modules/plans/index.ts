@@ -1,5 +1,6 @@
 import {
   todayPlanResponseSchema,
+  planAdjustmentSchema,
   planDaySchema,
   generatePlanInputSchema,
   generatePlanResponseSchema,
@@ -93,7 +94,9 @@ plansRouter.get('/today', optionalAuth, (req: Request, res: Response) => {
     .select()
     .from(weeklyPlans)
     .where(and(eq(weeklyPlans.userId, userId), eq(weeklyPlans.status, 'active')))
-    .orderBy(desc(weeklyPlans.startDate))
+    // Same startDate (e.g. regenerated this week) → newest generation wins,
+    // so /today always reflects the latest adjustment (E2E #3).
+    .orderBy(desc(weeklyPlans.startDate), desc(weeklyPlans.createdAt))
     .all();
 
   const todayStr = localIsoDate();
@@ -110,6 +113,11 @@ plansRouter.get('/today', optionalAuth, (req: Request, res: Response) => {
     throw new AppError(500, 'plan_corrupt', 'Stored plan days failed contract validation');
   }
 
+  // Adjustment is user-facing but cosmetic: invalid stored JSON degrades to
+  // "no explanation" instead of failing the whole /today response.
+  const adjustmentParsed = planAdjustmentSchema.safeParse(planRow.adjustment);
+  const adjustment = adjustmentParsed.success ? adjustmentParsed.data : undefined;
+
   const plan: WeeklyPlan = {
     id: planRow.id,
     userId: planRow.userId,
@@ -118,6 +126,7 @@ plansRouter.get('/today', optionalAuth, (req: Request, res: Response) => {
     days: daysParsed.data,
     libraryVersion: planRow.libraryVersion,
     createdAt: new Date(planRow.createdAt).toISOString(),
+    ...(adjustment ? { adjustment } : {}),
   };
 
   const today = daysParsed.data.find((day) => day.date === todayStr) ?? null;

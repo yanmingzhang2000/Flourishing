@@ -22,3 +22,4 @@ export function adjustDifficulty(
 }
 
 export * from './progression';
+export * from './adjustment';

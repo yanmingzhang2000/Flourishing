@@ -13,15 +13,18 @@ import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import {
   DEFAULT_AVAILABLE_EQUIPMENT,
+  planDaySchema,
   type ExerciseSnapshot,
   type GeneratePlanInput,
+  type PlanAdjustment,
   type PlanDay,
+  type TrainingFeedback,
   type WeeklyPlan,
 } from '@flourish/contracts';
-import { exercises, generator, safety } from '@flourish/training-domain';
-import { eq } from 'drizzle-orm';
+import { exercises, generator, safety, type VolumeParams } from '@flourish/training-domain';
+import { and, desc, eq } from 'drizzle-orm';
 import { getDb } from '../../db';
-import { userProfiles, weeklyPlans } from '../../db/schema';
+import { trainingRecords, userProfiles, weeklyPlans } from '../../db/schema';
 import { AppError } from '../../shared/errors';
 
 /**
@@ -101,6 +104,47 @@ function toPlanDay(
 }
 
 /**
+ * Latest feedback from the user's completed sessions (E2E #3, 决议 8).
+ * Returns null when there is no usable feedback.
+ */
+function getLatestFeedback(userId: string): TrainingFeedback | null {
+  const db = getDb();
+  const last = db
+    .select({ feedback: trainingRecords.feedback })
+    .from(trainingRecords)
+    .where(and(eq(trainingRecords.userId, userId), eq(trainingRecords.completed, true)))
+    .orderBy(desc(trainingRecords.createdAt))
+    .limit(1)
+    .get();
+  if (!last?.feedback) return null;
+  return last.feedback as TrainingFeedback;
+}
+
+/**
+ * Volume params of the plan this generation replaces, so feedback
+ * progression accumulates across regenerations. Null when there is no
+ * previous plan or its stored days fail contract validation.
+ */
+function getPreviousVolume(userId: string): VolumeParams | null {
+  const db = getDb();
+  const previous = db
+    .select({ days: weeklyPlans.days })
+    .from(weeklyPlans)
+    .where(and(eq(weeklyPlans.userId, userId), eq(weeklyPlans.status, 'active')))
+    .orderBy(desc(weeklyPlans.startDate), desc(weeklyPlans.createdAt))
+    .limit(1)
+    .get();
+  if (!previous) return null;
+
+  const parsed = planDaySchema.array().safeParse(previous.days);
+  if (!parsed.success) return null;
+
+  const first = parsed.data[0]?.exercises[0];
+  if (!first?.reps) return null;
+  return { reps: first.reps, sets: first.sets };
+}
+
+/**
  * Generate a new training plan.
  *
  * @param userId - User ID
@@ -137,6 +181,11 @@ export function generatePlan(userId: string, input: GeneratePlanInput): WeeklyPl
   // (bodyweight + mat, see DEFAULT_AVAILABLE_EQUIPMENT).
   const availableEquipment = profile.availableEquipment ?? [...DEFAULT_AVAILABLE_EQUIPMENT];
 
+  // E2E #3 / 决议 8: latest session feedback + the plan being replaced
+  // drive the single-variable adjustment inside the generator.
+  const feedback = getLatestFeedback(userId);
+  const previousVolume = getPreviousVolume(userId);
+
   // Call training-domain generator
   const result = generator.generatePlanDays({
     exercisePool: library.exercises,
@@ -146,6 +195,10 @@ export function generatePlan(userId: string, input: GeneratePlanInput): WeeklyPl
     availableEquipment,
     injuryTags,
     experienceLevel: (profile.experienceLevel as any) || null,
+    adjustment: {
+      feedback: feedback ?? 'just_right',
+      previousVolume,
+    },
   });
 
   if (result.trainingDays.length === 0) {
@@ -159,6 +212,18 @@ export function generatePlan(userId: string, input: GeneratePlanInput): WeeklyPl
   // Convert to contract format
   const planDays: PlanDay[] = result.trainingDays.map((day) => toPlanDay(day, library.libraryVersion));
 
+  // Narrow the generator decision to the contract shape (only directional
+  // feedback is persisted; just_right/none never reaches the plan row).
+  const decision = result.adjustment;
+  const adjustment: PlanAdjustment | null =
+    decision && (decision.feedback === 'too_easy' || decision.feedback === 'too_hard')
+      ? {
+          feedback: decision.feedback,
+          variable: decision.variable,
+          explanation: decision.explanation,
+        }
+      : null;
+
   const now = new Date();
   const planId = randomUUID();
 
@@ -171,6 +236,7 @@ export function generatePlan(userId: string, input: GeneratePlanInput): WeeklyPl
       status: 'active',
       days: planDays,
       libraryVersion: library.libraryVersion,
+      adjustment,
       createdAt: Math.floor(now.getTime() / 1000),
     })
     .run();
@@ -184,6 +250,7 @@ export function generatePlan(userId: string, input: GeneratePlanInput): WeeklyPl
     days: planDays,
     libraryVersion: library.libraryVersion,
     createdAt: now.toISOString(),
+    ...(adjustment ? { adjustment } : {}),
   };
 
   return plan;
