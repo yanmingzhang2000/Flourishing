@@ -17,6 +17,7 @@ export const planDaySchema = z.object({
   date: isoDateSchema,
   exercises: z.array(exerciseSnapshotSchema).min(1),
   estimatedDurationMinutes: z.number().int().min(1).max(600),
+  recommendReason: z.string().min(1).max(300).optional(),
 });
 
 export const planStatusSchema = z.enum(['active', 'completed', 'superseded']);
@@ -35,8 +36,30 @@ export const generatePlanInputSchema = z.object({
   startDate: isoDateSchema,
 });
 
+export const weekProgressDaySchema = z.object({
+  date: isoDateSchema,
+  completed: z.boolean(),
+  isToday: z.boolean(),
+});
+
+export const weekProgressSchema = z.object({
+  startDate: isoDateSchema,
+  scheduled: z.number().int().min(0).max(7),
+  completed: z.number().int().min(0),
+  days: z.array(weekProgressDaySchema).min(0).max(7),
+});
+
+export const todayPlanResponseSchema = z.object({
+  plan: weeklyPlanSchema.nullable(),
+  today: planDaySchema.nullable(),
+  weekProgress: weekProgressSchema.nullable(),
+});
+
 export type ExerciseSnapshot = z.infer<typeof exerciseSnapshotSchema>;
 export type PlanDay = z.infer<typeof planDaySchema>;
 export type PlanStatus = z.infer<typeof planStatusSchema>;
 export type WeeklyPlan = z.infer<typeof weeklyPlanSchema>;
 export type GeneratePlanInput = z.infer<typeof generatePlanInputSchema>;
+export type WeekProgressDay = z.infer<typeof weekProgressDaySchema>;
+export type WeekProgress = z.infer<typeof weekProgressSchema>;
+export type TodayPlanResponse = z.infer<typeof todayPlanResponseSchema>;

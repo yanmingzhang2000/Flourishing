@@ -9,6 +9,11 @@
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
     "declaration": true,
-    "sourceMap": true
+    "sourceMap": true,
+    "baseUrl": ".",
+    "paths": {
+      "@flourish/contracts": ["packages/contracts/src"],
+      "@flourish/training-domain": ["packages/training-domain/src"]
+    }
   }
 }

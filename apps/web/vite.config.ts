@@ -8,10 +8,15 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
+      '@flourish/contracts': fileURLToPath(new URL('../../packages/contracts/src/index.ts', import.meta.url)),
+      '@flourish/training-domain': fileURLToPath(new URL('../../packages/training-domain/src/index.ts', import.meta.url)),
     },
   },
   server: {
     port: 5173,
+    proxy: {
+      '/api': 'http://localhost:3001',
+    },
   },
   test: {
     environment: 'jsdom',

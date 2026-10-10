@@ -36,3 +36,10 @@ export const exerciseSchema = z.object({
 
 export type Exercise = z.infer<typeof exerciseSchema>;
 export type ExerciseCategory = z.infer<typeof exerciseCategorySchema>;
+
+export const exerciseListResponseSchema = z.object({
+  libraryVersion: z.string().min(1).max(64),
+  exercises: z.array(exerciseSchema),
+});
+
+export type ExerciseListResponse = z.infer<typeof exerciseListResponseSchema>;

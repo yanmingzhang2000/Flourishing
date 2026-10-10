@@ -15,7 +15,8 @@
     "dev:web": "pnpm --filter @flourish/web dev",
     "dev:server": "pnpm --filter @flourish/server dev",
     "db:generate": "pnpm --filter @flourish/server db:generate",
-    "db:migrate": "pnpm --filter @flourish/server db:migrate"
+    "db:migrate": "pnpm --filter @flourish/server db:migrate",
+    "db:seed": "pnpm --filter @flourish/server db:seed"
   },
   "devDependencies": {
     "@playwright/test": "^1.50.0"

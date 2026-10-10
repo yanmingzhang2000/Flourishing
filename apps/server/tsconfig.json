@@ -4,7 +4,6 @@
     "module": "commonjs",
     "moduleResolution": "node10",
     "outDir": "dist",
-    "rootDir": "src",
     "types": ["node"],
     "noEmit": true,
     "declaration": false
