@@ -262,7 +262,10 @@ export function recordExerciseAction(
     if (item.status === 'blocked') {
       // 04-SAFETY §2: the rule engine excluded this movement — a client
       // (or AI) can never flip it back to completed.
-      throw new ConflictError('Exercise blocked by safety rules and cannot be completed');
+      throw new ConflictError(
+        'Exercise blocked by safety rules and cannot be completed',
+        'safety_blocked',
+      );
     }
     if (item.status === 'completed') return toSessionContract(row); // idempotent
     if (item.status === 'skipped') {

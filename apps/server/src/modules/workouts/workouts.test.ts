@@ -454,8 +454,10 @@ describe('SAFE-05 joint discomfort (hard block + re-verification)', () => {
       { action: 'complete' },
     );
     expect(res.status).toBe(409);
-
-    // Status unchanged after the attempt
+    // The hard block carries a machine-readable code (not a generic conflict)
+    // so clients can distinguish safety blocks from ordinary 409s.
+    const body = (await res.json()) as { error?: { code?: string } };
+    expect(body.error?.code).toBe('safety_blocked');
     const after = await getSession(tokenA, sessionId);
     const still = after.exercises.find(
       (e) => e.exerciseSnapshot.exerciseId === blocked!.exerciseSnapshot.exerciseId,

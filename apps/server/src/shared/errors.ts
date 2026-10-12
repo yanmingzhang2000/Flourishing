@@ -37,7 +37,7 @@ export class NotFoundError extends AppError {
 }
 
 export class ConflictError extends AppError {
-  constructor(message = 'Resource already exists') {
-    super(409, 'conflict', message);
+  constructor(message = 'Resource already exists', code = 'conflict') {
+    super(409, code, message);
   }
 }
