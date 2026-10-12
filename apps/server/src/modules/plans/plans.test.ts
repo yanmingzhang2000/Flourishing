@@ -418,6 +418,9 @@ describe('GET /api/plans/active', () => {
     expect((await fetchActive(token, undefined)).status).toBe(400);
     expect((await fetchActive(token, 'not-a-date')).status).toBe(400);
     expect((await fetchActive(token, '2026/01/05')).status).toBe(400);
+    // Format passes but the calendar date is impossible.
+    expect((await fetchActive(token, '2026-99-99')).status).toBe(400);
+    expect((await fetchActive(token, '2026-02-30')).status).toBe(400);
   });
 
   it('returns the plan covering the requested date, newest generation wins', async () => {
