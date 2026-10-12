@@ -9,6 +9,7 @@ import { PlaceholderPage } from './pages/PlaceholderPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { RegisterPage } from './pages/RegisterPage';
 import { TrainingPage } from './pages/TrainingPage';
+import { WorkoutPage } from './pages/WorkoutPage';
 
 const router = createBrowserRouter([
   {
@@ -47,10 +48,7 @@ const router = createBrowserRouter([
         path: 'workout/today',
         element: (
           <RequireAuth>
-            <PlaceholderPage
-              title="跟练"
-              note="动作步骤、计时与安全反馈将在此接入（跟练闭环任务）。"
-            />
+            <WorkoutPage />
           </RequireAuth>
         ),
       },
