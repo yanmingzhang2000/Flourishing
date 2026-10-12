@@ -11,7 +11,8 @@
     "paths": {
       "@/*": ["./src/*"],
       "@flourish/contracts": ["../../packages/contracts/src"],
-      "@flourish/training-domain": ["../../packages/training-domain/src"]
+      "@flourish/training-domain": ["../../packages/training-domain/src"],
+      "@flourish/training-domain/safety": ["../../packages/training-domain/src/safety"]
     }
   },
   "include": ["src", "vite.config.ts"]

@@ -6,6 +6,7 @@ import { useExercises, useTodayPlan } from '@/api/today';
 import { TodayWorkoutCard } from '@/components/home/TodayWorkoutCard';
 import { WeekProgressCard } from '@/components/home/WeekProgressCard';
 import { Button } from '@/components/ui/button';
+import { localToday } from '@/lib/dates';
 
 function greeting(): string {
   const hour = new Date().getHours();
@@ -13,13 +14,6 @@ function greeting(): string {
   if (hour < 13) return '中午好';
   if (hour < 18) return '下午好';
   return '晚上好';
-}
-
-function localToday(): string {
-  const now = new Date();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  return `${now.getFullYear()}-${month}-${day}`;
 }
 
 function dateLine(): string {
@@ -106,14 +100,14 @@ export function HomePage() {
       <div className="rounded-xl border border-border bg-surface p-6 shadow-soft">
         <h2 className="text-xl font-semibold">还没有训练计划</h2>
         <p className="mt-2 text-sm leading-relaxed text-muted">
-          确定性计划引擎接入后，打开页面即可获得为你生成的今日安排。
+          选择目标与训练日，生成本周计划，打开页面即可看到今天练什么。
         </p>
         <Link
           to="/training"
           className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-brand-ink hover:underline"
         >
           <CalendarDays size={15} aria-hidden />
-          去我的训练
+          生成第一周计划
         </Link>
       </div>
     );

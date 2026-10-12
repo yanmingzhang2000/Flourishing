@@ -6,7 +6,9 @@ import { AuthProvider } from '@/lib/auth';
 import { HomePage } from './pages/HomePage';
 import { LoginPage } from './pages/LoginPage';
 import { PlaceholderPage } from './pages/PlaceholderPage';
+import { ProfilePage } from './pages/ProfilePage';
 import { RegisterPage } from './pages/RegisterPage';
+import { TrainingPage } from './pages/TrainingPage';
 
 const router = createBrowserRouter([
   {
@@ -18,10 +20,7 @@ const router = createBrowserRouter([
         path: 'training',
         element: (
           <RequireAuth>
-            <PlaceholderPage
-              title="我的训练"
-              note="训练项目、动作库、计划调整与动作示范将在此接入（训练域核心任务）。"
-            />
+            <TrainingPage />
           </RequireAuth>
         ),
       },
@@ -40,7 +39,7 @@ const router = createBrowserRouter([
         path: 'profile',
         element: (
           <RequireAuth>
-            <PlaceholderPage title="我的" note="训练资料、目标与账号设置将在此接入。" />
+            <ProfilePage />
           </RequireAuth>
         ),
       },
