@@ -15,6 +15,9 @@ export function useGeneratePlan() {
       // The Home page's today card reads /api/plans/today — refetch it so
       // the freshly generated plan shows up immediately after navigation.
       void queryClient.invalidateQueries({ queryKey: ['today-plan'] });
+      // The Calendar page browses /api/plans/active — refresh those too so
+      // the new plan shows up after navigating to /calendar.
+      void queryClient.invalidateQueries({ queryKey: ['active-plan'] });
     },
   });
 }

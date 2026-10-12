@@ -3,9 +3,9 @@ import { createBrowserRouter, Link, RouterProvider } from 'react-router-dom';
 import { AppShell } from '@/components/layout/AppShell';
 import { RequireAuth } from '@/components/auth/RequireAuth';
 import { AuthProvider } from '@/lib/auth';
+import { CalendarPage } from './pages/CalendarPage';
 import { HomePage } from './pages/HomePage';
 import { LoginPage } from './pages/LoginPage';
-import { PlaceholderPage } from './pages/PlaceholderPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { RegisterPage } from './pages/RegisterPage';
 import { TrainingPage } from './pages/TrainingPage';
@@ -29,10 +29,7 @@ const router = createBrowserRouter([
         path: 'calendar',
         element: (
           <RequireAuth>
-            <PlaceholderPage
-              title="日历"
-              note="周/月视图、排期与历史回顾将在此接入（日历与历史任务）。"
-            />
+            <CalendarPage />
           </RequireAuth>
         ),
       },

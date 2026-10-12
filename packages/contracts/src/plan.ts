@@ -87,6 +87,14 @@ export const todayPlanResponseSchema = z.object({
   weekProgress: weekProgressSchema.nullable(),
 });
 
+/**
+ * GET /api/plans/active?date= — the newest active plan covering that date
+ * (same selection rule as /today, parametrized for calendar browsing).
+ */
+export const activePlanResponseSchema = z.object({
+  plan: weeklyPlanSchema.nullable(),
+});
+
 export type ExerciseSnapshot = z.infer<typeof exerciseSnapshotSchema>;
 export type PlanDay = z.infer<typeof planDaySchema>;
 export type PlanStatus = z.infer<typeof planStatusSchema>;
@@ -97,5 +105,6 @@ export type GeneratePlanResponse = z.infer<typeof generatePlanResponseSchema>;
 export type WeekProgressDay = z.infer<typeof weekProgressDaySchema>;
 export type WeekProgress = z.infer<typeof weekProgressSchema>;
 export type TodayPlanResponse = z.infer<typeof todayPlanResponseSchema>;
+export type ActivePlanResponse = z.infer<typeof activePlanResponseSchema>;
 export type TargetProject = z.infer<typeof targetProjectSchema>;
 export type TrainingDay = z.infer<typeof trainingDaySchema>;

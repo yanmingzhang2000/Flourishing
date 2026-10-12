@@ -1,9 +1,11 @@
 import {
+  activePlanResponseSchema,
   todayPlanResponseSchema,
   planAdjustmentSchema,
   planDaySchema,
   generatePlanInputSchema,
   generatePlanResponseSchema,
+  isoDateSchema,
   type TodayPlanResponse,
   type WeeklyPlan,
   type GeneratePlanInput,
@@ -12,7 +14,7 @@ import { and, desc, eq, gte, lte } from 'drizzle-orm';
 import { Router, type Request, type Response } from 'express';
 import { getDb } from '../../db';
 import { trainingRecords, users, weeklyPlans } from '../../db/schema';
-import { AppError } from '../../shared/errors';
+import { AppError, ValidationError } from '../../shared/errors';
 import { optionalAuth, requireAuth, requireUserId } from '../../shared/security';
 import { generatePlan } from './plans.service';
 
@@ -35,6 +37,50 @@ function addDaysIso(iso: string, days: number): string {
 }
 
 const emptyResponse: TodayPlanResponse = { plan: null, today: null, weekProgress: null };
+
+/**
+ * Newest active plan covering `date` (startDate..startDate+6), tie-broken
+ * by createdAt. Single source of this selection rule: /today and /active
+ * must never diverge (calendar browsing shows the same plan as home).
+ */
+function findActivePlanRow(userId: string, date: string) {
+  const db = getDb();
+  const activePlans = db
+    .select()
+    .from(weeklyPlans)
+    .where(and(eq(weeklyPlans.userId, userId), eq(weeklyPlans.status, 'active')))
+    // Same startDate (e.g. regenerated this week) → newest generation wins,
+    // so /today always reflects the latest adjustment (E2E #3).
+    .orderBy(desc(weeklyPlans.startDate), desc(weeklyPlans.createdAt))
+    .all();
+
+  return (
+    activePlans.find((p) => date >= p.startDate && date <= addDaysIso(p.startDate, 6)) ?? null
+  );
+}
+
+function toWeeklyPlanContract(row: typeof weeklyPlans.$inferSelect): WeeklyPlan {
+  const daysParsed = planDaySchema.array().safeParse(row.days);
+  if (!daysParsed.success) {
+    throw new AppError(500, 'plan_corrupt', 'Stored plan days failed contract validation');
+  }
+
+  // Adjustment is user-facing but cosmetic: invalid stored JSON degrades to
+  // "no explanation" instead of failing the whole response.
+  const adjustmentParsed = planAdjustmentSchema.safeParse(row.adjustment);
+  const adjustment = adjustmentParsed.success ? adjustmentParsed.data : undefined;
+
+  return {
+    id: row.id,
+    userId: row.userId,
+    startDate: row.startDate,
+    status: row.status as WeeklyPlan['status'],
+    days: daysParsed.data,
+    libraryVersion: row.libraryVersion,
+    createdAt: new Date(row.createdAt).toISOString(),
+    ...(adjustment ? { adjustment } : {}),
+  };
+}
 
 const plansRouter = Router();
 
@@ -90,46 +136,15 @@ plansRouter.get('/today', optionalAuth, (req: Request, res: Response) => {
     return;
   }
 
-  const activePlans = db
-    .select()
-    .from(weeklyPlans)
-    .where(and(eq(weeklyPlans.userId, userId), eq(weeklyPlans.status, 'active')))
-    // Same startDate (e.g. regenerated this week) → newest generation wins,
-    // so /today always reflects the latest adjustment (E2E #3).
-    .orderBy(desc(weeklyPlans.startDate), desc(weeklyPlans.createdAt))
-    .all();
-
   const todayStr = localIsoDate();
-  const planRow = activePlans.find(
-    (p) => todayStr >= p.startDate && todayStr <= addDaysIso(p.startDate, 6),
-  );
+  const planRow = findActivePlanRow(userId, todayStr);
   if (!planRow) {
     res.json({ success: true, data: emptyResponse });
     return;
   }
 
-  const daysParsed = planDaySchema.array().safeParse(planRow.days);
-  if (!daysParsed.success) {
-    throw new AppError(500, 'plan_corrupt', 'Stored plan days failed contract validation');
-  }
-
-  // Adjustment is user-facing but cosmetic: invalid stored JSON degrades to
-  // "no explanation" instead of failing the whole /today response.
-  const adjustmentParsed = planAdjustmentSchema.safeParse(planRow.adjustment);
-  const adjustment = adjustmentParsed.success ? adjustmentParsed.data : undefined;
-
-  const plan: WeeklyPlan = {
-    id: planRow.id,
-    userId: planRow.userId,
-    startDate: planRow.startDate,
-    status: planRow.status as WeeklyPlan['status'],
-    days: daysParsed.data,
-    libraryVersion: planRow.libraryVersion,
-    createdAt: new Date(planRow.createdAt).toISOString(),
-    ...(adjustment ? { adjustment } : {}),
-  };
-
-  const today = daysParsed.data.find((day) => day.date === todayStr) ?? null;
+  const plan = toWeeklyPlanContract(planRow);
+  const today = plan.days.find((day) => day.date === todayStr) ?? null;
 
   const weekEnd = addDaysIso(planRow.startDate, 6);
   const completedRows = db
@@ -151,9 +166,9 @@ plansRouter.get('/today', optionalAuth, (req: Request, res: Response) => {
     today,
     weekProgress: {
       startDate: planRow.startDate,
-      scheduled: daysParsed.data.length,
+      scheduled: plan.days.length,
       completed: completedDates.size,
-      days: daysParsed.data.map((day) => ({
+      days: plan.days.map((day) => ({
         date: day.date,
         completed: completedDates.has(day.date),
         isToday: day.date === todayStr,
@@ -161,6 +176,27 @@ plansRouter.get('/today', optionalAuth, (req: Request, res: Response) => {
     },
   });
 
+  res.json({ success: true, data });
+});
+
+/**
+ * GET /api/plans/active?date=YYYY-MM-DD
+ * 按日期查询覆盖该日期的最新 active 计划（日历页浏览用，02-DESIGN §3）。
+ *
+ * 权限：requireAuth — 计划归属当前会话用户（04-SAFETY §4）。
+ * 选择规则与 /today 同源（findActivePlanRow），避免日历与首页展示漂移。
+ */
+plansRouter.get('/active', requireAuth, (req: Request, res: Response) => {
+  const userId = requireUserId(req);
+  const dateParam = typeof req.query['date'] === 'string' ? req.query['date'] : undefined;
+  const parsedDate = isoDateSchema.safeParse(dateParam);
+  if (!parsedDate.success) {
+    throw new ValidationError('Query parameter "date" must be a valid ISO date (YYYY-MM-DD)');
+  }
+
+  const row = findActivePlanRow(userId, parsedDate.data);
+  const plan = row ? toWeeklyPlanContract(row) : null;
+  const data = activePlanResponseSchema.parse({ plan });
   res.json({ success: true, data });
 });
 

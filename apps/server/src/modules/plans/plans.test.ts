@@ -1,4 +1,5 @@
 import {
+  activePlanResponseSchema,
   authSessionSchema,
   todayPlanResponseSchema,
   generatePlanResponseSchema,
@@ -375,5 +376,100 @@ describe('POST /api/plans/generate', () => {
       ((await otherRes.json()) as { data: unknown }).data,
     ).plan;
     expect(otherPlan.adjustment).toBeUndefined();
+  });
+});
+
+describe('GET /api/plans/active', () => {
+  async function fetchActive(token: string | undefined, date: string | undefined) {
+    const url = new URL(`${baseUrl}/api/plans/active`);
+    if (date !== undefined) url.searchParams.set('date', date);
+    const res = await fetch(url, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    return res;
+  }
+
+  async function generatePlanFor(
+    token: string,
+    startDate: string,
+    trainingDays: string[] = ['monday', 'wednesday', 'friday'],
+  ) {
+    const res = await fetch(`${baseUrl}/api/plans/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        startDate,
+        targetProjects: ['full_body_basic'],
+        trainingDays,
+      }),
+    });
+    expect(res.status).toBe(201);
+    const body = (await res.json()) as { data: unknown };
+    return generatePlanResponseSchema.parse(body.data).plan;
+  }
+
+  it('requires authentication (401 without token)', async () => {
+    const res = await fetchActive(undefined, '2026-01-05');
+    expect(res.status).toBe(401);
+  });
+
+  it('rejects a missing or malformed date (400)', async () => {
+    const token = await registerUser();
+    expect((await fetchActive(token, undefined)).status).toBe(400);
+    expect((await fetchActive(token, 'not-a-date')).status).toBe(400);
+    expect((await fetchActive(token, '2026/01/05')).status).toBe(400);
+  });
+
+  it('returns the plan covering the requested date, newest generation wins', async () => {
+    const token = await registerUser();
+    const first = await generatePlanFor(token, '2026-01-05'); // Monday
+    // Same startDate regeneration (E2E #3 flow) — /active must show the newest
+    const second = await generatePlanFor(token, '2026-01-05');
+
+    // Wednesday is inside the plan week
+    const res = await fetchActive(token, '2026-01-07');
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { success: boolean; data: unknown };
+    expect(body.success).toBe(true);
+    const data = activePlanResponseSchema.parse(body.data);
+    expect(data.plan).not.toBeNull();
+    expect(data.plan!.id).toBe(second.id);
+    expect(data.plan!.startDate).toBe('2026-01-05');
+    expect(data.plan!.days.some((day) => day.date === '2026-01-07')).toBe(true);
+    expect(data.plan!.days.some((day) => day.date === first.days[0]!.date)).toBe(true);
+  });
+
+  it('returns null for a date outside any active plan week', async () => {
+    const token = await registerUser();
+    await generatePlanFor(token, '2026-01-05');
+
+    const res = await fetchActive(token, '2026-01-19'); // two weeks later
+    expect(res.status).toBe(200);
+    const data = activePlanResponseSchema.parse(((await res.json()) as { data: unknown }).data);
+    expect(data.plan).toBeNull();
+  });
+
+  it("never returns another user's plan (ownership, 04-SAFETY §4)", async () => {
+    const tokenA = await registerUser();
+    await generatePlanFor(tokenA, '2026-01-05');
+
+    const tokenB = await registerUser();
+    const res = await fetchActive(tokenB, '2026-01-07');
+    expect(res.status).toBe(200);
+    const data = activePlanResponseSchema.parse(((await res.json()) as { data: unknown }).data);
+    expect(data.plan).toBeNull();
+  });
+
+  it('returns the same plan as /today for a covered date (single selection rule)', async () => {
+    const token = await registerUser();
+    await generatePlanFor(token, localToday());
+
+    const active = await fetchActive(token, localToday());
+    const activeData = activePlanResponseSchema.parse(
+      ((await active.json()) as { data: unknown }).data,
+    );
+    const todayData = await fetchToday(token);
+
+    expect(activeData.plan?.id).toBe(todayData.plan?.id);
   });
 });
