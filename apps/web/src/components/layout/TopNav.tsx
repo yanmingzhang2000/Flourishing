@@ -1,6 +1,8 @@
 import { Sparkles, Leaf, LogOut, User } from 'lucide-react';
 import { NavLink, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 import { useAuth } from '@/lib/auth';
+import { CopilotPanel } from '@/components/CopilotPanel';
 
 const NAV_ITEMS = [
   { to: '/', label: '今日', end: true },
@@ -12,9 +14,11 @@ const NAV_ITEMS = [
 export function TopNav() {
   const { isAuthenticated, me, logout } = useAuth();
   const navigate = useNavigate();
+  const [isCopilotOpen, setIsCopilotOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border bg-background/90 backdrop-blur">
+    <>
+      <header className="sticky top-0 z-40 border-b border-border bg-background/90 backdrop-blur">
       <div className="mx-auto flex h-16 w-full max-w-6xl items-center gap-2 px-4 sm:gap-4 sm:px-6 lg:px-8">
         <a href="/" className="flex shrink-0 items-center gap-2">
           <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-foreground">
@@ -45,9 +49,10 @@ export function TopNav() {
 
         <button
           type="button"
-          disabled
-          title="AI 教练将在 AI Copilot 任务中接入"
-          className="flex shrink-0 items-center gap-1.5 rounded-md border border-border bg-surface px-2.5 py-1.5 text-sm text-muted opacity-70 sm:px-3"
+          onClick={() => setIsCopilotOpen((prev) => !prev)}
+          disabled={!isAuthenticated}
+          title={isAuthenticated ? 'AI 教练' : '登录后可使用 AI 教练'}
+          className="flex shrink-0 items-center gap-1.5 rounded-md border border-border bg-surface px-2.5 py-1.5 text-sm text-muted transition-colors hover:bg-border/60 hover:text-foreground disabled:opacity-50 sm:px-3"
         >
           <Sparkles size={16} aria-hidden />
           <span className="hidden sm:inline">AI 教练</span>
@@ -85,5 +90,7 @@ export function TopNav() {
         )}
       </div>
     </header>
+      <CopilotPanel isOpen={isCopilotOpen} onClose={() => setIsCopilotOpen(false)} />
+    </>
   );
 }
