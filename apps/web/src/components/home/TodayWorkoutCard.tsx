@@ -1,6 +1,7 @@
 import type { Exercise, PlanDay } from '@flourish/contracts';
 import { ArrowRight, Clock3, ShieldAlert, Dumbbell } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { formatEffort } from '@/lib/effort';
 
 interface TodayWorkoutCardProps {
   day: PlanDay;
@@ -25,16 +26,6 @@ function DifficultyDots({ level }: { level: number }) {
       ))}
     </span>
   );
-}
-
-function setsMeta(sets: number, reps: string | null, durationSeconds: number | null): string {
-  if (reps) {
-    return `${sets} 组 × ${reps} 次`;
-  }
-  if (durationSeconds !== null) {
-    return `${sets} 组 × ${durationSeconds} 秒`;
-  }
-  return `${sets} 组`;
 }
 
 export function TodayWorkoutCard({ day, exerciseMap }: TodayWorkoutCardProps) {
@@ -82,7 +73,7 @@ export function TodayWorkoutCard({ day, exerciseMap }: TodayWorkoutCardProps) {
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
                   <h3 className="text-sm font-medium sm:text-base">{snap.name}</h3>
-                  <span className="text-xs text-muted">{setsMeta(snap.sets, snap.reps, snap.durationSeconds)}</span>
+                  <span className="text-xs text-muted">{formatEffort(snap)}</span>
                   <span className="text-xs text-muted">休息 {snap.restSeconds} 秒</span>
                   <span className="ml-auto flex items-center gap-1.5">
                     <DifficultyDots level={snap.difficulty} />

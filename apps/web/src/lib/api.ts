@@ -5,19 +5,22 @@ const TOKEN_KEY = 'flourish_token';
 export class ApiError extends Error {
   readonly code: string;
   readonly status: number;
+  /** Optional structured error details (e.g. injury-filter attribution). */
+  readonly details: unknown;
 
-  constructor(code: string, message: string, status: number) {
+  constructor(code: string, message: string, status: number, details?: unknown) {
     super(message);
     this.name = 'ApiError';
     this.code = code;
     this.status = status;
+    this.details = details;
   }
 }
 
 interface Envelope {
   success?: boolean;
   data?: unknown;
-  error?: { code?: string; message?: string };
+  error?: { code?: string; message?: string; details?: unknown };
 }
 
 // Token storage helpers
@@ -70,6 +73,7 @@ async function apiFetch<T>(
       body.error?.code ?? 'http_error',
       body.error?.message ?? `Request failed: ${path}`,
       res.status,
+      body.error?.details,
     );
   }
 

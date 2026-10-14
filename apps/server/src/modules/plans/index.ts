@@ -12,6 +12,7 @@ import {
 } from '@flourish/contracts';
 import { and, desc, eq, gte, lte } from 'drizzle-orm';
 import { Router, type Request, type Response } from 'express';
+import { composition, safety } from '@flourish/training-domain';
 import { getDb } from '../../db';
 import { trainingRecords, users, weeklyPlans } from '../../db/schema';
 import { AppError, ValidationError } from '../../shared/errors';
@@ -37,6 +38,21 @@ function addDaysIso(iso: string, days: number): string {
 }
 
 const emptyResponse: TodayPlanResponse = { plan: null, today: null, weekProgress: null };
+
+/**
+ * Map internal contraindication tags (e.g. shoulder_impingement) back to
+ * the user-facing injury options stored in the profile (肩/肘/腕/腰/膝/颈),
+ * using the single-source mapping table in training-domain (SAFE-01a).
+ * Used for error attribution messages shown to the user.
+ */
+function injuryTagUserLabels(tags: readonly string[]): string[] {
+  const wanted = new Set(tags);
+  const labels: string[] = [];
+  for (const [option, optionTags] of Object.entries(safety.INJURY_OPTION_TAG_MAP)) {
+    if (optionTags.some((t) => wanted.has(t))) labels.push(option);
+  }
+  return labels;
+}
 
 /**
  * Newest active plan covering `date` (startDate..startDate+6), tie-broken
@@ -110,10 +126,20 @@ plansRouter.post('/generate', requireAuth, (req: Request, res: Response) => {
     if (error instanceof AppError) {
       throw error;
     }
-    // RangeError from the training-domain planner: insufficient safe
-    // exercises after project/equipment/injury filtering. This is a
-    // client-attributable condition (injury settings excluded too many
-    // exercises), so return 400 with the specific cause — not a 500.
+    // Structured insufficient-safe-exercises failure (training-domain
+    // planner): attach deterministic attribution details so the frontend
+    // can tell the user it was the injury filter that emptied a category
+    // — not a generic failure (P0 test-report fix).
+    if (error instanceof composition.InsufficientSafeExercisesError) {
+      throw new AppError(400, 'insufficient_safe_exercises', error.message, {
+        emptyCategories: [...error.emptyCategories],
+        injuryTags: [...error.injuryTags],
+        injuryLabels: injuryTagUserLabels(error.injuryTags),
+        excludedCount: error.excludedCount,
+      });
+    }
+    // Other RangeErrors from the training-domain (e.g. unknown project in
+    // the duration formula) are still client-attributable → 400.
     if (error instanceof RangeError) {
       throw new AppError(400, 'insufficient_safe_exercises', error.message);
     }

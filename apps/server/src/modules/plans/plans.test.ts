@@ -214,6 +214,48 @@ describe('POST /api/plans/generate', () => {
     expect(res.status).toBe(400);
   });
 
+  it('returns structured injury attribution when injuries leave insufficient safe exercises', async () => {
+    const token = await registerUser();
+    // Mark every injury part: the deterministic contraindication filter
+    // (SAFE-01, union semantics) then excludes so many exercises that no
+    // complete day can be assembled even after the global fallback.
+    const putRes = await fetch(`${baseUrl}/api/users/me/profile`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ injuries: ['肩', '肘', '腕', '腰', '膝', '颈'] }),
+    });
+    expect(putRes.status).toBe(200);
+
+    const res = await fetch(`${baseUrl}/api/plans/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        startDate: '2026-01-05',
+        targetProjects: ['full_body_basic'],
+        trainingDays: ['monday'],
+      }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as {
+      success: boolean;
+      error?: { code: string; details?: {
+        emptyCategories?: string[];
+        injuryLabels?: string[];
+        injuryTags?: string[];
+        excludedCount?: number;
+      } };
+    };
+    expect(body.success).toBe(false);
+    expect(body.error?.code).toBe('insufficient_safe_exercises');
+    const details = body.error?.details;
+    // Deterministic attribution so the UI can say WHY (P0 fix)
+    expect(details?.excludedCount).toBeGreaterThan(0);
+    expect(details?.injuryLabels).toEqual(expect.arrayContaining(['肩', '腰']));
+    expect(details?.injuryTags?.length).toBeGreaterThan(0);
+    expect(details?.emptyCategories?.length).toBeGreaterThan(0);
+  });
+
   it('auto-adjusts consecutive training days per the 48h recovery rule (SAFE-02a)', async () => {
     const token = await registerUser();
     const res = await fetch(`${baseUrl}/api/plans/generate`, {

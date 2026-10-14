@@ -1,14 +1,22 @@
 import { Router, type Request, type Response } from 'express';
 import OpenAI from 'openai';
-import { copilotChatInputSchema, type CopilotChatInput } from '@flourish/contracts';
+import { copilotChatInputSchema, DEFAULT_AVAILABLE_EQUIPMENT, type CopilotChatInput } from '@flourish/contracts';
 import { getDb } from '../../db/index.js';
-import { copilotSessions, copilotMessages, userProfiles, weeklyPlans, trainingRecords } from '../../db/schema.js';
+import {
+  copilotSessions,
+  copilotMessages,
+  userProfiles,
+  weeklyPlans,
+  trainingRecords,
+  workoutSessions,
+} from '../../db/schema.js';
 import { eq, and, desc } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import { validateBody } from '../../shared/validation.js';
 import { requireAuth, requireUserId } from '../../shared/security.js';
 import { loadExerciseLibrary } from '../exercises/index.js';
-import { safety } from '@flourish/training-domain';
+import { safety, exercises as exerciseQueries } from '@flourish/training-domain';
+import { guardCopilotOutput } from './output-guard.js';
 
 // Supports OpenAI-compatible providers (e.g. SiliconFlow) via OPENAI_BASE_URL.
 // Model is also configurable since compatible providers use different model names.
@@ -100,6 +108,19 @@ copilotRouter.post(
         .limit(5)
         .all();
 
+      // Today's live workout session (in_progress / completed / aborted).
+      // training_records only exists AFTER the user saves the completion
+      // form, so without this the copilot tells users who are mid-workout
+      // "no training sessions yet" (P1 test-report fix).
+      const todayStr = localIsoDate();
+      const todaySession =
+        db
+          .select()
+          .from(workoutSessions)
+          .where(and(eq(workoutSessions.userId, userId), eq(workoutSessions.date, todayStr)))
+          .limit(1)
+          .get() || null;
+
       // Safety context: compute contraindicated exercises from user's injuries.
       // Uses the same deterministic rule engine as plan generation (SAFE-01) —
       // this is NOT an LLM decision, it's a lookup injected into the prompt.
@@ -110,10 +131,17 @@ copilotRouter.post(
       const contraindicatedNames = library.exercises
         .filter((ex) => contraindicatedIds.has(ex.exerciseId))
         .map((ex) => ex.name);
-      // Safe exercise names available to this user (for the AI to reference real exercises)
-      const safeExerciseNames = library.exercises
-        .filter((ex) => !contraindicatedIds.has(ex.exerciseId))
+      // Safe exercise names available to this user — injury-filtered AND
+      // equipment-filtered, so a bodyweight-only user is never pointed at
+      // dumbbell exercises (same filterByEquipment as plan generation).
+      const availableEquipment = userProfile?.availableEquipment ?? [...DEFAULT_AVAILABLE_EQUIPMENT];
+      const safeExerciseNames = exerciseQueries
+        .filterByEquipment(
+          library.exercises.filter((ex) => !contraindicatedIds.has(ex.exerciseId)),
+          availableEquipment,
+        )
         .map((ex) => ex.name);
+      const allLibraryNames = library.exercises.map((ex) => ex.name);
 
       // Plan exercise names (from the active plan's days JSON)
       const planDayList = Array.isArray(activePlan?.days) ? (activePlan.days as Array<{ exercises?: Array<{ exerciseSnapshot?: { name?: string } }> }>) : [];
@@ -136,6 +164,7 @@ copilotRouter.post(
         profile: userProfile,
         activePlan,
         recentRecords,
+        todaySession,
         contraindicatedNames,
         contraindicationReasons,
         safeExerciseNames,
@@ -185,16 +214,50 @@ copilotRouter.post(
           temperature: 0.7,
         });
 
+        // Collect the FULL response first, then run the deterministic
+        // output guard, and only then write to the client. Streaming deltas
+        // straight through (the old behaviour) made violations impossible
+        // to retract once sent. max_tokens=1500 keeps the added latency
+        // acceptable; the SSE protocol is unchanged so the frontend does
+        // not need to know.
         let assistantResponse = '';
         for await (const chunk of completion) {
           const delta = chunk.choices[0]?.delta?.content;
           if (delta) {
             assistantResponse += delta;
-            res.write(`data: ${JSON.stringify({ content: delta })}\n\n`);
           }
         }
 
-        // Persist assistant response
+        // Hard safety layer (04-SAFETY §6): strip contraindicated exercise
+        // names and non-library (invented) exercises from the reply before
+        // it reaches the user or the database.
+        const guard = guardCopilotOutput({
+          text: assistantResponse,
+          contraindicatedNames,
+          libraryNames: allLibraryNames,
+          safeExerciseNames,
+        });
+        if (guard.contraindicatedHits.length > 0 || guard.inventedHits.length > 0) {
+          console.log(
+            JSON.stringify({
+              level: 'warn',
+              msg: 'copilot_output_guard_triggered',
+              sessionId,
+              userId,
+              contraindicatedHits: guard.contraindicatedHits,
+              inventedHits: guard.inventedHits,
+            }),
+          );
+        }
+        assistantResponse = guard.safeText;
+
+        // Single content event with the sanitized text (frontend
+        // accumulates chunks identically — one chunk is still valid SSE).
+        if (assistantResponse.length > 0) {
+          res.write(`data: ${JSON.stringify({ content: assistantResponse })}\n\n`);
+        }
+
+        // Persist sanitized assistant response (never the raw violating text)
         db.insert(copilotMessages)
           .values({
             id: randomUUID(),
@@ -234,6 +297,64 @@ copilotRouter.post(
   },
 );
 
+/** Local YYYY-MM-DD date, matching the server's local-timezone day. */
+function localIsoDate(date: Date = new Date()): string {
+  const pad = (n: number): string => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+const FEEDBACK_LABELS: Record<string, string> = {
+  too_easy: '太轻松',
+  just_right: '刚好',
+  too_hard: '太难',
+};
+
+const SESSION_STATUS_LABELS: Record<string, string> = {
+  in_progress: '进行中',
+  completed: '已完成',
+  aborted: '已结束',
+};
+
+/**
+ * Human-readable training-activity summary injected into the system
+ * prompt. Covers BOTH sources: completed training_records AND today's
+ * live workout_sessions — a user mid-workout has session progress but no
+ * record yet, and must never be told "no training sessions yet" (P1 fix).
+ */
+function buildRecordsSummary(recentRecords: any[], todaySession: any): string {
+  const parts: string[] = [];
+
+  if (recentRecords.length > 0) {
+    const latest = recentRecords[0];
+    const feedback = latest?.feedback ? (FEEDBACK_LABELS[latest.feedback] ?? latest.feedback) : null;
+    parts.push(
+      `Recent training history: ${recentRecords.length} completed sessions. ` +
+        `Latest: ${latest?.date || 'N/A'}${latest?.durationMinutes ? ` (${latest.durationMinutes}min)` : ''}` +
+        `${feedback ? `, feedback: ${feedback}` : ''}${latest?.notes ? `, notes: ${latest.notes}` : ''}.`,
+    );
+  }
+
+  if (todaySession) {
+    const sessionExercises: Array<{ status?: string }> = Array.isArray(todaySession.exercises)
+      ? todaySession.exercises
+      : [];
+    const done = sessionExercises.filter((e) => e.status === 'completed').length;
+    const skipped = sessionExercises.filter((e) => e.status === 'skipped').length;
+    const blocked = sessionExercises.filter((e) => e.status === 'blocked').length;
+    const statusLabel = SESSION_STATUS_LABELS[todaySession.status] ?? todaySession.status;
+    parts.push(
+      `Today's workout session (${todaySession.date}): status ${statusLabel}, ` +
+        `completed ${done}/${sessionExercises.length} exercises` +
+        `${skipped > 0 ? `, skipped ${skipped}` : ''}${blocked > 0 ? `, safety-blocked ${blocked}` : ''}.`,
+    );
+  }
+
+  if (parts.length === 0) {
+    return 'No completed training sessions yet, and no workout session started today.';
+  }
+  return parts.join(' ');
+}
+
 /**
  * Build system prompt with user context and safety constraints.
  *
@@ -245,12 +366,21 @@ function buildSystemPrompt(ctx: {
   profile: any;
   activePlan: any;
   recentRecords: any[];
+  todaySession: any;
   contraindicatedNames: string[];
   contraindicationReasons: Record<string, string[]>;
   safeExerciseNames: string[];
   planExerciseNames: string[];
 }): string {
-  const { profile, activePlan, recentRecords, contraindicatedNames, safeExerciseNames, planExerciseNames } = ctx;
+  const {
+    profile,
+    activePlan,
+    recentRecords,
+    todaySession,
+    contraindicatedNames,
+    safeExerciseNames,
+    planExerciseNames,
+  } = ctx;
 
   const profileSummary = profile
     ? `User profile: ${profile.experienceLevel || 'beginner'} level, ${profile.heightCm || '?'}cm/${profile.weightKg || '?'}kg, injuries: ${(profile.injuries || []).join(', ') || 'none'}, available equipment: ${(profile.availableEquipment || []).join(', ') || 'bodyweight only'}.`
@@ -260,10 +390,7 @@ function buildSystemPrompt(ctx: {
     ? `Current training plan: ${planExerciseNames.length > 0 ? `exercises include: ${planExerciseNames.slice(0, 20).join(', ')}. ` : ''}${Array.isArray(activePlan.days) ? activePlan.days.length : 0} training days this week, starting ${activePlan.startDate}.`
     : 'No active training plan.';
 
-  const recordsSummary =
-    recentRecords.length > 0
-      ? `Recent training history: ${recentRecords.length} completed sessions. Latest: ${recentRecords[0]?.date || 'N/A'}${recentRecords[0]?.durationMinutes ? ` (${recentRecords[0].durationMinutes}min)` : ''}${recentRecords[0]?.feedback ? `, feedback: ${recentRecords[0].feedback}` : ''}${recentRecords[0]?.notes ? `, notes: ${recentRecords[0].notes}` : ''}.`
-      : 'No completed training sessions yet.';
+  const recordsSummary = buildRecordsSummary(recentRecords, todaySession);
 
   // Safety: inject the contraindicated exercise list (deterministic, from
   // the rule engine). The model MUST NOT recommend these exercises.

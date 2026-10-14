@@ -151,4 +151,21 @@ describe('TrainingPage', () => {
     expect(await screen.findByText(/上次觉得轻松，本次每组次数 \+2。/)).toBeInTheDocument();
     expect(await screen.findByRole('button', { name: /重新生成本周计划/ })).toBeInTheDocument();
   });
+
+  it('pre-selects the training days of the active plan when regenerating (P1 fix)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      mockFetch({ success: true, data: { plan, today: null, weekProgress: null } }),
+    );
+    renderTraining();
+
+    await screen.findByRole('button', { name: /重新生成本周计划/ });
+
+    // The fixture plan has a single training day on localToday() — its
+    // weekday checkbox must arrive already checked (react-hook-form
+    // defaultValues race previously left it empty).
+    const weekdayIndex = new Date(`${localToday()}T00:00:00`).getDay();
+    const weekdayLabels = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+    expect(screen.getByLabelText(weekdayLabels[weekdayIndex]!)).toBeChecked();
+  });
 });

@@ -18,9 +18,38 @@ import {
   filterByEquipment,
   filterByTargetProjects,
 } from '../exercises/repository';
-import { filterSafeExercises } from '../safety/exclusions';
+import { getExcludedExercises } from '../safety/exclusions';
 import { calculateSessionDuration } from './duration-calculator';
 import { getAllocation, getMidpointCounts } from './exercise-selector';
+
+/**
+ * Structured failure when contraindication/equipment filtering leaves a
+ * required category empty. Extends RangeError so existing generic
+ * RangeError handling keeps working, but carries deterministic
+ * attribution data (which categories ran dry, how many exercises the
+ * injury filter removed, which injury tags were applied) so the API
+ * layer can tell the USER WHY generation failed — not just THAT it
+ * failed (P0 test-report fix: "提示不告知是伤病导致").
+ */
+export class InsufficientSafeExercisesError extends RangeError {
+  readonly emptyCategories: readonly string[];
+  readonly injuryTags: readonly string[];
+  readonly excludedCount: number;
+
+  constructor(params: {
+    emptyCategories: readonly string[];
+    injuryTags: readonly string[];
+    excludedCount: number;
+  }) {
+    super(
+      `Insufficient safe exercises to assemble a complete day plan: no safe ${params.emptyCategories.join('/')} exercises remain after filtering by target projects, equipment, and injury contraindications.`,
+    );
+    this.name = 'InsufficientSafeExercisesError';
+    this.emptyCategories = params.emptyCategories;
+    this.injuryTags = params.injuryTags;
+    this.excludedCount = params.excludedCount;
+  }
+}
 
 export interface PlannedExercise {
   exercise: Exercise;
@@ -141,15 +170,19 @@ function applyDifficultyBias(
  *   6. Pick concrete exercises per category (warmup/main/stretch)
  *   7. Attach sets/reps/rest from experience level (SAFE-03a)
  *
- * @throws RangeError if no safe exercises remain for a required category
+ * @throws InsufficientSafeExercisesError (a RangeError subclass) with
+ *   structured attribution when no safe exercises remain for a required
+ *   category even after the global same-category fallback
  */
 export function planDay(input: PlanDayInput): DayPlanResult {
   const { exercisePool, targetProjects, availableEquipment, injuryTags, experienceLevel } = input;
 
-  // Step 1-3: filter candidate pool
+  // Step 1-3: filter candidate pool. Keep exclusion metadata (which
+  // exercises the injury filter removed and why) for error attribution.
   const byProject = filterByTargetProjects(exercisePool, targetProjects);
   const byEquipment = filterByEquipment(byProject, availableEquipment);
-  const safePool = filterSafeExercises(byEquipment, injuryTags);
+  const exclusion = getExcludedExercises(byEquipment, injuryTags);
+  const safePool = exclusion.safeExercises;
 
   // Step 4: duration from target projects formula
   const estimatedDurationMinutes = calculateSessionDuration(targetProjects);
@@ -161,30 +194,32 @@ export function planDay(input: PlanDayInput): DayPlanResult {
   // Step 6: pick exercises per category from the safe pool.
   // Note: "main" training maps to the 'strength' ExerciseCategory
   // (PRODUCT_LOGIC §6.1 用 "主训练" 指代力量动作).
-  const mainPool = filterByCategory(safePool, 'strength');
-  const stretchPool = filterByCategory(safePool, 'stretch');
+  //
+  // Fallback policy: when a category pool is empty after
+  // project∩equipment∩injury filtering, top up from the GLOBAL pool of
+  // the same category (same equipment + injury filters still applied —
+  // safety filtering is never bypassed, 04-SAFETY §1.1). Without this,
+  // e.g. a lower-back-injury user on a project whose every stretch is
+  // lower_back-contraindicated fails the whole day. Fallback only fills
+  // empty pools; partially-covered pools keep project-specific picks.
+  const globalByEquipment = filterByEquipment(exercisePool, availableEquipment);
+  const globalSafe = getExcludedExercises(globalByEquipment, injuryTags).safeExercises;
 
-  // Warmup pool: prefer project-specific safe warmups. When the project
-  // has no (or too few) safe warmups after contraindication filtering
-  // (e.g. a shoulder-injury user on a project whose only warmup carries
-  // a shoulder contraindication), fall back to the global safe warmup
-  // pool. Fallback still passes through filterSafeExercises above —
-  // safety filtering is never bypassed (04-SAFETY §1.1).
-  let warmupPool = filterByCategory(safePool, 'warmup');
-  if (warmupPool.length < counts.warmup) {
-    const globalByEquipment = filterByEquipment(exercisePool, availableEquipment);
-    const globalSafe = filterSafeExercises(globalByEquipment, injuryTags);
-    const globalWarmups = filterByCategory(globalSafe, 'warmup');
-    // Merge: keep project warmups first (project relevance), then top up
-    // from global warmups not already included.
-    const seen = new Set(warmupPool.map((ex) => ex.exerciseId));
-    for (const ex of globalWarmups) {
-      if (!seen.has(ex.exerciseId)) {
-        warmupPool = [...warmupPool, ex];
-        seen.add(ex.exerciseId);
-      }
-    }
-  }
+  const mainPool = withGlobalFallback(
+    filterByCategory(safePool, 'strength'),
+    filterByCategory(globalSafe, 'strength'),
+    counts.main,
+  );
+  const stretchPool = withGlobalFallback(
+    filterByCategory(safePool, 'stretch'),
+    filterByCategory(globalSafe, 'stretch'),
+    counts.stretch,
+  );
+  const warmupPool = withGlobalFallback(
+    filterByCategory(safePool, 'warmup'),
+    filterByCategory(globalSafe, 'warmup'),
+    counts.warmup,
+  );
 
   const warmupPicked = pickExercises(warmupPool, counts.warmup);
   const mainPicked = pickExercises(mainPool, counts.main);
@@ -195,9 +230,11 @@ export function planDay(input: PlanDayInput): DayPlanResult {
     if (warmupPicked.length === 0) emptyCategories.push('warmup');
     if (mainPicked.length === 0) emptyCategories.push('main');
     if (stretchPicked.length === 0) emptyCategories.push('stretch');
-    throw new RangeError(
-      `Insufficient safe exercises to assemble a complete day plan: no safe ${emptyCategories.join('/')} exercises remain after filtering by target projects, equipment, and injury contraindications.`,
-    );
+    throw new InsufficientSafeExercisesError({
+      emptyCategories,
+      injuryTags,
+      excludedCount: exclusion.excludedIds.size,
+    });
   }
 
   // Step 7: attach sets/reps/rest from experience level (SAFE-03a),
@@ -213,4 +250,23 @@ export function planDay(input: PlanDayInput): DayPlanResult {
     stretch: stretchPicked.map((ex) => toPlannedExercise(ex, experienceLevel)),
     estimatedDurationMinutes,
   };
+}
+
+/**
+ * Merge project-specific candidates with the global same-category pool
+ * when the project pool cannot cover the requested count. Project
+ * exercises stay first (project relevance); global ones only top up.
+ * Both pools must already have passed equipment + injury filtering.
+ */
+function withGlobalFallback(projectPool: Exercise[], globalPool: Exercise[], needed: number): Exercise[] {
+  if (projectPool.length >= needed || globalPool.length === 0) return projectPool;
+  const seen = new Set(projectPool.map((ex) => ex.exerciseId));
+  const merged = [...projectPool];
+  for (const ex of globalPool) {
+    if (!seen.has(ex.exerciseId)) {
+      merged.push(ex);
+      seen.add(ex.exerciseId);
+    }
+  }
+  return merged;
 }

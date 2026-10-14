@@ -32,6 +32,7 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ApiError } from '@/lib/api';
+import { formatEffort } from '@/lib/effort';
 import { localToday } from '@/lib/dates';
 import { cn } from '@/lib/utils';
 
@@ -87,9 +88,8 @@ function LinkButton({
 }
 
 function snapshotDetail(snapshot: ExerciseSnapshot): string {
-  const { sets, reps, durationSeconds, restSeconds } = snapshot;
-  const effort = reps ? `${sets} 组 × ${reps} 次` : `${sets} 组 × ${durationSeconds ?? 0} 秒`;
-  return `${effort} · 组间休息 ${restSeconds} 秒`;
+  const effort = formatEffort(snapshot);
+  return `${effort} · 组间休息 ${snapshot.restSeconds} 秒`;
 }
 
 function SessionSummary({ session }: { session: WorkoutSession }) {
@@ -117,7 +117,9 @@ function AbortedView() {
         <Flag className="h-6 w-6 text-ink/50" aria-hidden />
         <h2 className="text-lg font-semibold">本次训练已结束</h2>
       </div>
-      <p className="text-sm text-ink/70">已记录的完成项会保留。随时可以调整安排后继续。</p>
+      <p className="text-sm text-ink/70">
+        已完成的动作会保留记录，本次训练不可继续。如需重新安排，请到「我的训练」重新生成计划。
+      </p>
       <div className="flex gap-3">
         <LinkButton to="/" variant="outline">
           返回今日
@@ -330,6 +332,7 @@ function ExerciseRow({
   onDiscomfortCancel,
   alternative,
   actionPending,
+  actionsDisabled,
 }: {
   exercise: SessionExercise;
   active: boolean;
@@ -343,6 +346,8 @@ function ExerciseRow({
   onDiscomfortCancel: () => void;
   alternative?: JointDiscomfortResponse['alternatives'][number];
   actionPending: boolean;
+  /** True while ANY row has an in-flight action — all action buttons disable (P1 fix). */
+  actionsDisabled: boolean;
 }) {
   const snapshot = exercise.exerciseSnapshot;
   const badge = STATUS_BADGE[exercise.status];
@@ -394,7 +399,7 @@ function ExerciseRow({
             <div className="flex flex-wrap gap-2">
               <Button
                 size="sm"
-                disabled={actionPending}
+                disabled={actionPending || actionsDisabled}
                 onClick={() => onAction('complete')}
                 aria-label={`完成 ${snapshot.name}`}
               >
@@ -408,7 +413,7 @@ function ExerciseRow({
               <Button
                 size="sm"
                 variant="outline"
-                disabled={actionPending}
+                disabled={actionPending || actionsDisabled}
                 onClick={() => onAction('skip')}
                 aria-label={`跳过 ${snapshot.name}`}
               >
@@ -417,7 +422,7 @@ function ExerciseRow({
               <Button
                 size="sm"
                 variant="ghost"
-                disabled={actionPending}
+                disabled={actionPending || actionsDisabled}
                 onClick={onDiscomfort}
                 aria-label={`关节不适 ${snapshot.name}`}
               >
@@ -687,7 +692,12 @@ export function WorkoutPage() {
   };
 
   const runAbort = async () => {
-    if (!window.confirm('结束本次训练？\n\n已完成的动作会保留记录，未完成的动作将标记为跳过。之后可以随时回到今日页面继续。')) return;
+    if (
+      !window.confirm(
+        '结束本次训练？\n\n结束后本次训练不可继续：已完成的动作会保留记录，未完成的动作不会记录。如需重新安排，请到「我的训练」重新生成计划。',
+      )
+    )
+      return;
     setAbortError(null);
     try {
       await abortMutation.mutateAsync(session.id);
@@ -764,6 +774,7 @@ export function WorkoutPage() {
                 onDiscomfortCancel={() => setDiscomfortFor(null)}
                 alternative={alternativeFor(exercise.exerciseSnapshot.exerciseId)}
                 actionPending={actingId === exercise.exerciseSnapshot.exerciseId}
+                actionsDisabled={actingId !== null}
               />
             ))}
           </ul>

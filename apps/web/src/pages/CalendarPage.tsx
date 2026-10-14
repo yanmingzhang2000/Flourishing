@@ -12,6 +12,7 @@ import { useMemo, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useActivePlan, useTrainingRecords } from '@/api/calendar';
 import { Button } from '@/components/ui/button';
+import { formatEffort } from '@/lib/effort';
 import { cn } from '@/lib/utils';
 import {
   addDaysIso,
@@ -314,7 +315,7 @@ export function CalendarPage() {
                     >
                       <span className="font-medium text-foreground">{exercise.name}</span>
                       <span className="text-xs text-muted">
-                        {exercise.sets} 组 × {exercise.reps ?? `${exercise.durationSeconds} 秒`}
+                        {formatEffort(exercise)}
                         {' · 难度 '}
                         {exercise.difficulty}/5
                       </span>

@@ -65,13 +65,40 @@ const generateFormSchema = z.object({
 type GenerateFormInput = z.input<typeof generateFormSchema>;
 type GenerateFormValues = z.output<typeof generateFormSchema>;
 
+const CATEGORY_LABELS: Record<string, string> = {
+  warmup: '热身',
+  main: '主训练',
+  stretch: '拉伸',
+};
+
+interface InsufficientSafeExercisesDetails {
+  emptyCategories?: string[];
+  injuryLabels?: string[];
+  excludedCount?: number;
+}
+
 function generateErrorMessage(error: unknown): string {
   if (error instanceof ApiError) {
     if (error.code === 'profile_not_found') {
       return '请先完善训练资料后再生成计划。';
     }
     if (error.code === 'insufficient_safe_exercises') {
-      return '当前伤病设置排除了太多动作，暂时无法生成计划。请尝试调整档案中的伤病信息，或选择其他目标项目。';
+      // Structured attribution from the rule engine: tell the user it was
+      // the injury filter that emptied a category, not a generic failure.
+      const details = error.details as InsufficientSafeExercisesDetails | undefined;
+      const injuryLabels = details?.injuryLabels ?? [];
+      const excludedCount = details?.excludedCount ?? 0;
+      const emptyCategories = (details?.emptyCategories ?? [])
+        .map((c) => CATEGORY_LABELS[c] ?? c)
+        .join('、');
+      if (injuryLabels.length > 0 && excludedCount > 0) {
+        const reason = `已根据你的伤病设置（${injuryLabels.join('、')}）排除 ${excludedCount} 个不适合的动作`;
+        const impact = emptyCategories
+          ? `，剩余动作不足以组成完整的${emptyCategories}环节`
+          : '，剩余可用动作不足';
+        return `${reason}${impact}，暂时无法生成计划。可到「训练资料」调整伤病信息，或换一个训练目标再试。`;
+      }
+      return '当前设置排除了太多动作，暂时无法生成计划。请尝试调整档案中的伤病信息，或选择其他目标项目。';
     }
     if (error.code === 'plan_generation_failed') {
       return '暂时无法生成有效计划，请调整目标项目或训练日后重试。';
@@ -204,7 +231,11 @@ export function TrainingPage() {
   const profileQuery = useProfile();
 
   let body: ReactNode;
-  if (profileQuery.isLoading) {
+  if (profileQuery.isLoading || todayQuery.isLoading) {
+    // Wait for BOTH queries: GenerateForm pre-selects training days from
+    // the active plan, and react-hook-form only reads defaultValues on
+    // mount — mounting before /plans/today resolves left the day
+    // checkboxes empty on regenerate (P1 fix).
     body = <PageSkeleton />;
   } else if (profileQuery.isError || !profileQuery.data) {
     body = (
@@ -260,6 +291,7 @@ export function TrainingPage() {
             选择目标与训练日，系统按恢复规则与你的资料确定性地生成本周安排。
           </p>
           <GenerateForm
+            key={plan?.id ?? 'no-plan'}
             prefillMinutes={profileQuery.data.targetMinutesPerSession}
             hasActivePlan={!!plan}
             prefillDays={plan ? deriveTrainingDays(plan.days) : []}

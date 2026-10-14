@@ -2,7 +2,7 @@ import path from 'node:path';
 import type { Exercise } from '@flourish/contracts';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { loadExerciseLibrary, resetCache } from '../exercises/loader';
-import { planDay } from './planner';
+import { InsufficientSafeExercisesError, planDay } from './planner';
 
 const CANONICAL_PATH = path.resolve(
   __dirname,
@@ -117,19 +117,29 @@ describe('planDay (SAFE-04 single-day assembly)', () => {
     }
   });
 
-  it('throws RangeError when no safe exercises remain for a required category', () => {
-    expect(() =>
+  it('throws InsufficientSafeExercisesError with attribution when no safe exercises remain', () => {
+    let caught: unknown;
+    try {
       planDay({
         exercisePool: library.exercises,
         targetProjects: ['full_body_basic'],
         availableEquipment: ['nonexistent_equipment_xyz'],
         injuryTags: [],
         experienceLevel: 'beginner',
-      }),
-    ).toThrow(RangeError);
+      });
+    } catch (error) {
+      caught = error;
+    }
+    // RangeError subclass keeps legacy instanceof handling working
+    expect(caught).toBeInstanceOf(RangeError);
+    expect(caught).toBeInstanceOf(InsufficientSafeExercisesError);
+    const err = caught as InsufficientSafeExercisesError;
+    expect(err.emptyCategories).toEqual(expect.arrayContaining(['warmup', 'main', 'stretch']));
+    expect(err.excludedCount).toBe(0); // no injuries → filter excluded nothing
+    expect(err.injuryTags).toEqual([]);
   });
 
-  it('generates a plan for shoulder-injury users via warmup fallback (P0 fix)', () => {
+  it('generates a plan for shoulder-injury users via global fallback (P0 fix)', () => {
     // full_body_basic's only warmup (fb_arm_leg_reach) carries a shoulder
     // contraindication. Before the fix, a shoulder-injury user got
     // warmupPool = 0 → RangeError. The fallback now pulls safe warmups
@@ -159,6 +169,38 @@ describe('planDay (SAFE-04 single-day assembly)', () => {
     ].map((p) => p.exercise.exerciseId);
     for (const id of allPlannedIds) {
       expect(shoulderExcludedIds.has(id)).toBe(false);
+    }
+  });
+
+  it('generates a plan for lower-back-injury users via global stretch fallback', () => {
+    // Every full_body_basic stretch carries a lower_back contraindication;
+    // before the global fallback this made the whole day fail for
+    // 腰伤 users. Fallback tops up from safe stretches of other projects —
+    // never from contraindicated ones.
+    const result = planDay({
+      exercisePool: library.exercises,
+      targetProjects: ['full_body_basic'],
+      availableEquipment: ['bodyweight'],
+      injuryTags: ['lower_back', 'sciatica'],
+      experienceLevel: 'beginner',
+    });
+
+    expect(result.warmup.length).toBeGreaterThan(0);
+    expect(result.main.length).toBeGreaterThan(0);
+    expect(result.stretch.length).toBeGreaterThan(0);
+
+    const backExcludedIds = new Set(
+      library.exercises
+        .filter((e) => e.contraindications.some((c) => ['lower_back', 'sciatica'].includes(c)))
+        .map((e) => e.exerciseId),
+    );
+    const allPlannedIds = [
+      ...result.warmup,
+      ...result.main,
+      ...result.stretch,
+    ].map((p) => p.exercise.exerciseId);
+    for (const id of allPlannedIds) {
+      expect(backExcludedIds.has(id)).toBe(false);
     }
   });
 
