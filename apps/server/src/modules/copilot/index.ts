@@ -3,10 +3,12 @@ import OpenAI from 'openai';
 import { copilotChatInputSchema, type CopilotChatInput } from '@flourish/contracts';
 import { getDb } from '../../db/index.js';
 import { copilotSessions, copilotMessages, userProfiles, weeklyPlans, trainingRecords } from '../../db/schema.js';
-import { eq, and, gte, desc } from 'drizzle-orm';
+import { eq, and, desc } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import { validateBody } from '../../shared/validation.js';
 import { requireAuth, requireUserId } from '../../shared/security.js';
+import { loadExerciseLibrary } from '../exercises/index.js';
+import { safety } from '@flourish/training-domain';
 
 // Supports OpenAI-compatible providers (e.g. SiliconFlow) via OPENAI_BASE_URL.
 // Model is also configurable since compatible providers use different model names.
@@ -89,14 +91,36 @@ copilotRouter.post(
           .limit(1)
           .get() || null;
 
-      // Recent records (last 5)
+      // Recent records (last 5, completed only)
       const recentRecords = db
         .select()
         .from(trainingRecords)
-        .where(eq(trainingRecords.userId, userId))
+        .where(and(eq(trainingRecords.userId, userId), eq(trainingRecords.completed, true)))
         .orderBy(desc(trainingRecords.createdAt))
         .limit(5)
         .all();
+
+      // Safety context: compute contraindicated exercises from user's injuries.
+      // Uses the same deterministic rule engine as plan generation (SAFE-01) —
+      // this is NOT an LLM decision, it's a lookup injected into the prompt.
+      const library = loadExerciseLibrary();
+      const injuryTags = safety.mapInjuryOptionsToTags(userProfile?.injuries || []);
+      const { excludedIds: contraindicatedIds, reasons: contraindicationReasons } =
+        safety.getExcludedExercises(library.exercises, injuryTags);
+      const contraindicatedNames = library.exercises
+        .filter((ex) => contraindicatedIds.has(ex.exerciseId))
+        .map((ex) => ex.name);
+      // Safe exercise names available to this user (for the AI to reference real exercises)
+      const safeExerciseNames = library.exercises
+        .filter((ex) => !contraindicatedIds.has(ex.exerciseId))
+        .map((ex) => ex.name);
+
+      // Plan exercise names (from the active plan's days JSON)
+      const planDayList = Array.isArray(activePlan?.days) ? (activePlan.days as Array<{ exercises?: Array<{ exerciseSnapshot?: { name?: string } }> }>) : [];
+      const planExerciseNames = planDayList
+        .flatMap((day) => day.exercises ?? [])
+        .map((ex) => ex.exerciseSnapshot?.name)
+        .filter((name): name is string => typeof name === 'string' && name.length > 0);
 
       // 4. Load conversation history for context (last 20 messages excluding current user message)
       const conversationHistory = db
@@ -108,7 +132,15 @@ copilotRouter.post(
         .all();
 
       // 5. Construct OpenAI messages array
-      const systemPrompt = buildSystemPrompt(userProfile, activePlan, recentRecords);
+      const systemPrompt = buildSystemPrompt({
+        profile: userProfile,
+        activePlan,
+        recentRecords,
+        contraindicatedNames,
+        contraindicationReasons,
+        safeExerciseNames,
+        planExerciseNames,
+      });
       const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
         { role: 'system', content: systemPrompt },
         ...conversationHistory
@@ -203,21 +235,49 @@ copilotRouter.post(
 );
 
 /**
- * Build system prompt with user context
+ * Build system prompt with user context and safety constraints.
+ *
+ * Safety (04-SAFETY §1.1): the contraindicated exercise list is computed
+ * by the deterministic rule engine (training-domain/safety), NOT by the
+ * LLM. The prompt instructs the model to never recommend these exercises.
  */
-function buildSystemPrompt(profile: any, activePlan: any, recentRecords: any[]): string {
+function buildSystemPrompt(ctx: {
+  profile: any;
+  activePlan: any;
+  recentRecords: any[];
+  contraindicatedNames: string[];
+  contraindicationReasons: Record<string, string[]>;
+  safeExerciseNames: string[];
+  planExerciseNames: string[];
+}): string {
+  const { profile, activePlan, recentRecords, contraindicatedNames, safeExerciseNames, planExerciseNames } = ctx;
+
   const profileSummary = profile
     ? `User profile: ${profile.experienceLevel || 'beginner'} level, ${profile.heightCm || '?'}cm/${profile.weightKg || '?'}kg, injuries: ${(profile.injuries || []).join(', ') || 'none'}, available equipment: ${(profile.availableEquipment || []).join(', ') || 'bodyweight only'}.`
     : 'User profile not set.';
 
   const planSummary = activePlan
-    ? `Current training plan: ${Array.isArray(activePlan.days) ? activePlan.days.length : 0} training days this week, starting ${activePlan.startDate}.`
+    ? `Current training plan: ${planExerciseNames.length > 0 ? `exercises include: ${planExerciseNames.slice(0, 20).join(', ')}. ` : ''}${Array.isArray(activePlan.days) ? activePlan.days.length : 0} training days this week, starting ${activePlan.startDate}.`
     : 'No active training plan.';
 
   const recordsSummary =
     recentRecords.length > 0
-      ? `Recent training history: ${recentRecords.length} sessions, latest feedback: ${recentRecords[0]?.feedback || 'N/A'}.`
-      : 'No training history yet.';
+      ? `Recent training history: ${recentRecords.length} completed sessions. Latest: ${recentRecords[0]?.date || 'N/A'}${recentRecords[0]?.durationMinutes ? ` (${recentRecords[0].durationMinutes}min)` : ''}${recentRecords[0]?.feedback ? `, feedback: ${recentRecords[0].feedback}` : ''}${recentRecords[0]?.notes ? `, notes: ${recentRecords[0].notes}` : ''}.`
+      : 'No completed training sessions yet.';
+
+  // Safety: inject the contraindicated exercise list (deterministic, from
+  // the rule engine). The model MUST NOT recommend these exercises.
+  const safetySection =
+    contraindicatedNames.length > 0
+      ? `SAFETY CONSTRAINTS (non-negotiable):
+The following exercises are CONTRAINDICATED for this user due to their injuries and MUST NEVER be recommended, suggested, or described as alternatives:
+${contraindicatedNames.join(', ')}
+If the user asks about any of these exercises, explain that they are not recommended given their injury profile and suggest safe alternatives from the list below instead.`
+      : 'SAFETY: no exercise contraindications for this user.';
+
+  // Exercise whitelist: only recommend exercises that exist in the library.
+  const exerciseWhitelist = `AVAILABLE EXERCISES (only recommend from this list, never invent exercises):
+${safeExerciseNames.join(', ')}`;
 
   return `You are Flourish AI, a personal training assistant for at-home resistance training.
 Your role: answer questions about exercises, explain training plans, provide form tips, and offer encouragement.
@@ -227,10 +287,16 @@ ${profileSummary}
 ${planSummary}
 ${recordsSummary}
 
+${safetySection}
+
+${exerciseWhitelist}
+
 Guidelines:
 - Be supportive, clear, and concise (2-4 sentences unless detailed explanation needed).
 - Never invent training data the user hasn't done.
-- For exercise form questions, reference safety and contraindications (e.g., knee issues → avoid deep squats).
+- NEVER recommend an exercise that is not in the AVAILABLE EXERCISES list above. If asked about an exercise not in the list, say it's not available in the app yet.
+- NEVER recommend an exercise listed under SAFETY CONSTRAINTS, even if the user explicitly asks for it.
+- For exercise form questions, reference safety and contraindications.
 - For plan questions, explain the reasoning based on recovery time, difficulty progression, and available equipment.
 - If the user asks to generate a new plan or modify workouts, explain that they can do so via the "我的训练" page.
 - If asked about features not yet available (e.g., nutrition, community), acknowledge it's coming soon.

@@ -69,19 +69,16 @@ function toExerciseSnapshot(
 ): ExerciseSnapshot {
   const { exercise, sets, reps, restSeconds } = planned;
 
-  // Rough time estimate per exercise: (reps * 2 seconds) per set + rest
-  // For a range like "8-12", take midpoint (10) as representative.
-  const repsStr = reps.split('-')[0];
-  const repsNum = Number(repsStr) || 10;
-  const durationPerSet = repsNum * 2; // 2 seconds per rep
-  const durationSeconds = (durationPerSet + restSeconds) * sets;
-
+  // XOR contract (plan.ts exerciseSnapshotSchema): reps and durationSeconds
+  // must not both be non-null. Rep-based exercises carry reps; durationSeconds
+  // is reserved for hold-type exercises (plank, stretch) which get reps=null.
+  // The training-domain planner always assigns reps, so durationSeconds is null.
   return {
     exerciseId: exercise.exerciseId,
     name: exercise.name,
     sets,
     reps,
-    durationSeconds,
+    durationSeconds: null,
     restSeconds,
     difficulty: exercise.difficulty,
     warning: exercise.warning,

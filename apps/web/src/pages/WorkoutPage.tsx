@@ -329,6 +329,7 @@ function ExerciseRow({
   onDiscomfortSubmit,
   onDiscomfortCancel,
   alternative,
+  actionPending,
 }: {
   exercise: SessionExercise;
   active: boolean;
@@ -341,11 +342,17 @@ function ExerciseRow({
   onDiscomfortSubmit: (input: JointDiscomfortInput) => void;
   onDiscomfortCancel: () => void;
   alternative?: JointDiscomfortResponse['alternatives'][number];
+  actionPending: boolean;
 }) {
   const snapshot = exercise.exerciseSnapshot;
   const badge = STATUS_BADGE[exercise.status];
+  const isTerminal = exercise.status === 'completed' || exercise.status === 'skipped';
   return (
-    <li className="rounded-xl border border-border bg-card">
+    <li
+      className={`rounded-xl border ${
+        exercise.status === 'pending' ? 'border-border bg-card' : 'border-border/60 bg-muted/40'
+      }`}
+    >
       <button
         type="button"
         onClick={onToggle}
@@ -373,6 +380,9 @@ function ExerciseRow({
           {exercise.status === 'blocked' ? (
             <p className="text-xs text-danger">{exercise.reason ?? '安全规则已阻断该动作'}</p>
           ) : null}
+          {exercise.status === 'completed' ? (
+            <p className="text-xs text-success">✓ 该动作已完成，无需重复操作。</p>
+          ) : null}
           {alternative ? (
             <div className="rounded-md bg-success/5 px-3 py-2 text-xs">
               <span className="font-medium text-success">替代动作：</span>
@@ -384,15 +394,21 @@ function ExerciseRow({
             <div className="flex flex-wrap gap-2">
               <Button
                 size="sm"
+                disabled={actionPending}
                 onClick={() => onAction('complete')}
                 aria-label={`完成 ${snapshot.name}`}
               >
-                <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+                {actionPending ? (
+                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" aria-hidden />
+                ) : (
+                  <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+                )}
                 完成
               </Button>
               <Button
                 size="sm"
                 variant="outline"
+                disabled={actionPending}
                 onClick={() => onAction('skip')}
                 aria-label={`跳过 ${snapshot.name}`}
               >
@@ -401,6 +417,7 @@ function ExerciseRow({
               <Button
                 size="sm"
                 variant="ghost"
+                disabled={actionPending}
                 onClick={onDiscomfort}
                 aria-label={`关节不适 ${snapshot.name}`}
               >
@@ -408,6 +425,12 @@ function ExerciseRow({
                 关节不适
               </Button>
             </div>
+          ) : null}
+
+          {isTerminal && !discomfortOpen ? (
+            <p className="text-xs text-ink/50" role="status">
+              {exercise.status === 'completed' ? '已完成 · 无需重复操作' : '已跳过 · 无需重复操作'}
+            </p>
           ) : null}
 
           {discomfortOpen ? (
@@ -551,6 +574,7 @@ export function WorkoutPage() {
   const [completionOpen, setCompletionOpen] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [abortError, setAbortError] = useState<string | null>(null);
+  const [actingId, setActingId] = useState<string | null>(null);
 
   if (todayQuery.isPending) {
     return (
@@ -621,7 +645,13 @@ export function WorkoutPage() {
     discomfortResult?.alternatives.find((a) => a.forExerciseId === exerciseId);
 
   const runAction = async (exerciseId: string, action: 'complete' | 'skip') => {
+    if (actingId) return; // one in-flight action at a time
+    const target = session.exercises.find(
+      (e) => e.exerciseSnapshot.exerciseId === exerciseId,
+    );
+    if (!target || target.status !== 'pending') return; // status already changed, reject
     setActionError(null);
+    setActingId(exerciseId);
     try {
       await actionMutation.mutateAsync({
         sessionId: session.id,
@@ -630,6 +660,8 @@ export function WorkoutPage() {
       });
     } catch (error) {
       setActionError(errorMessage(error));
+    } finally {
+      setActingId(null);
     }
   };
 
@@ -655,7 +687,7 @@ export function WorkoutPage() {
   };
 
   const runAbort = async () => {
-    if (!window.confirm('结束本次训练？已完成的动作会保留记录。')) return;
+    if (!window.confirm('结束本次训练？\n\n已完成的动作会保留记录，未完成的动作将标记为跳过。之后可以随时回到今日页面继续。')) return;
     setAbortError(null);
     try {
       await abortMutation.mutateAsync(session.id);
@@ -731,6 +763,7 @@ export function WorkoutPage() {
                 onDiscomfortSubmit={(input) => void submitDiscomfort(input)}
                 onDiscomfortCancel={() => setDiscomfortFor(null)}
                 alternative={alternativeFor(exercise.exerciseSnapshot.exerciseId)}
+                actionPending={actingId === exercise.exerciseSnapshot.exerciseId}
               />
             ))}
           </ul>

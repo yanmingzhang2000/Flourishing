@@ -42,6 +42,20 @@ const DAY_OPTIONS: { value: TrainingDay; label: string }[] = [
   { value: 'sunday', label: '周日' },
 ];
 
+const WEEKDAY_BY_INDEX: TrainingDay[] = [
+  'sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday',
+];
+
+/** Derive which weekdays have training days from the existing plan's day dates. */
+function deriveTrainingDays(days: Array<{ date: string }>): TrainingDay[] {
+  const set = new Set<TrainingDay>();
+  for (const day of days) {
+    const weekday = WEEKDAY_BY_INDEX[new Date(day.date + 'T00:00:00').getDay()];
+    if (weekday) set.add(weekday);
+  }
+  return DAY_OPTIONS.map((o) => o.value).filter((v) => set.has(v));
+}
+
 const generateFormSchema = z.object({
   targetProjects: z.array(targetProjectSchema).min(1, '请至少选择一个训练目标'),
   trainingDays: z.array(trainingDaySchema).min(1, '请至少选择一个训练日'),
@@ -55,6 +69,9 @@ function generateErrorMessage(error: unknown): string {
   if (error instanceof ApiError) {
     if (error.code === 'profile_not_found') {
       return '请先完善训练资料后再生成计划。';
+    }
+    if (error.code === 'insufficient_safe_exercises') {
+      return '当前伤病设置排除了太多动作，暂时无法生成计划。请尝试调整档案中的伤病信息，或选择其他目标项目。';
     }
     if (error.code === 'plan_generation_failed') {
       return '暂时无法生成有效计划，请调整目标项目或训练日后重试。';
@@ -80,9 +97,10 @@ function PageSkeleton() {
 interface GenerateFormProps {
   prefillMinutes: number | null;
   hasActivePlan: boolean;
+  prefillDays: TrainingDay[];
 }
 
-function GenerateForm({ prefillMinutes, hasActivePlan }: GenerateFormProps) {
+function GenerateForm({ prefillMinutes, hasActivePlan, prefillDays }: GenerateFormProps) {
   const navigate = useNavigate();
   const generatePlan = useGeneratePlan();
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -95,7 +113,7 @@ function GenerateForm({ prefillMinutes, hasActivePlan }: GenerateFormProps) {
     resolver: zodResolver(generateFormSchema),
     defaultValues: {
       targetProjects: [],
-      trainingDays: [],
+      trainingDays: prefillDays,
       targetMinutesPerSession: prefillMinutes === null ? '' : String(prefillMinutes),
     },
   });
@@ -244,6 +262,7 @@ export function TrainingPage() {
           <GenerateForm
             prefillMinutes={profileQuery.data.targetMinutesPerSession}
             hasActivePlan={!!plan}
+            prefillDays={plan ? deriveTrainingDays(plan.days) : []}
           />
         </section>
       </div>

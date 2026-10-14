@@ -129,6 +129,39 @@ describe('planDay (SAFE-04 single-day assembly)', () => {
     ).toThrow(RangeError);
   });
 
+  it('generates a plan for shoulder-injury users via warmup fallback (P0 fix)', () => {
+    // full_body_basic's only warmup (fb_arm_leg_reach) carries a shoulder
+    // contraindication. Before the fix, a shoulder-injury user got
+    // warmupPool = 0 → RangeError. The fallback now pulls safe warmups
+    // from the global pool (still passing injury filtering).
+    const result = planDay({
+      exercisePool: library.exercises,
+      targetProjects: ['full_body_basic'],
+      availableEquipment: ['bodyweight'],
+      injuryTags: ['shoulder_impingement', 'rotator_cuff'],
+      experienceLevel: 'beginner',
+    });
+
+    expect(result.warmup.length).toBeGreaterThan(0);
+    expect(result.main.length).toBeGreaterThan(0);
+    expect(result.stretch.length).toBeGreaterThan(0);
+
+    // No shoulder-contraindicated exercise may appear anywhere in the plan
+    const shoulderExcludedIds = new Set(
+      library.exercises
+        .filter((e) => e.contraindications.some((c) => ['shoulder_impingement', 'rotator_cuff'].includes(c)))
+        .map((e) => e.exerciseId),
+    );
+    const allPlannedIds = [
+      ...result.warmup,
+      ...result.main,
+      ...result.stretch,
+    ].map((p) => p.exercise.exerciseId);
+    for (const id of allPlannedIds) {
+      expect(shoulderExcludedIds.has(id)).toBe(false);
+    }
+  });
+
   it('computes duration using the multi-project formula (PRODUCT_LOGIC §2.2.3)', () => {
     const result = planDay({
       exercisePool: library.exercises,

@@ -486,22 +486,15 @@ function buildReplacementSnapshot(
   replacement: Exercise,
   libraryVersion: string,
 ): ExerciseSnapshot {
-  let durationSeconds: number;
-  if (original.reps) {
-    const repsNum = Number(original.reps.split('-')[0]) || 10;
-    durationSeconds = (repsNum * 2 + replacement.restSeconds) * original.sets;
-  } else if (original.durationSeconds) {
-    durationSeconds = original.durationSeconds;
-  } else {
-    durationSeconds = (30 + replacement.restSeconds) * original.sets;
-  }
-
+  // XOR contract: preserve the original's measurement type. Rep-based
+  // originals carry reps (durationSeconds=null); hold-based originals
+  // carry durationSeconds (reps=null). Never double-fill.
   return {
     exerciseId: replacement.exerciseId,
     name: replacement.name,
     sets: original.sets,
     reps: original.reps,
-    durationSeconds: Math.max(1, durationSeconds),
+    durationSeconds: original.reps ? null : original.durationSeconds,
     restSeconds: replacement.restSeconds,
     difficulty: replacement.difficulty,
     warning: replacement.warning,

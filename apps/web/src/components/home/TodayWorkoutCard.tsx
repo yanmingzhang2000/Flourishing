@@ -28,10 +28,13 @@ function DifficultyDots({ level }: { level: number }) {
 }
 
 function setsMeta(sets: number, reps: string | null, durationSeconds: number | null): string {
+  if (reps) {
+    return `${sets} 组 × ${reps} 次`;
+  }
   if (durationSeconds !== null) {
     return `${sets} 组 × ${durationSeconds} 秒`;
   }
-  return `${sets} 组 × ${reps ?? ''}`;
+  return `${sets} 组`;
 }
 
 export function TodayWorkoutCard({ day, exerciseMap }: TodayWorkoutCardProps) {

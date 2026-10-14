@@ -161,17 +161,42 @@ export function planDay(input: PlanDayInput): DayPlanResult {
   // Step 6: pick exercises per category from the safe pool.
   // Note: "main" training maps to the 'strength' ExerciseCategory
   // (PRODUCT_LOGIC §6.1 用 "主训练" 指代力量动作).
-  const warmupPool = filterByCategory(safePool, 'warmup');
   const mainPool = filterByCategory(safePool, 'strength');
   const stretchPool = filterByCategory(safePool, 'stretch');
+
+  // Warmup pool: prefer project-specific safe warmups. When the project
+  // has no (or too few) safe warmups after contraindication filtering
+  // (e.g. a shoulder-injury user on a project whose only warmup carries
+  // a shoulder contraindication), fall back to the global safe warmup
+  // pool. Fallback still passes through filterSafeExercises above —
+  // safety filtering is never bypassed (04-SAFETY §1.1).
+  let warmupPool = filterByCategory(safePool, 'warmup');
+  if (warmupPool.length < counts.warmup) {
+    const globalByEquipment = filterByEquipment(exercisePool, availableEquipment);
+    const globalSafe = filterSafeExercises(globalByEquipment, injuryTags);
+    const globalWarmups = filterByCategory(globalSafe, 'warmup');
+    // Merge: keep project warmups first (project relevance), then top up
+    // from global warmups not already included.
+    const seen = new Set(warmupPool.map((ex) => ex.exerciseId));
+    for (const ex of globalWarmups) {
+      if (!seen.has(ex.exerciseId)) {
+        warmupPool = [...warmupPool, ex];
+        seen.add(ex.exerciseId);
+      }
+    }
+  }
 
   const warmupPicked = pickExercises(warmupPool, counts.warmup);
   const mainPicked = pickExercises(mainPool, counts.main);
   const stretchPicked = pickExercises(stretchPool, counts.stretch);
 
   if (warmupPicked.length === 0 || mainPicked.length === 0 || stretchPicked.length === 0) {
+    const emptyCategories: string[] = [];
+    if (warmupPicked.length === 0) emptyCategories.push('warmup');
+    if (mainPicked.length === 0) emptyCategories.push('main');
+    if (stretchPicked.length === 0) emptyCategories.push('stretch');
     throw new RangeError(
-      'Insufficient safe exercises to assemble a complete day plan (warmup/main/stretch each require at least 1 exercise)',
+      `Insufficient safe exercises to assemble a complete day plan: no safe ${emptyCategories.join('/')} exercises remain after filtering by target projects, equipment, and injury contraindications.`,
     );
   }
 

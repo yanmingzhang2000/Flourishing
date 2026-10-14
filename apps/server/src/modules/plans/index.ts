@@ -110,6 +110,13 @@ plansRouter.post('/generate', requireAuth, (req: Request, res: Response) => {
     if (error instanceof AppError) {
       throw error;
     }
+    // RangeError from the training-domain planner: insufficient safe
+    // exercises after project/equipment/injury filtering. This is a
+    // client-attributable condition (injury settings excluded too many
+    // exercises), so return 400 with the specific cause — not a 500.
+    if (error instanceof RangeError) {
+      throw new AppError(400, 'insufficient_safe_exercises', error.message);
+    }
     // Log internal errors for debugging (structured JSON, matching seed.ts pattern)
     console.error(JSON.stringify({
       level: 'error',
