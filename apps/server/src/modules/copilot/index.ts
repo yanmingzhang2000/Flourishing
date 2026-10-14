@@ -8,9 +8,16 @@ import { randomUUID } from 'node:crypto';
 import { validateBody } from '../../shared/validation.js';
 import { requireAuth, requireUserId } from '../../shared/security.js';
 
+// Supports OpenAI-compatible providers (e.g. SiliconFlow) via OPENAI_BASE_URL.
+// Model is also configurable since compatible providers use different model names.
 const openai = process.env['OPENAI_API_KEY']
-  ? new OpenAI({ apiKey: process.env['OPENAI_API_KEY'] })
+  ? new OpenAI({
+      apiKey: process.env['OPENAI_API_KEY'],
+      baseURL: process.env['OPENAI_BASE_URL'] || undefined,
+    })
   : null;
+
+const COPILOT_MODEL = process.env['OPENAI_MODEL'] || 'gpt-4o-mini';
 
 const copilotRouter: Router = Router();
 
@@ -139,7 +146,7 @@ copilotRouter.post(
         }
 
         const completion = await openai.chat.completions.create({
-          model: 'gpt-4o-mini',
+          model: COPILOT_MODEL,
           messages,
           stream: true,
           max_tokens: 1500,
